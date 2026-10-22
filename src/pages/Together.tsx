@@ -3,10 +3,10 @@ import { useSave } from '../app/store';
 import { COPY, avatarEmoji, projectDef } from '../content/config';
 import { Progress, fmtDateTime } from '../components/ui';
 import { localDateKey, shiftDateKey, weekStartKey } from '../domain/focus';
-import { activeProject, balance, contributionsByUser, contribute, islandId, minutesByDay } from '../domain/game';
+import { activeProject, balance, contributionsByUser, contribute, inviteSpecies, islandId, isOwned, minutesByDay } from '../domain/game';
 import { demoGrant } from '../domain/save';
 import type { SaveFile } from '../domain/types';
-import { PROJECTS } from '../content/config';
+import { PROJECTS, SPECIES } from '../content/config';
 
 export function Together() {
   const { save, mode, switchMode, resetDemo, update, notify } = useSave();
@@ -30,8 +30,14 @@ export function Together() {
         const r = contribute(next, next.profile.id, p.id, need, Date.now());
         if (r.ok) next = r.save;
       }
+      for (const sp of SPECIES) {
+        if (isOwned(next, sp.id)) continue;
+        next = demoGrant(next, next.profile.id, sp.price, Date.now(), 'coins');
+        const r = inviteSpecies(next, next.profile.id, sp.id, Date.now());
+        if (r.ok) next = r.save;
+      }
       return next;
-    }) && notify('示範路線已全部完成。到小島看看兩個棲地吧。');
+    }) && notify('示範路線已全部完成，生物也都入住了。到小島看看兩個棲地吧。');
 
   return (
     <div className="page">
@@ -101,7 +107,8 @@ export function Together() {
             <p className="small muted">開發與驗收用工具，只作用在示範存檔。你的示範錢包：{balance(save)} 點。</p>
             <div className="row wrap">
               <button onClick={() => update((s) => demoGrant(s, s.profile.id, 30, Date.now())) && notify('已在示範存檔加入 30 點。')}>＋30 點（示範）</button>
-              <button onClick={fastForward}>完成全部工程（示範）</button>
+              <button onClick={() => update((s) => demoGrant(s, s.profile.id, 50, Date.now(), 'coins')) && notify('已在示範存檔加入 50 金幣。')}>＋50 金幣（示範）</button>
+              <button onClick={fastForward}>完成全部工程並邀請全部生物（示範）</button>
               <button
                 className="danger"
                 onClick={() => {

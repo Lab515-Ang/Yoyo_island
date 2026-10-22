@@ -934,3 +934,39 @@ legend {
     top: 120px;
   }
 }
+.center-text {
+  text-align: center;
+}
+.wallet {
+  display: flex;
+  gap: 0.7rem;
+}
+.shop-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.35rem;
+  text-align: center;
+  background: var(--panel);
+  border: 1.5px solid var(--line);
+  min-height: 210px;
+}
+.shop-card.locked {
+  background: #f3eee2;
+}
+.shop-card button {
+  margin-top: auto;
+}
+.shop-card .row {
+  gap: 0.3rem;
+}
+.coin {
+  display: inline-block;
+  width: 0.95em;
+  height: 0.95em;
+  border-radius: 50%;
+  vertical-align: -0.12em;
+  background: radial-gradient(circle at 35% 35%, #ffe08a, #e8b85a 60%, #c99434);
+  box-shadow: inset 0 0 0 1.5px #c99434;
+}

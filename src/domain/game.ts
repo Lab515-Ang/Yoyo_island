@@ -11,13 +11,20 @@ export const islandId = (save: SaveFile) => save.profile.activeIslandId;
 
 // ---------- 專注與點數 ----------
 
-/** 每有效專注滿 60 秒得 1 點；只有 completed 給點。 */
+/** 每有效專注滿 60 秒得 1 點與 1 金幣；只有 completed 給（倒數提前結束是 abandoned，什麼都沒有）。 */
 export const rewardFor = (s: FocusSession) => (s.status === 'completed' ? Math.floor(s.accumulatedMs / POINT_MS) : 0);
 
-export function balance(save: SaveFile, userId: ID = save.profile.id) {
+const POINT_KINDS = new Set(['focus_reward', 'project_spend']);
+const COIN_KINDS = new Set(['coin_reward', 'species_spend']);
+
+function sumKinds(save: SaveFile, userId: ID, kinds: Set<string>) {
   const isl = islandId(save);
-  return save.transactions.reduce((sum, t) => (t.userId === userId && t.islandId === isl ? sum + t.amount : sum), 0);
+  return save.transactions.reduce((sum, t) => (t.userId === userId && t.islandId === isl && kinds.has(t.kind) ? sum + t.amount : sum), 0);
 }
+/** 成長點數錢包 */
+export const balance = (save: SaveFile, userId: ID = save.profile.id) => sumKinds(save, userId, POINT_KINDS);
+/** 金幣錢包 */
+export const coins = (save: SaveFile, userId: ID = save.profile.id) => sumKinds(save, userId, COIN_KINDS);
 
 export const openSession = (save: SaveFile) => save.sessions.find(isOpen) ?? null;
 
@@ -36,18 +43,22 @@ export function startFocus(save: SaveFile, p: { taskTitle: string; tag: string; 
   };
 }
 
-/** 與 session ID 綁定的點數結算；重複呼叫不會重複發點。 */
+/** 與 session ID 綁定的結算（點數與金幣各一筆）；重複呼叫不會重複發。 */
 export function grantReward(save: SaveFile, sessionId: ID, now: number): SaveFile {
   const s = save.sessions.find((x) => x.id === sessionId);
   if (!s || s.status !== 'completed') return save;
-  const key = `reward:${s.id}`;
-  if (save.transactions.some((t) => t.idempotencyKey === key)) return save;
   const amount = rewardFor(s);
   if (amount <= 0) return save;
-  return {
-    ...save,
-    transactions: [...save.transactions, { id: newId(), userId: s.userId, islandId: s.islandId, kind: 'focus_reward', amount, sessionId: s.id, idempotencyKey: key, createdAt: iso(now) }],
-  };
+  const add = (kind: 'focus_reward' | 'coin_reward', key: string) =>
+    save.transactions.some((t) => t.idempotencyKey === key) ? [] : [{ id: newId(), userId: s.userId, islandId: s.islandId, kind, amount, sessionId: s.id, idempotencyKey: key, createdAt: iso(now) }];
+  const fresh = [...add('focus_reward', `reward:${s.id}`), ...add('coin_reward', `coin:${s.id}`)];
+  return fresh.length ? { ...save, transactions: [...save.transactions, ...fresh] } : save;
+}
+
+/** 該 session 實際拿到的點數與金幣（結算畫面用）。 */
+export function earnedFor(save: SaveFile, sessionId: ID) {
+  const get = (key: string) => save.transactions.find((t) => t.idempotencyKey === key)?.amount ?? 0;
+  return { points: get(`reward:${sessionId}`), coins: get(`coin:${sessionId}`) };
 }
 
 /** 收尾 session 並結算（完成時發點），一次提交。 */
@@ -113,10 +124,38 @@ export function habitatOpen(save: SaveFile, id: HabitatId) {
   return !!h?.playable && isDone(save, h.unlockProjectId);
 }
 
-/** 工程完成即可出現在棲地；場景由工程狀態推導。 */
-export const speciesPresent = (save: SaveFile, habitatId: HabitatId) => SPECIES.filter((s) => s.habitatId === habitatId && isDone(save, s.requiredProjectId));
-
 export const discoveryOf = (save: SaveFile, speciesId: string) => save.discoveries.find((d) => d.speciesId === speciesId && d.islandId === islandId(save));
+
+const speciesKey = (save: SaveFile, speciesId: string) => `species:${islandId(save)}:${speciesId}`;
+
+/** 已邀請入住：用金幣邀請過，或改版前就已發現（舊存檔不需要再付）。 */
+export const isOwned = (save: SaveFile, speciesId: string) =>
+  !!discoveryOf(save, speciesId) || save.transactions.some((t) => t.idempotencyKey === speciesKey(save, speciesId));
+
+/** 棲地工程完成、還沒邀請的生物，可以在商店用金幣邀請。 */
+export const isInvitable = (save: SaveFile, s: SpeciesDef) => isDone(save, s.requiredProjectId) && !isOwned(save, s.id);
+
+export type InviteResult = { ok: true; save: SaveFile } | { ok: false; error: string };
+
+/** 用金幣邀請生物入住；每個物種在一座島只能邀請一次。 */
+export function inviteSpecies(save: SaveFile, userId: ID, speciesId: string, now: number): InviteResult {
+  const s = SPECIES.find((x) => x.id === speciesId);
+  if (!s) return { ok: false, error: '找不到這種生物。' };
+  if (isOwned(save, s.id)) return { ok: false, error: `${s.name}已經住在島上了。` };
+  if (!isDone(save, s.requiredProjectId)) return { ok: false, error: `需要先完成「${projectDef(s.requiredProjectId)?.title}」工程。` };
+  const have = coins(save, userId);
+  if (have < s.price) return { ok: false, error: `金幣不足，還差 ${s.price - have} 金幣。` };
+  return {
+    ok: true,
+    save: {
+      ...save,
+      transactions: [...save.transactions, { id: newId(), userId, islandId: islandId(save), kind: 'species_spend', amount: -s.price, speciesId: s.id, idempotencyKey: speciesKey(save, s.id), createdAt: iso(now) }],
+    },
+  };
+}
+
+/** 已邀請入住的生物才會出現在棲地；場景由工程與邀請狀態推導。 */
+export const speciesPresent = (save: SaveFile, habitatId: HabitatId) => SPECIES.filter((s) => s.habitatId === habitatId && isDone(save, s.requiredProjectId) && isOwned(save, s.id));
 
 /** 進入棲地時首次發現；同一 (島, 物種) 只記錄一次。 */
 export function visitHabitat(save: SaveFile, habitatId: HabitatId, now: number): { save: SaveFile; discovered: SpeciesDef[] } {
@@ -130,8 +169,8 @@ export function visitHabitat(save: SaveFile, habitatId: HabitatId, now: number):
   };
 }
 
-/** 尚未造訪棲地而未記錄的生物（條件已達成）。 */
-export const pendingVisitors = (save: SaveFile) => SPECIES.filter((s) => isDone(save, s.requiredProjectId) && !discoveryOf(save, s.id));
+/** 已邀請、但還沒進棲地見過的生物。 */
+export const pendingVisitors = (save: SaveFile) => SPECIES.filter((s) => isDone(save, s.requiredProjectId) && isOwned(save, s.id) && !discoveryOf(save, s.id));
 
 export function habitatProgress(save: SaveFile, habitatId: HabitatId) {
   const defs = PROJECTS.filter((p) => p.habitatId === habitatId);

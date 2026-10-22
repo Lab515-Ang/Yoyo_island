@@ -69,20 +69,21 @@ export interface SpeciesDef {
   requiredProjectId: string;
   description: string;
   behaviorLabel: string;
+  price: number; // 邀請所需金幣
 }
 
 export const CATEGORY_LABEL = { insect: '昆蟲', fish: '魚類', amphibian: '兩棲類', bird: '鳥類' } as const;
 
 // 介紹保持簡單、保守的觀察描述，不宣稱學名或精確生態
 export const SPECIES: SpeciesDef[] = [
-  { id: 'butterfly_yellow', name: '黃蝶', category: 'insect', habitatId: 'greenhouse', requiredProjectId: 'gh_flowers', description: '翅膀是明亮的黃色，常在開花的花圃附近慢慢飛。', behaviorLabel: '緩慢振翅、訪花、停棲' },
-  { id: 'bee', name: '訪花蜂', category: 'insect', habitatId: 'greenhouse', requiredProjectId: 'gh_fountain', description: '身上有黃黑相間的條紋，在花朵之間來回停留。', behaviorLabel: '花間移動、短暫懸停' },
-  { id: 'butterfly_green', name: '青綠鳳蝶', category: 'insect', habitatId: 'greenhouse', requiredProjectId: 'gh_plants', description: '黑色翅膀帶著青綠色的斑紋，喜歡在葉叢間繞圈。', behaviorLabel: '繞行、振翅、短暫停棲' },
-  { id: 'ladybird', name: '瓢蟲', category: 'insect', habitatId: 'greenhouse', requiredProjectId: 'gh_plants', description: '圓圓的紅色背殼上有黑點，常沿著葉片慢慢爬。', behaviorLabel: '沿葉片緩慢移動' },
-  { id: 'dragonfly', name: '蜻蜓', category: 'insect', habitatId: 'stream', requiredProjectId: 'st_bank', description: '細長的身體和透明的翅膀，常在水面上方巡飛，偶爾停在枝梢。', behaviorLabel: '水面飛行、停在枝梢' },
-  { id: 'minnow', name: '溪流小魚', category: 'fish', habitatId: 'stream', requiredProjectId: 'st_water', description: '小小的銀色身影，成群在清澈的淺水裡游動。', behaviorLabel: '小群緩慢游動' },
-  { id: 'frog', name: '青蛙', category: 'amphibian', habitatId: 'stream', requiredProjectId: 'st_bridge', description: '綠色的身體靜靜趴在岸邊，喉嚨隨著呼吸輕輕起伏。', behaviorLabel: '呼吸起伏、偶爾跳動' },
-  { id: 'waterside_bird', name: '水邊小鳥', category: 'bird', habitatId: 'stream', requiredProjectId: 'st_bridge', description: '在岸邊慢慢走動，不時低頭觀察水面。', behaviorLabel: '岸邊走動、低頭觀察' },
+  { id: 'butterfly_yellow', name: '黃蝶', category: 'insect', habitatId: 'greenhouse', requiredProjectId: 'gh_flowers', description: '翅膀是明亮的黃色，常在開花的花圃附近慢慢飛。', behaviorLabel: '緩慢振翅、訪花、停棲', price: 30 },
+  { id: 'bee', name: '訪花蜂', category: 'insect', habitatId: 'greenhouse', requiredProjectId: 'gh_fountain', description: '身上有黃黑相間的條紋，在花朵之間來回停留。', behaviorLabel: '花間移動、短暫懸停', price: 40 },
+  { id: 'butterfly_green', name: '青綠鳳蝶', category: 'insect', habitatId: 'greenhouse', requiredProjectId: 'gh_plants', description: '黑色翅膀帶著青綠色的斑紋，喜歡在葉叢間繞圈。', behaviorLabel: '繞行、振翅、短暫停棲', price: 60 },
+  { id: 'ladybird', name: '瓢蟲', category: 'insect', habitatId: 'greenhouse', requiredProjectId: 'gh_plants', description: '圓圓的紅色背殼上有黑點，常沿著葉片慢慢爬。', behaviorLabel: '沿葉片緩慢移動', price: 50 },
+  { id: 'dragonfly', name: '蜻蜓', category: 'insect', habitatId: 'stream', requiredProjectId: 'st_bank', description: '細長的身體和透明的翅膀，常在水面上方巡飛，偶爾停在枝梢。', behaviorLabel: '水面飛行、停在枝梢', price: 70 },
+  { id: 'minnow', name: '溪流小魚', category: 'fish', habitatId: 'stream', requiredProjectId: 'st_water', description: '小小的銀色身影，成群在清澈的淺水裡游動。', behaviorLabel: '小群緩慢游動', price: 80 },
+  { id: 'frog', name: '青蛙', category: 'amphibian', habitatId: 'stream', requiredProjectId: 'st_bridge', description: '綠色的身體靜靜趴在岸邊，喉嚨隨著呼吸輕輕起伏。', behaviorLabel: '呼吸起伏、偶爾跳動', price: 100 },
+  { id: 'waterside_bird', name: '水邊小鳥', category: 'bird', habitatId: 'stream', requiredProjectId: 'st_bridge', description: '在岸邊慢慢走動，不時低頭觀察水面。', behaviorLabel: '岸邊走動、低頭觀察', price: 120 },
 ];
 export const speciesDef = (id: string) => SPECIES.find((s) => s.id === id);
 
@@ -91,6 +92,7 @@ export const COPY = {
   complete: (min: number) => `這 ${min} 分鐘，讓小島更靠近春天。`,
   projectNeed: (pts: number, promise: string) => `再 ${pts} 點，${promise}。`,
   newVisitor: (habitat: string) => `有新朋友來訪。去${habitat}看看吧。`,
+  canInvite: (names: string) => `${names}可以邀請了，到商店用金幣邀請吧。`,
   welcomeBack: '歡迎回來，小島一直在這裡。',
   allRestored: '這一階段的棲地已經恢復。今天也一起好好生活。',
   demoBanner: '本機合作示範，非即時連線',

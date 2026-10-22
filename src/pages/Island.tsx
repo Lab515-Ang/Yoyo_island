@@ -83,7 +83,7 @@ function ProjectPanel({ onEnter }: { onEnter: (h: HabitatId) => void }) {
     if (!saved) return;
     setAmount('');
     if (r.completed) {
-      const extra = r.completed.id === 'st_entrance' ? '溪流濕地開放了，也可以選作專注背景。' : r.unlocked.length ? COPY.newVisitor(habitatName(r.completed.habitatId)) : r.completed.description + '。';
+      const extra = r.completed.id === 'st_entrance' ? '溪流濕地開放了，也可以選作專注背景。' : r.unlocked.length ? COPY.canInvite(r.unlocked.map((s) => s.name).join('、')) : r.completed.description + '。';
       setJustDone({ title: r.completed.title, habitatId: r.completed.habitatId, message: extra });
       notify(`「${r.completed.title}」完成了！`); // 最後一個工程完成時面板會換成「全部修復」，靠提示告知
     } else {
@@ -193,7 +193,7 @@ function HabitatView({ id, onBack }: { id: HabitatId; onBack: () => void }) {
             ))}
           </div>
         ) : (
-          <p className="muted">還很安靜。修復這裡的工程，生物就會慢慢回來。</p>
+          <p className="muted">還很安靜。修好這裡的工程後，可以到商店用金幣邀請生物入住。</p>
         )}
         <p className="muted small">{h.blurb} 點場景中的生物或上方名稱可以打開圖鑑卡。</p>
       </section>

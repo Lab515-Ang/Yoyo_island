@@ -73,11 +73,13 @@ export interface PointTransaction {
   id: ID;
   userId: ID;
   islandId: ID;
-  kind: 'focus_reward' | 'project_spend';
-  amount: number;
+  // 成長點數：focus_reward / project_spend；金幣：coin_reward / species_spend
+  kind: 'focus_reward' | 'project_spend' | 'coin_reward' | 'species_spend';
+  amount: number; // 獲得 > 0、花費 < 0
   sessionId?: ID;
   contributionId?: ID;
-  idempotencyKey: string;
+  speciesId?: ID;
+  idempotencyKey: string; // reward:/coin:{sessionId}、spend:{contributionId}、species:{islandId}:{speciesId}
   createdAt: ISODate;
 }
 

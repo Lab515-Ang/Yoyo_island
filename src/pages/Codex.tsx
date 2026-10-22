@@ -3,7 +3,7 @@ import { useSave } from '../app/store';
 import { CATEGORY_LABEL, HABITATS, SPECIES, habitatName } from '../content/config';
 import { Creature } from '../components/Creature';
 import { SpeciesCard, conditionText } from '../components/ui';
-import { discoveryOf, habitatOpen, isDone } from '../domain/game';
+import { discoveryOf, habitatOpen, pendingVisitors } from '../domain/game';
 import type { HabitatId } from '../domain/types';
 
 export function Codex({ onEnter }: { onEnter: (h: HabitatId) => void }) {
@@ -13,7 +13,7 @@ export function Codex({ onEnter }: { onEnter: (h: HabitatId) => void }) {
   const [card, setCard] = useState<string | null>(null);
   const found = SPECIES.filter((s) => discoveryOf(save, s.id)).length;
   const list = SPECIES.filter((s) => (habitat === 'all' || s.habitatId === habitat) && (show === 'all' || (show === 'found') === !!discoveryOf(save, s.id)));
-  const waiting = SPECIES.filter((s) => isDone(save, s.requiredProjectId) && !discoveryOf(save, s.id));
+  const waiting = pendingVisitors(save);
 
   return (
     <div className="page sub">

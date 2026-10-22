@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGame, useNow, useSave } from './app/store';
 import { APP_NAME, COPY, avatarEmoji } from './content/config';
-import { balance, openSession, settleOpenSessions } from './domain/game';
+import { balance, coins, openSession, settleOpenSessions } from './domain/game';
 import * as storage from './data/storage';
 import { remainingMs } from './domain/focus';
 import { notifyEnd, playChime } from './sound';
@@ -17,6 +17,8 @@ import { Sounds } from './pages/Sounds';
 import { Journey } from './pages/Journey';
 import { Together } from './pages/Together';
 import { SettingsPage } from './pages/Settings';
+import { Shop } from './pages/Shop';
+import { Coin } from './components/ui';
 
 type View = 'lobby' | 'island' | 'quests' | 'records' | 'sounds' | 'journey' | 'friends' | 'achievements' | 'shop' | 'news' | 'settings';
 // 左側選單順序
@@ -28,7 +30,7 @@ const NAV: { id: View; label: string; icon: string; soon?: boolean }[] = [
   { id: 'journey', label: '我的歷程', icon: '📖' },
   { id: 'friends', label: '好友', icon: '🤝' },
   { id: 'achievements', label: '成就', icon: '🏅', soon: true },
-  { id: 'shop', label: '商店', icon: '🛍️', soon: true },
+  { id: 'shop', label: '商店', icon: '🛍️' },
   { id: 'news', label: '活動消息', icon: '📣', soon: true },
   { id: 'settings', label: '設定', icon: '⚙️' },
 ];
@@ -144,8 +146,13 @@ function Main() {
             <span className="brand-name">🏠 {APP_NAME}</span>
             <span className="muted small">{save.islands[0]?.name}</span>
           </button>
-          <div className="wallet" title="可用成長點數">
-            🌱 <strong>{balance(save)}</strong> <span className="small">點</span>
+          <div className="wallet" title="成長點數與金幣">
+            <span title="成長點數">
+              🌱 <strong>{balance(save)}</strong>
+            </span>
+            <span title="金幣">
+              <Coin /> <strong>{coins(save)}</strong>
+            </span>
           </div>
           <button className="avatar-btn" onClick={() => go('settings')} aria-label="設定">
             {avatarEmoji(save.profile.avatarId)}
@@ -164,13 +171,13 @@ function Main() {
         <main className="content">
           {view === 'lobby' && <Lobby onStarted={() => setSummaryId(null)} onGoIsland={() => go('island')} />}
           {view === 'island' && <IslandPage habitat={habitat} setHabitat={setHabitat} />}
-          {view === 'quests' && <Quests onIsland={() => go('island')} onEnter={enter} />}
+          {view === 'quests' && <Quests onIsland={() => go('island')} onEnter={enter} onShop={() => go('shop')} />}
           {view === 'records' && <Records />}
           {view === 'sounds' && <Sounds />}
           {view === 'journey' && <Journey onEnter={enter} />}
           {view === 'friends' && <Together />}
           {view === 'achievements' && <NotYet title="成就" />}
-          {view === 'shop' && <NotYet title="商店" />}
+          {view === 'shop' && <Shop onEnter={enter} />}
           {view === 'news' && <NotYet title="活動消息" />}
           {view === 'settings' && <SettingsPage />}
         </main>

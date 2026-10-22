@@ -136,6 +136,9 @@ export function Lobby({ onStarted, onGoIsland }: { onStarted: () => void; onGoIs
         <button className="primary wide big" onClick={start} disabled={!customValid}>
           開始專注
         </button>
+        <p className="small muted center-text">
+          {timerMode === 'countdown' ? '倒數完成才會獲得成長點數與金幣；提前結束將一無所獲。' : '正向計時結束時，依專注分鐘獲得成長點數與金幣。'}
+        </p>
       </section>
 
       {project ? (

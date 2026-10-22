@@ -33,9 +33,10 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   }, [shown]);
 
   // 結束一律依實際有效時間結算點數
-  const end = () => {
+  // 正向計時結束＝完成；倒數提前結束＝放棄（沒有點數與金幣）
+  const end = (status: 'completed' | 'abandoned') => {
     const t = Date.now();
-    if (update((s) => closeSession(s, finish(cur(s), t, 'completed'), t))) onFinished(session.id);
+    if (update((s) => closeSession(s, finish(cur(s), t, status), t))) onFinished(session.id);
   };
   // 一律以存檔中的最新狀態為準，重複點擊不會重複結算
   const cur = (s: SaveFile) => s.sessions.find((x) => x.id === session.id)!;
@@ -76,7 +77,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
             提前結束
           </button>
         ) : (
-          <button className="pill ghost-light" onClick={act(end)}>
+          <button className="pill ghost-light" onClick={act(() => end('completed'))}>
             完成這段專注
           </button>
         )}
@@ -93,15 +94,14 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
       </div>
     </div>
       {ending && (
-        <Modal title="要提前結束這段專注嗎？" onClose={() => setEnding(false)}>
-          <p className="muted">目前已專注 {elapsedMin} 分鐘。</p>
+        <Modal title="要放棄這段專注嗎？" onClose={() => setEnding(false)}>
+          <p>倒數還沒結束。現在放棄，已專注的 {elapsedMin} 分鐘不會獲得任何成長點數和金幣，只會留下時間紀錄。</p>
           <div className="stack">
-            <button className="primary wide" onClick={end}>
-              結束並結算
-              <span className="small block">依實際時間取得 {elapsedMin} 點</span>
-            </button>
-            <button className="link" onClick={() => setEnding(false)}>
+            <button className="primary wide" onClick={() => setEnding(false)}>
               繼續專注
+            </button>
+            <button className="danger wide" onClick={() => end('abandoned')}>
+              放棄這段專注
             </button>
           </div>
         </Modal>

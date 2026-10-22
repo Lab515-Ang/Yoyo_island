@@ -1,8 +1,11 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { CATEGORY_LABEL, habitatName, projectDef, speciesDef } from '../content/config';
-import { discoveryOf, isDone } from '../domain/game';
+import { discoveryOf, isDone, isOwned } from '../domain/game';
 import type { SaveFile } from '../domain/types';
 import { Creature } from './Creature';
+
+/** CSS 畫的金幣圖示（🪙 在 Windows 10 的表情字型裡沒有）。 */
+export const Coin = () => <span className="coin" aria-hidden="true" />;
 
 /** 原生 <dialog>：焦點、Esc 關閉都由瀏覽器處理。 */
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
@@ -43,8 +46,9 @@ export const fmtMinutes = (ms: number) => {
 export function conditionText(save: SaveFile, speciesId: string) {
   const s = speciesDef(speciesId)!;
   if (discoveryOf(save, s.id)) return null;
-  if (isDone(save, s.requiredProjectId)) return `條件已達成——進入${habitatName(s.habitatId)}就能遇見。`;
-  return `完成「${projectDef(s.requiredProjectId)?.title}」工程後，到${habitatName(s.habitatId)}看看。`;
+  if (isOwned(save, s.id)) return `已入住——進入${habitatName(s.habitatId)}就能遇見。`;
+  if (isDone(save, s.requiredProjectId)) return `可以到商店用 ${s.price} 金幣邀請。`;
+  return `完成「${projectDef(s.requiredProjectId)?.title}」工程後，可到商店用 ${s.price} 金幣邀請。`;
 }
 
 export function SpeciesCard({ save, speciesId, onClose }: { save: SaveFile; speciesId: string; onClose: () => void }) {

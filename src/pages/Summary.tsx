@@ -1,6 +1,7 @@
 import { useSave } from '../app/store';
 import { COPY } from '../content/config';
-import { activeProject, balance, remainingFor } from '../domain/game';
+import { Coin } from '../components/ui';
+import { activeProject, balance, coins, earnedFor, remainingFor } from '../domain/game';
 
 export function Summary({ sessionId, onDone, onProject }: { sessionId: string; onDone: () => void; onProject: () => void }) {
   const { save } = useSave();
@@ -8,7 +9,8 @@ export function Summary({ sessionId, onDone, onProject }: { sessionId: string; o
   if (!s) return null;
   const min = Math.floor(s.accumulatedMs / 60000);
   const sec = Math.floor((s.accumulatedMs % 60000) / 1000);
-  const earned = save.transactions.find((t) => t.idempotencyKey === `reward:${s.id}`)?.amount ?? 0;
+  const earned = earnedFor(save, s.id);
+  const done = s.status === 'completed';
   const wallet = balance(save);
   const project = activeProject(save);
   const remaining = project ? remainingFor(save, project) : 0;
@@ -18,9 +20,19 @@ export function Summary({ sessionId, onDone, onProject }: { sessionId: string; o
       <main className="content">
         <div className="page summary">
           <section className="card center">
-            <p className="eyebrow">專注完成</p>
-            <h1>你為自己留了 {min} 分鐘。</h1>
-            <p>{min > 0 ? COPY.complete(min) : '這段專注已記錄。未滿一分鐘不會得到點數。'}</p>
+            {done ? (
+              <>
+                <p className="eyebrow">專注完成</p>
+                <h1>你為自己留了 {min} 分鐘。</h1>
+                <p>{min > 0 ? COPY.complete(min) : '這段專注已記錄。未滿一分鐘不會得到點數。'}</p>
+              </>
+            ) : (
+              <>
+                <p className="eyebrow">專注未完成</p>
+                <h1>這段專注提前結束了。</h1>
+                <p>沒有撐到倒數結束，這次沒有獲得成長點數和金幣。休息一下，下次再試試。</p>
+              </>
+            )}
             <dl className="stats">
               <div>
                 <dt>實際專注</dt>
@@ -29,15 +41,19 @@ export function Summary({ sessionId, onDone, onProject }: { sessionId: string; o
                 </dd>
               </div>
               <div>
-                <dt>取得點數</dt>
-                <dd>+{earned}</dd>
+                <dt>成長點數</dt>
+                <dd>+{earned.points}</dd>
               </div>
               <div>
-                <dt>可用點數</dt>
-                <dd>{wallet}</dd>
+                <dt>金幣</dt>
+                <dd>+{earned.coins}</dd>
               </div>
             </dl>
           </section>
+
+          <p className="small muted center-text">
+            現有 🌱 {wallet} 點 · <Coin /> {coins(save)} 金幣
+          </p>
 
           {project ? (
             <section className="card">
