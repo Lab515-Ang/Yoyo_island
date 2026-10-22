@@ -33,14 +33,15 @@ class Boundary extends Component<{ fallback: ReactNode; onError: () => void; chi
 export const prefersReducedMotion = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** 依設定與裝置能力選 3D 或 2D；3D 失敗或太慢自動降級，核心功能不受影響。 */
-export function HabitatScene({ habitatId, onSelect, calm = false }: { habitatId: HabitatId; onSelect?: (id: string) => void; calm?: boolean }) {
+/** calm：專注背景（不可點、場景往上推）；bubble：大廳的圓形泡泡（不可點、鏡頭拉近）。 */
+export function HabitatScene({ habitatId, onSelect, calm = false, bubble = false }: { habitatId: HabitatId; onSelect?: (id: string) => void; calm?: boolean; bubble?: boolean }) {
   const { save, notify } = useSave();
   const [degraded, setDegraded] = useState(false);
   const done = useCallback((id: string) => isDone(save, id), [save]);
   const pets = adoptedPets(save, habitatId).map((v) => ({ id: v.pet.id, typeId: v.def.id, art: v.def.art, stage: v.stage, face: v.face }));
   const facilities = FACILITIES.filter((f) => f.habitatId === habitatId && facilityOwned(save, f.id)).map((f) => f.id);
   const reducedMotion = save.settings.reducedMotion || prefersReducedMotion();
-  const props = { habitatId, done, pets, facilities, reducedMotion, onSelect: calm ? undefined : onSelect, backdrop: calm };
+  const props = { habitatId, done, pets, facilities, reducedMotion, onSelect: calm || bubble ? undefined : onSelect, backdrop: calm, bubble };
   const flat = <Scene2D {...props} />;
   const degrade = useCallback(() => {
     setDegraded(true);

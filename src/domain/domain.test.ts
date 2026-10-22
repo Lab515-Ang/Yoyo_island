@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, weekStartKey } from './focus';
-import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, feed, feedFor, adoptPet, feedPet, adoptedPets, fedByUser, buyEgg, buyFacility, eggOdds, grantStarter, habitatSlots, naturalFace, setFace, starterGiftDue, sessionRoll, chanceFor, chanceFind, soundUnlocked, focusSoundFor } from './game';
+import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, feed, feedFor, adoptPet, feedPet, adoptedPets, fedByUser, buyEgg, buyFacility, eggOdds, grantStarter, habitatSlots, naturalFace, setFace, starterGiftDue, sessionRoll, chanceFor, chanceFind, soundUnlocked, focusSoundFor, cancelSession, startFocus } from './game';
 import { SOUNDS } from '../content/config';
 import { newSave, newDemoSave, validateSave, demoGrant } from './save';
 import type { SaveFile } from './types';
@@ -374,5 +374,15 @@ describe('環境音收集', () => {
     expect(focusSoundFor(picked, 'greenhouse')).toBe('breeze');
     const breeze = { ...save, settings: { ...save.settings, focusSound: 'breeze' } };
     expect(focusSoundFor(breeze, 'greenhouse')).toBe('breeze');
+  });
+});
+
+describe('開始後 10 秒內取消', () => {
+  it('10 秒內取消不留紀錄；超過 10 秒不能取消', () => {
+    const p = { taskTitle: '', tag: '讀書', habitatId: 'greenhouse' as const, mode: 'countdown' as const, targetSeconds: 1500 };
+    const save = startFocus(fresh(), p, T0);
+    const id = save.sessions[0].id;
+    expect(cancelSession(save, id, T0 + 9_000).sessions).toHaveLength(0);
+    expect(cancelSession(save, id, T0 + 11_000).sessions).toHaveLength(1);
   });
 });

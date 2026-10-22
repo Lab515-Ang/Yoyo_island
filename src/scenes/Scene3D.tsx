@@ -13,6 +13,7 @@ export interface SceneProps {
   onSelect?: (speciesId: string) => void;
   onSlow?: () => void;
   backdrop?: boolean; // 專注畫面的全螢幕背景：場景往上移，留出下方放倒數泡泡
+  bubble?: boolean; // 大廳的圓形泡泡：鏡頭拉近
   pets?: ScenePet[]; // 住在這個場景的寵物（點擊回傳 pet:{id}）
   facilities?: string[]; // 已購買的設施
 }
@@ -696,7 +697,7 @@ function Stream({ done, still }: { done: (id: string) => boolean; still: boolean
   );
 }
 
-export default function Scene3D({ habitatId, done, reducedMotion, onSelect, onSlow, backdrop, pets = [], facilities = [] }: SceneProps) {
+export default function Scene3D({ habitatId, done, reducedMotion, onSelect, onSlow, backdrop, bubble, pets = [], facilities = [] }: SceneProps) {
   const [hidden, setHidden] = useState(document.hidden);
   useEffect(() => {
     const on = () => setHidden(document.hidden);
@@ -716,7 +717,7 @@ export default function Scene3D({ habitatId, done, reducedMotion, onSelect, onSl
       <color attach="background" args={[habitatId === 'stream' ? '#cfe5df' : '#d9ead9']} />
       <hemisphereLight args={['#fff4dc', '#9fbf9a', 1.6]} />
       <directionalLight position={[5, 9, 5]} intensity={1.5} color="#fff0d2" />
-      <FitCamera dist={habitatId === 'stream' ? 10.5 : 10} raise={backdrop ? 0.2 : 0} />
+      <FitCamera dist={(habitatId === 'stream' ? 10.5 : 10) * (bubble ? 0.78 : 1)} raise={backdrop ? 0.2 : 0} />
       {!reducedMotion && <PerfWatch onSlow={onSlow} />}
       {habitatId === 'stream' ? <Stream {...props} /> : <Greenhouse {...props} />}
       {facilities.map((f) => (

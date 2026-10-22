@@ -55,10 +55,10 @@ const FACILITY_2D: Record<string, ReactElement> = {
   st_log: <rect x="270" y="72" width="44" height="10" rx="5" fill="#a5845d" transform="rotate(-8 292 77)" />,
 };
 
-export default function Scene2D({ habitatId, done, reducedMotion, onSelect, backdrop, pets = [], facilities = [] }: SceneProps) {
+export default function Scene2D({ habitatId, done, reducedMotion, onSelect, backdrop, bubble, pets = [], facilities = [] }: SceneProps) {
   const flowers = Array.from({ length: 12 }, (_, i) => [40 + (i % 6) * 14, 160 + Math.floor(i / 6) * 10, i] as const);
   return (
-    <svg viewBox="0 0 360 240" preserveAspectRatio={backdrop ? 'xMidYMin slice' : undefined} className={`scene2d${reducedMotion ? '' : ' animate'}`} role="img" aria-label="簡化 2D 棲地場景">
+    <svg viewBox="0 0 360 240" preserveAspectRatio={backdrop ? 'xMidYMin slice' : bubble ? 'xMidYMid slice' : undefined} className={`scene2d${reducedMotion ? '' : ' animate'}`} role="img" aria-label="簡化 2D 棲地場景">
       {habitatId === 'greenhouse' ? (
         <g>
           <rect width="360" height="240" fill="#d9ead9" />

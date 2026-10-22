@@ -179,7 +179,7 @@ function Main() {
           ))}
         </nav>
         <main className="content">
-          {view === 'lobby' && <Lobby onStarted={() => setSummaryId(null)} onGoIsland={() => go('island')} />}
+          {view === 'lobby' && <Lobby onStarted={() => setSummaryId(null)} />}
           {view === 'island' && <IslandPage habitat={habitat} setHabitat={setHabitat} onShop={() => go('shop')} />}
           {view === 'quests' && <Quests onIsland={() => go('island')} onShop={() => go('shop')} />}
           {view === 'records' && <Records />}

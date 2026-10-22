@@ -1,9 +1,9 @@
-import { useEffect, useState, type MouseEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { useNow, useSave } from '../app/store';
-import { APP_NAME } from '../content/config';
+import { APP_NAME, SOUNDS } from '../content/config';
 import { Modal } from '../components/ui';
 import { elapsedMs, finish, pause, remainingMs, resume } from '../domain/focus';
-import { closeSession, focusSoundFor, putSession } from '../domain/game';
+import { cancelSession, closeSession, focusSoundFor, graceLeftMs, putSession } from '../domain/game';
 import type { FocusSession, SaveFile } from '../domain/types';
 import { HabitatScene, prefersReducedMotion } from '../scenes/HabitatScene';
 import { useAmbient } from '../sound';
@@ -18,7 +18,7 @@ const clock = (ms: number) => {
 
 /** 專注中是獨立畫面：不彈出生物、工程或其他通知。 */
 export function Focus({ session, onFinished }: { session: FocusSession; onFinished: (id: string) => void }) {
-  const { save, update } = useSave();
+  const { save, update, notify } = useSave();
   const now = useNow(250);
   const [ending, setEnding] = useState(false);
   const countdown = session.mode === 'countdown';
@@ -42,65 +42,70 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
 
   const elapsedMin = Math.floor(elapsedMs(session, now) / 60000);
   const reduced = save.settings.reducedMotion || prefersReducedMotion();
+  const grace = Math.ceil(graceLeftMs(session, now) / 1000);
+  const soundOn = save.settings.soundEnabled;
+  const soundName = SOUNDS.find((x) => x.id === focusSoundFor(save, session.habitatId))?.name;
 
-  // 控制鈕平常隱藏，輕觸畫面才出現；進行中 4 秒後自動收起，暫停時常駐
-  const [showControls, setShowControls] = useState(false);
-  useEffect(() => {
-    if (!showControls || paused || ending) return;
-    const id = window.setTimeout(() => setShowControls(false), 4000);
-    return () => clearTimeout(id);
-  }, [showControls, paused, ending]);
-  const act = (fn: () => void) => (e: MouseEvent) => {
-    e.stopPropagation();
-    fn();
+  const cancel = () => {
+    if (update((s) => cancelSession(s, session.id, Date.now()))) notify('已取消，這次不算數。');
   };
+  const toggleSound = () => update((s) => ({ ...s, settings: { ...s.settings, soundEnabled: !s.settings.soundEnabled } }));
 
   return (
     <>
-    <div className={showControls || paused ? 'focus show-controls' : 'focus'} onClick={() => setShowControls((v) => !v)}>
-      <div className="focus-bg" aria-hidden="true">
-        <HabitatScene habitatId={session.habitatId} calm />
-      </div>
-      <div className="focus-controls">
-        {paused ? (
-          <button className="pill" onClick={act(() => update((s) => putSession(s, resume(cur(s), Date.now()))))}>
-            恢復
-          </button>
-        ) : (
-          <button className="pill" onClick={act(() => update((s) => putSession(s, pause(cur(s), Date.now()))))}>
-            暫停
-          </button>
-        )}
-        {countdown ? (
-          <button className="pill ghost-light" onClick={act(() => setEnding(true))}>
-            提前結束
-          </button>
-        ) : (
-          <button className="pill ghost-light" onClick={act(() => end('completed'))}>
-            完成這段專注
-          </button>
-        )}
-      </div>
-      <div className={reduced ? 'focus-bubble still' : 'focus-bubble'}>
-        <div className="focus-time" role="timer" aria-live="off" aria-label={countdown ? '剩餘時間' : '已專注時間'}>
-          {clock(shown)}
+      <div className="focus">
+        <div className="focus-bg" aria-hidden="true">
+          <HabitatScene habitatId={session.habitatId} calm />
         </div>
-        {paused && (
-          <p className="focus-status" aria-live="polite">
-            已暫停
-          </p>
-        )}
-      </div>
-    </div>
-      {ending && (
-        <Modal title="要放棄這段專注嗎？" onClose={() => setEnding(false)}>
-          <p>倒數還沒結束。現在放棄，已專注的 {elapsedMin} 分鐘不會獲得任何成長點數、金幣和飼料，只會留下時間紀錄。</p>
-          <div className="stack">
-            <button className="primary wide" onClick={() => setEnding(false)}>
-              繼續專注
+        <div className="focus-top">
+          {soundOn && <span className="small">正在播放：{soundName}</span>}
+          <button className="icon-round" onClick={toggleSound} aria-pressed={soundOn} aria-label={soundOn ? '關閉環境音' : '開啟環境音'}>
+            {soundOn ? '🔊' : '🔇'}
+          </button>
+        </div>
+        <div className={reduced ? 'focus-bubble still' : 'focus-bubble'}>
+          <div className="focus-time" role="timer" aria-live="off" aria-label={countdown ? '剩餘時間' : '已專注時間'}>
+            {clock(shown)}
+          </div>
+          {paused && (
+            <p className="focus-status" aria-live="polite">
+              已暫停
+            </p>
+          )}
+        </div>
+        <div className="focus-controls">
+          {grace > 0 && !paused ? (
+            // 開始後 10 秒內：免費取消，不算放棄
+            <button className="link-light" onClick={cancel}>
+              取消（{grace}）
             </button>
-            <button className="danger wide" onClick={() => end('abandoned')}>
-              放棄這段專注
+          ) : (
+            <>
+              <button className="icon-round big" onClick={() => (countdown ? setEnding(true) : end('completed'))} aria-label={countdown ? '提前結束' : '完成這段專注'}>
+                ■
+              </button>
+              {paused ? (
+                <button className="icon-round big on" onClick={() => update((s) => putSession(s, resume(cur(s), Date.now())))} aria-label="恢復">
+                  ▶
+                </button>
+              ) : (
+                <button className="icon-round big on" onClick={() => update((s) => putSession(s, pause(cur(s), Date.now())))} aria-label="暫停">
+                  ❚❚
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+      {ending && (
+        <Modal title="要放棄這次專注嗎？" onClose={() => setEnding(false)}>
+          <p>已專注的 {elapsedMin} 分鐘不會獲得成長點數、金幣和飼料，只會留下時間紀錄。</p>
+          <div className="row">
+            <button className="ghost wide" onClick={() => setEnding(false)}>
+              取消
+            </button>
+            <button className="danger-fill wide" onClick={() => end('abandoned')}>
+              放棄
             </button>
           </div>
         </Modal>

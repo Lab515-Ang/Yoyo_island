@@ -53,6 +53,16 @@ export function startFocus(save: SaveFile, p: { taskTitle: string; tag: string; 
   };
 }
 
+/** 開始後 10 秒內可以直接取消：不算放棄、不留紀錄（避免誤觸開始被懲罰）。 */
+export const CANCEL_GRACE_MS = 10_000;
+export const graceLeftMs = (s: FocusSession, now: number) => Math.max(0, CANCEL_GRACE_MS - (now - Date.parse(s.startedAt)));
+
+export function cancelSession(save: SaveFile, sessionId: ID, now: number): SaveFile {
+  const s = save.sessions.find((x) => x.id === sessionId);
+  if (!s || !isOpen(s) || graceLeftMs(s, now) <= 0) return save;
+  return { ...save, sessions: save.sessions.filter((x) => x.id !== sessionId) };
+}
+
 /** 與 session ID 綁定的結算（點數與金幣各一筆）；重複呼叫不會重複發。 */
 export function grantReward(save: SaveFile, sessionId: ID, now: number): SaveFile {
   const s = save.sessions.find((x) => x.id === sessionId);

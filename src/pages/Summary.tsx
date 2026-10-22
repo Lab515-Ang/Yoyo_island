@@ -1,102 +1,85 @@
+import { useState } from 'react';
 import { useSave } from '../app/store';
 import { COPY, speciesDef } from '../content/config';
 import { Coin } from '../components/ui';
-import { activeProject, balance, chanceFind, coins, earnedFor, feed, remainingFor } from '../domain/game';
 import { Creature } from '../components/Creature';
+import { localDateKey } from '../domain/focus';
+import { activeProject, balance, chanceFind, earnedFor, minutesByDay, remainingFor } from '../domain/game';
+import { HabitatScene } from '../scenes/HabitatScene';
 
+const clock = (ms: number) => `${String(Math.floor(ms / 60000)).padStart(2, '0')}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
+
+/** 結算（參考 Forest 構圖）：放棄時先安慰一句，再看今天的專注與獎勵。 */
 export function Summary({ sessionId, onDone, onProject }: { sessionId: string; onDone: () => void; onProject: () => void }) {
   const { save } = useSave();
   const s = save.sessions.find((x) => x.id === sessionId);
+  const [comforted, setComforted] = useState(false);
   if (!s) return null;
+  const done = s.status === 'completed';
   const min = Math.floor(s.accumulatedMs / 60000);
-  const sec = Math.floor((s.accumulatedMs % 60000) / 1000);
   const earned = earnedFor(save, s.id);
   const found = chanceFind(save, s.id);
-  const done = s.status === 'completed';
-  const wallet = balance(save);
+  const todayMin = Math.floor((minutesByDay(save).get(localDateKey(Date.now(), save.profile.timezone)) ?? 0) / 60000);
   const project = activeProject(save);
-  const remaining = project ? remainingFor(save, project) : 0;
+  const canBuild = project && balance(save) >= remainingFor(save, project);
+
+  if (!done && !comforted)
+    return (
+      <div className="result comfort">
+        <div className="result-scene" aria-hidden="true">
+          <HabitatScene habitatId={s.habitatId} bubble />
+        </div>
+        <p className="result-title">沒關係，下次會更好</p>
+        <p className="result-time">{clock(s.accumulatedMs)}</p>
+        <button className="pill" onClick={() => setComforted(true)}>
+          繼續
+        </button>
+      </div>
+    );
 
   return (
-    <div className="solo">
-      <main className="content">
-        <div className="page summary">
-          <section className="card center">
-            {done ? (
-              <>
-                <p className="eyebrow">專注完成</p>
-                <h1>你為自己留了 {min} 分鐘。</h1>
-                <p>{min > 0 ? COPY.complete(min) : '這段專注已記錄。未滿一分鐘不會得到點數。'}</p>
-              </>
-            ) : (
-              <>
-                <p className="eyebrow">專注未完成</p>
-                <h1>這段專注提前結束了。</h1>
-                <p>沒有撐到倒數結束，這次沒有獲得成長點數、金幣和飼料。休息一下，下次再試試。</p>
-              </>
-            )}
-            <dl className="stats">
-              <div>
-                <dt>實際專注</dt>
-                <dd>
-                  {min} 分 {sec} 秒
-                </dd>
-              </div>
-              <div>
-                <dt>成長點數</dt>
-                <dd>+{earned.points}</dd>
-              </div>
-              <div>
-                <dt>金幣</dt>
-                <dd>+{earned.coins}</dd>
-              </div>
-              <div>
-                <dt>飼料</dt>
-                <dd>+{earned.feed}</dd>
-              </div>
-            </dl>
-          </section>
+    <div className="result">
+      <div className="result-scene" aria-hidden="true">
+        <HabitatScene habitatId={s.habitatId} bubble />
+      </div>
+      <p className="result-title">{done ? (min > 0 ? `很棒！你今天已專注 ${todayMin} 分。` : '這段專注已記錄。') : `你今天已專注 ${todayMin} 分。`}</p>
+      <p className="result-sub">{done ? (min > 0 ? COPY.complete(min) : '未滿一分鐘不會得到獎勵。') : '提前結束，這次沒有獎勵。'}</p>
 
-          {found && (
-            <section className="card center chance">
-              <p className="eyebrow">偶遇！</p>
-              <Creature id={found.speciesId} size={96} />
-              <h2>{speciesDef(found.speciesId)?.name}在你專注的時候來訪了</h2>
-              <p className="small muted">已收進圖鑑，可以到「我的歷程 → 生物圖鑑」看看牠。</p>
-            </section>
-          )}
+      <ul className="reward-list">
+        <li>
+          <span>🌱 成長點數</span>
+          <strong>+{earned.points}</strong>
+        </li>
+        <li>
+          <span>
+            <Coin /> 金幣
+          </span>
+          <strong>+{earned.coins}</strong>
+        </li>
+        <li>
+          <span>🌾 飼料</span>
+          <strong>+{earned.feed}</strong>
+        </li>
+      </ul>
 
-          <p className="small muted center-text">
-            現有 🌱 {wallet} 點 · <Coin /> {coins(save)} 金幣 · 🌾 {feed(save)} 份飼料
-          </p>
-
-          {project ? (
-            <section className="card">
-              <h2>{project.title}</h2>
-              {wallet >= remaining ? (
-                <p>
-                  你有 {wallet} 點，已經足夠完成「{project.title}」（還需 {remaining} 點）。要不要去投入？
-                </p>
-              ) : (
-                <p>
-                  工程還需 {remaining} 點；把現有的 {wallet} 點投入後，還差 <strong>{remaining - wallet}</strong> 點。
-                </p>
-              )}
-              <button className="primary" onClick={onProject} disabled={wallet === 0}>
-                前往工程
-              </button>
-            </section>
-          ) : (
-            <section className="card">
-              <p>{COPY.allRestored}</p>
-            </section>
-          )}
-
-          <button className="ghost wide" onClick={onDone}>
-            回到大廳
-          </button>
+      {found && (
+        <div className="reward-chance">
+          <Creature id={found.speciesId} size={56} />
+          <div>
+            <strong>偶遇！{speciesDef(found.speciesId)?.name}</strong>
+            <div className="small">在你專注的時候來訪，已收進圖鑑。</div>
+          </div>
         </div>
-      </main>
+      )}
+
+      <button className="pill" onClick={onDone}>
+        返回首頁
+      </button>
+      {canBuild && (
+        <button className="link-light" onClick={onProject}>
+          點數夠了，去修「{project.title}」
+        </button>
+      )}
     </div>
   );
 }
