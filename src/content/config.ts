@@ -102,6 +102,7 @@ export interface PetDef {
   stages: [string, string, string, string]; // 四個成長階段名稱
   thresholds: [number, number, number]; // 進入第 2、3、4 階段所需的累計飼料
   blurb: string;
+  art?: boolean; // true = 已有美術圖檔（public/pets/{id}/），否則用程式畫的臨時圖
 }
 
 const COMMON: PetDef['thresholds'] = [12, 30, 60];
@@ -117,6 +118,40 @@ export const PETS: PetDef[] = [
   { id: 'pet_axolotl', name: '六角恐龍', rarity: 'special', habitatId: 'stream', requiredProjectId: 'st_bridge', adoptPrice: 150, stages: ['卵', '幼體', '長出外鰓', '六角恐龍'], thresholds: SPECIAL, blurb: '長大後仍保留幼體的模樣，頭兩側有像羽毛的外鰓。' },
 ];
 export const petDef = (id: string) => PETS.find((p) => p.id === id);
+
+/** 每種寵物 6 組表情，孵化（卵 → 第 2 階段）時隨機揭曉，長大後可在表情相簿自由切換。 */
+export const FACES = ['開心', '瞇瞇眼', '驚訝', '害羞', '睏睏', '調皮'];
+
+/** 名額：每個開放的場景先有 1 個，每買一個設施 +1，每個場景最多 5 隻。 */
+export const MAX_PETS_PER_HABITAT = 5;
+
+/** 新手禮物：完成第一個工程時送一顆黃蝶的卵。 */
+export const STARTER = { projectId: 'gh_entrance', petTypeId: 'pet_butterfly' };
+
+/** 驚喜蛋：每個場景一種價格；孵出的種類依稀有度加權，優先島上還沒養過的種類。 */
+export const EGG_PRICE: Partial<Record<HabitatId, number>> = { greenhouse: 25, stream: 35 };
+export const RARITY_WEIGHT: Record<Rarity, number> = { common: 3, rare: 2, special: 1 };
+
+export interface FacilityDef {
+  id: string;
+  habitatId: HabitatId;
+  name: string;
+  price: number;
+  blurb: string;
+}
+
+/** 看得到的設施：放進場景，每個名額 +1。 */
+export const FACILITIES: FacilityDef[] = [
+  { id: 'gh_trellis', habitatId: 'greenhouse', name: '蝴蝶花架', price: 60, blurb: '爬滿小花的拱形花架。' },
+  { id: 'gh_nestbox', habitatId: 'greenhouse', name: '鳥巢箱', price: 100, blurb: '掛在柱子上的木頭小屋。' },
+  { id: 'gh_basket', habitatId: 'greenhouse', name: '吊盆花籃', price: 150, blurb: '從屋頂垂下來的花籃。' },
+  { id: 'gh_planter', habitatId: 'greenhouse', name: '高腳花台', price: 220, blurb: '種滿香草的木頭花台。' },
+  { id: 'st_pond', habitatId: 'stream', name: '小水池', price: 60, blurb: '岸邊用石頭圍起的淺水池。' },
+  { id: 'st_rocks', habitatId: 'stream', name: '石堆', price: 100, blurb: '可以躲藏、曬太陽的石頭。' },
+  { id: 'st_reeds', habitatId: 'stream', name: '蘆葦叢', price: 150, blurb: '一大叢搖曳的蘆葦。' },
+  { id: 'st_log', habitatId: 'stream', name: '漂流木', price: 220, blurb: '橫躺在岸邊的老木頭。' },
+];
+export const facilityDef = (id: string) => FACILITIES.find((f) => f.id === id);
 
 // ---------- 大自然交響樂：可收集的環境音 ----------
 

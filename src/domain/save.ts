@@ -1,6 +1,7 @@
 // 存檔建立、驗證與示範資料
-import { PROJECTS, HABITATS, SPECIES, PETS, petDef } from '../content/config';
+import { PROJECTS, HABITATS, SPECIES, EGG_PRICE, FACES, facilityDef, petDef } from '../content/config';
 import { contribute, balance, coins, feed, feedFor, petMaxFeed } from './game';
+import type { PetInstance, PointTransaction } from './types';
 import type { AppMode, SaveFile, Settings } from './types';
 
 const iso = (t: number) => new Date(t).toISOString();
@@ -38,6 +39,7 @@ export function newSave(mode: AppMode, who: { nickname: string; islandName: stri
     contributions: [],
     discoveries: [],
     weeklyGoals: [],
+    pets: [],
     savedAt: iso(now),
   };
 }
@@ -87,6 +89,23 @@ export function newDemoSave(from: SaveFile | null, now: number): SaveFile {
   return demoGrant(demoGrant(demoGrant(s, s.profile.id, 10, now), s.profile.id, 40, now, 'coins'), s.profile.id, 20, now, 'feed');
 }
 
+// ---------- 舊存檔轉換 ----------
+
+/** v0.3～v0.5 的寵物沒有個體紀錄（每種一隻、以種類記帳）：轉成個體，id 固定為 legacy-{種類}。 */
+export function migratePets(save: SaveFile): SaveFile {
+  if (Array.isArray(save.pets)) return save;
+  const pets: PetInstance[] = [];
+  const transactions = save.transactions.map((t: PointTransaction) => {
+    if ((t.kind !== 'pet_adopt' && t.kind !== 'feed_spend') || t.petId || !t.petTypeId) return t;
+    const petId = `legacy-${t.petTypeId}`;
+    const def = petDef(t.petTypeId);
+    if (t.kind === 'pet_adopt' && def)
+      pets.push({ id: petId, islandId: t.islandId, typeId: def.id, habitatId: def.habitatId, adoptedBy: t.userId, adoptedAt: t.createdAt, source: 'buy', faceOverride: null });
+    return { ...t, petId };
+  });
+  return { ...save, pets, transactions };
+}
+
 // ---------- 驗證 ----------
 
 export type Validation = { ok: true; save: SaveFile } | { ok: false; error: string };
@@ -105,7 +124,7 @@ export function validateSave(raw: unknown): Validation {
   const p = raw.profile;
   if (!isObj(p) || !isStr(p.id) || !isStr(p.nickname) || !isStr(p.activeIslandId) || !isStr(p.timezone)) return fail('個人資料不完整。');
   for (const k of ARRAYS) if (!Array.isArray(raw[k])) return fail('存檔缺少必要的紀錄。');
-  const save = { ...raw, settings: { ...defaultSettings(), ...(isObj(raw.settings) ? raw.settings : {}) } } as unknown as SaveFile;
+  const save = migratePets({ ...raw, settings: { ...defaultSettings(), ...(isObj(raw.settings) ? raw.settings : {}) } } as unknown as SaveFile);
 
   if (!save.islands.some((i) => isObj(i) && i.id === save.profile.activeIslandId)) return fail('找不到目前的島嶼。');
   try {
@@ -126,8 +145,17 @@ export function validateSave(raw: unknown): Validation {
 
   const keys = new Set<string>();
   const rewarded = { focus_reward: new Set<string>(), coin_reward: new Set<string>(), feed_reward: new Set<string>() };
-  const invited: string[] = []; // 邀請生物或領養寵物時要求的工程
+  const invited: string[] = []; // 邀請生物、領養寵物、購買設施時要求的工程
   const fedTotal = new Map<string, number>();
+  if (!Array.isArray(save.pets)) return fail('寵物紀錄不完整。');
+  const pets = new Map(save.pets.map((p) => [p.id, p]));
+  if (pets.size !== save.pets.length) return fail('寵物紀錄重複。');
+  for (const p of save.pets) {
+    if (!isObj(p) || !petDef(p.typeId) || petDef(p.typeId)!.habitatId !== p.habitatId || !['gift', 'buy', 'egg'].includes(p.source)) return fail('寵物紀錄格式不正確。');
+    if (p.faceOverride !== null && !(Number.isInteger(p.faceOverride) && p.faceOverride >= 0 && p.faceOverride < FACES.length)) return fail('寵物表情不正確。');
+  }
+  if (save.pets.filter((p) => p.source === 'gift').length > 1) return fail('新手禮物重複。');
+  const adopted = new Set<string>();
   for (const t of save.transactions) {
     if (!isObj(t) || !Number.isInteger(t.amount) || t.amount === 0 || !isStr(t.idempotencyKey)) return fail('點數紀錄格式不正確。');
     if (keys.has(t.idempotencyKey)) return fail('點數紀錄重複。');
@@ -145,12 +173,21 @@ export function validateSave(raw: unknown): Validation {
         seen.add(s.id);
       }
     } else if (t.kind === 'pet_adopt') {
-      const pet = petDef(t.petTypeId ?? '');
-      if (!pet || t.amount !== -pet.adoptPrice || t.idempotencyKey !== `pet:${t.islandId}:${pet.id}`) return fail('寵物領養紀錄不符。');
-      invited.push(pet.requiredProjectId);
+      // 指定購買＝寵物價格；驚喜蛋＝該場景的蛋價
+      const pet = pets.get(t.petId ?? '');
+      const def = pet && petDef(pet.typeId);
+      const price = pet?.source === 'egg' ? EGG_PRICE[pet.habitatId] : def?.adoptPrice;
+      if (!pet || !def || pet.source === 'gift' || t.amount !== -(price ?? NaN) || adopted.has(pet.id)) return fail('寵物領養紀錄不符。');
+      adopted.add(pet.id);
+      invited.push(def.requiredProjectId);
+    } else if (t.kind === 'facility_buy') {
+      const f = facilityDef(t.facilityId ?? '');
+      if (!f || t.amount !== -f.price || t.idempotencyKey !== `facility:${t.islandId}:${f.id}`) return fail('設施購買紀錄不符。');
+      const unlock = HABITATS.find((h) => h.id === f.habitatId)?.unlockProjectId;
+      if (unlock) invited.push(unlock);
     } else if (t.kind === 'feed_spend') {
-      if (t.amount > 0 || !petDef(t.petTypeId ?? '')) return fail('餵食紀錄不符。');
-      fedTotal.set(t.petTypeId!, (fedTotal.get(t.petTypeId!) ?? 0) - t.amount);
+      if (t.amount > 0 || !pets.has(t.petId ?? '')) return fail('餵食紀錄不符。');
+      fedTotal.set(t.petId!, (fedTotal.get(t.petId!) ?? 0) - t.amount);
     } else if (t.kind === 'species_spend') {
       const sp = SPECIES.find((x) => x.id === t.speciesId);
       // 舊版「邀請野生訪客」留下的交易：仍需數值正確，但新版不再產生
@@ -175,9 +212,11 @@ export function validateSave(raw: unknown): Validation {
     if (sum !== row.contributedPoints || sum > def.requiredPoints) return fail('工程進度與投入紀錄不符。');
     if (!!row.completedAt !== (sum === def.requiredPoints)) return fail('工程完成狀態不正確。');
   }
+  for (const p of save.pets) {
+    if (p.source !== 'gift' && !adopted.has(p.id)) return fail('寵物缺少領養紀錄。');
+  }
   for (const [petId, total] of fedTotal) {
-    const pet = PETS.find((p) => p.id === petId)!;
-    if (!keys.has(`pet:${save.profile.activeIslandId}:${petId}`) || total > petMaxFeed(pet)) return fail('寵物餵食紀錄不符。');
+    if (total > petMaxFeed(petDef(pets.get(petId)!.typeId)!)) return fail('寵物餵食紀錄不符。');
   }
   for (const pid of invited) {
     if (!save.projects.some((r) => r.projectId === pid && r.completedAt)) return fail('生物邀請早於棲地工程完成。');

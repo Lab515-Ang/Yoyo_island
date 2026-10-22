@@ -1,17 +1,61 @@
 // 不支援 WebGL / 效能不足時的 2D 降級：保留工程變化與可點熱區
-import { PetArt } from '../components/PetArt';
+import type { ReactElement } from 'react';
+import { PetImage } from '../components/PetArt';
 import type { SceneProps } from './Scene3D';
 
 
-const PET_SPOT: Record<string, [number, number]> = {
-  pet_butterfly: [120, 205],
-  pet_whiteeye: [250, 118],
-  pet_frog: [90, 128],
-  pet_firefly: [322, 178],
-  pet_axolotl: [172, 140],
+const PET_SPOTS: Record<string, [number, number][]> = {
+  greenhouse: [[120, 208], [240, 208], [110, 132], [250, 132], [40, 165]],
+  stream: [[90, 178], [175, 182], [60, 88], [205, 90], [320, 182]],
 };
 
-export default function Scene2D({ habitatId, done, reducedMotion, onSelect, backdrop, pets = [] }: SceneProps) {
+/** 設施的簡化 2D 圖 */
+const FACILITY_2D: Record<string, ReactElement> = {
+  gh_trellis: <path d="M60 120 V80 Q80 55 100 80 V120" stroke="#c9a77c" strokeWidth="5" fill="none" />,
+  gh_nestbox: (
+    <g>
+      <rect x="292" y="70" width="18" height="20" fill="#c9a77c" />
+      <path d="M288 72 L301 60 L314 72 Z" fill="#a5845d" />
+      <circle cx="301" cy="80" r="3" fill="#3a3128" />
+    </g>
+  ),
+  gh_basket: (
+    <g>
+      <line x1="150" y1="40" x2="150" y2="62" stroke="#a5845d" strokeWidth="1.5" />
+      <path d="M138 62 Q150 78 162 62 Z" fill="#c9a77c" />
+      <circle cx="150" cy="60" r="7" fill="#8fb38a" />
+    </g>
+  ),
+  gh_planter: (
+    <g>
+      <rect x="300" y="196" width="44" height="12" fill="#c9a77c" />
+      <circle cx="310" cy="194" r="6" fill="#6f9a6e" />
+      <circle cx="322" cy="192" r="7" fill="#8fb38a" />
+      <circle cx="334" cy="194" r="6" fill="#6f9a6e" />
+    </g>
+  ),
+  st_pond: (
+    <g>
+      <ellipse cx="40" cy="215" rx="26" ry="9" fill="#8fd0d8" stroke="#b8ad99" strokeWidth="3" />
+    </g>
+  ),
+  st_rocks: (
+    <g fill="#b8ad99">
+      <ellipse cx="150" cy="80" rx="12" ry="8" />
+      <ellipse cx="166" cy="84" rx="8" ry="5" />
+    </g>
+  ),
+  st_reeds: (
+    <g stroke="#6f9a6e" strokeWidth="3">
+      <line x1="340" y1="200" x2="338" y2="168" />
+      <line x1="348" y1="200" x2="350" y2="164" />
+      <line x1="332" y1="200" x2="328" y2="172" />
+    </g>
+  ),
+  st_log: <rect x="270" y="72" width="44" height="10" rx="5" fill="#a5845d" transform="rotate(-8 292 77)" />,
+};
+
+export default function Scene2D({ habitatId, done, reducedMotion, onSelect, backdrop, pets = [], facilities = [] }: SceneProps) {
   const flowers = Array.from({ length: 12 }, (_, i) => [40 + (i % 6) * 14, 160 + Math.floor(i / 6) * 10, i] as const);
   return (
     <svg viewBox="0 0 360 240" preserveAspectRatio={backdrop ? 'xMidYMin slice' : undefined} className={`scene2d${reducedMotion ? '' : ' animate'}`} role="img" aria-label="簡化 2D 棲地場景">
@@ -104,15 +148,18 @@ export default function Scene2D({ habitatId, done, reducedMotion, onSelect, back
           )}
         </g>
       )}
-      {pets.map(({ id, stage }) => {
-        const [x, y] = PET_SPOT[id];
+      {facilities.map((f) => (
+        <g key={f}>{FACILITY_2D[f]}</g>
+      ))}
+      {pets.slice(0, PET_SPOTS[habitatId].length).map(({ id, typeId, art, stage, face }, i) => {
+        const [x, y] = PET_SPOTS[habitatId][i];
         const pick = () => onSelect?.(`pet:${id}`);
         return (
           <g key={id} className="creature-hit drift" role="button" tabIndex={0} aria-label="寵物" onClick={pick} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && pick()}>
             <circle cx={x} cy={y} r="22" fill="transparent" />
-            <svg x={x - 20} y={y - 20} width="40" height="40" viewBox="0 0 64 64">
-              <PetArt id={id} stage={stage} size={64} />
-            </svg>
+            <foreignObject x={x - 20} y={y - 20} width="40" height="40">
+              <PetImage typeId={typeId} art={art} stage={stage} face={face} size={40} />
+            </foreignObject>
           </g>
         );
       })}

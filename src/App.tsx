@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGame, useNow, useSave } from './app/store';
 import { APP_NAME, COPY, avatarEmoji } from './content/config';
-import { balance, coins, feed, openSession, settleOpenSessions } from './domain/game';
+import { balance, coins, feed, grantStarter, openSession, settleOpenSessions, starterGiftDue } from './domain/game';
 import * as storage from './data/storage';
 import { remainingMs } from './domain/focus';
 import { notifyEnd, playChime } from './sound';
@@ -66,7 +66,7 @@ export default function App() {
 }
 
 function Main() {
-  const { save, mode, update, stale, writeError, toast, switchMode } = useSave();
+  const { save, mode, update, stale, writeError, toast, switchMode, notify } = useSave();
   const [view, setView] = useState<View>('lobby');
   const [habitat, setHabitat] = useState<HabitatId | null>(null);
   const [summaryId, setSummaryId] = useState<string | null>(null);
@@ -99,6 +99,13 @@ function Main() {
       if (st.endNotify) void notifyEnd(`${APP_NAME}・專注完成`, `「${r.completed.taskTitle}」完成了 ${Math.floor(r.completed.accumulatedMs / 60000)} 分鐘，回來看看小島吧。`);
     }
   }, [now, wake, save, update]);
+
+  // 新手禮物：完成第一個工程後送一顆黃蝶的卵
+  useEffect(() => {
+    if (!starterGiftDue(save)) return;
+    const r = grantStarter(save, Date.now());
+    if (r.ok && update(() => r.save)) notify('完成第一個工程的禮物：一顆黃蝶的卵！到「我的小島」用飼料把牠養大吧。');
+  }, [save, update, notify]);
 
   // 背景分頁的 interval 會被節流，另排一個剛好在歸零時觸發的 timeout
   useEffect(() => {

@@ -1033,3 +1033,41 @@ legend {
   font-size: 2.6rem;
   line-height: 1.2;
 }
+.pet-image {
+  position: relative;
+  display: inline-block;
+}
+.pet-image img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.pet-habitat + .pet-habitat {
+  margin-top: 0.8rem;
+}
+.pet-chip.empty {
+  border-style: dashed;
+  justify-content: center;
+  color: var(--muted);
+}
+.face-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+}
+.face-opt {
+  border-radius: 14px;
+  padding: 0.3rem;
+}
+.face-opt.on {
+  border-color: var(--sage-deep);
+  background: #e5efdc;
+  font-weight: 600;
+}
+.odds {
+  list-style: none;
+  padding: 0;
+  margin: 0.2rem 0;
+}

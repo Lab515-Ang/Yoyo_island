@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useSave } from '../app/store';
-import { COPY, HABITATS, PETS, PROJECTS, habitatName } from '../content/config';
+import { COPY, habitatName, HABITATS, MAX_PETS_PER_HABITAT, PROJECTS } from '../content/config';
 import { Progress } from '../components/ui';
-import { PetArt } from '../components/PetArt';
+import { PetImage } from '../components/PetArt';
 import { PetCard } from '../components/PetCard';
-import { activeProject, adoptedPets, balance, canAdopt, contribute, feed, habitatOpen, habitatSound, isDone, petMaxFeed, projectRow, remainingFor } from '../domain/game';
+import { activeProject, adoptedPets, balance, contribute, feed, habitatOpen, habitatSlots, habitatSound, isDone, petMaxFeed, projectRow, remainingFor } from '../domain/game';
 import type { HabitatId } from '../domain/types';
 import { HabitatScene, prefersReducedMotion } from '../scenes/HabitatScene';
 import { IslandMap } from '../scenes/IslandMap';
@@ -154,40 +154,47 @@ function ProjectPanel({ onEnter }: { onEnter: (h: HabitatId) => void }) {
 function MyPets({ onShop }: { onShop: () => void }) {
   const { save } = useSave();
   const [card, setCard] = useState<string | null>(null);
-  const pets = adoptedPets(save);
-  const adoptable = PETS.filter((p) => canAdopt(save, p));
+  const habitats = HABITATS.filter((h) => h.playable && habitatOpen(save, h.id));
   return (
     <section className="card">
       <div className="row between">
         <h2>我的寵物</h2>
         <span className="small">🌾 {feed(save)} 份飼料</span>
       </div>
-      {pets.length ? (
-        <div className="pet-row">
-          {pets.map(({ def, fed, stage }) => {
-            const prev = stage === 0 ? 0 : def.thresholds[stage - 1];
-            const next = stage === 3 ? petMaxFeed(def) : def.thresholds[stage];
-            return (
-              <button key={def.id} className="pet-chip" onClick={() => setCard(def.id)}>
-                <PetArt id={def.id} stage={stage} size={56} />
-                <strong>{def.name}</strong>
-                <span className="small muted">{def.stages[stage]}</span>
-                {stage < 3 ? <Progress value={(fed - prev) / (next - prev)} label={`${def.name}成長進度`} /> : <span className="small cond">已長大</span>}
-              </button>
-            );
-          })}
-        </div>
-      ) : (
-        <p className="muted">還沒有寵物。修好棲地後，可以到商店用金幣領養一顆卵，用專注得到的飼料把牠養大。</p>
-      )}
-      {adoptable.length > 0 && (
-        <p className="small">
-          可以領養：{adoptable.map((p) => p.name).join('、')}{' '}
-          <button className="link" onClick={onShop}>
-            去商店
-          </button>
-        </p>
-      )}
+      {habitats.map((h) => {
+        const pets = adoptedPets(save, h.id);
+        const slots = habitatSlots(save, h.id);
+        return (
+          <div key={h.id} className="pet-habitat">
+            <p className="small">
+              <strong>{h.name}</strong> <span className="muted">名額 {pets.length} / {slots}</span>
+            </p>
+            <div className="pet-row">
+              {pets.map(({ pet, def, fed, stage, face }) => {
+                const prev = stage === 0 ? 0 : def.thresholds[stage - 1];
+                const next = stage === 3 ? petMaxFeed(def) : def.thresholds[stage];
+                return (
+                  <button key={pet.id} className="pet-chip" onClick={() => setCard(pet.id)}>
+                    <PetImage typeId={def.id} art={def.art} stage={stage} face={face} size={56} />
+                    <strong>{def.name}</strong>
+                    <span className="small muted">{def.stages[stage]}</span>
+                    {stage < 3 ? <Progress value={(fed - prev) / (next - prev)} label={`${def.name}成長進度`} /> : <span className="small cond">已長大</span>}
+                  </button>
+                );
+              })}
+              {Array.from({ length: Math.max(0, slots - pets.length) }, (_, i) => (
+                <button key={`empty${i}`} className="pet-chip empty" onClick={onShop}>
+                  <span className="sound-icon" aria-hidden="true">
+                    ＋
+                  </span>
+                  <span className="small muted">空位：到商店領養</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+      <p className="small muted">每個場景先有 1 個名額，在商店買設施可以增加，最多 {MAX_PETS_PER_HABITAT} 隻。</p>
       {card && <PetCard petId={card} onClose={() => setCard(null)} />}
     </section>
   );
@@ -218,9 +225,9 @@ function HabitatView({ id, onBack }: { id: HabitatId; onBack: () => void }) {
         <h2>住在這裡的寵物</h2>
         {pets.length ? (
           <div className="creature-row">
-            {pets.map(({ def, stage }) => (
-              <button key={def.id} className="creature-chip" onClick={() => setCard(`pet:${def.id}`)}>
-                <PetArt id={def.id} stage={stage} size={40} />
+            {pets.map(({ pet, def, stage, face }) => (
+              <button key={pet.id} className="creature-chip" onClick={() => setCard(`pet:${pet.id}`)}>
+                <PetImage typeId={def.id} art={def.art} stage={stage} face={face} size={40} />
                 <span>
                   {def.name}・{def.stages[stage]}
                 </span>

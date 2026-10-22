@@ -76,13 +76,15 @@ export interface PointTransaction {
   islandId: ID;
   // 成長點數：focus_reward / project_spend
   // 金幣：coin_reward / species_spend / pet_adopt
-  // 飼料：feed_reward / feed_spend
-  kind: 'focus_reward' | 'project_spend' | 'coin_reward' | 'species_spend' | 'pet_adopt' | 'feed_reward' | 'feed_spend';
+  // 飼料：feed_reward / feed_spend；設施（金幣）：facility_buy
+  kind: 'focus_reward' | 'project_spend' | 'coin_reward' | 'species_spend' | 'pet_adopt' | 'feed_reward' | 'feed_spend' | 'facility_buy';
   amount: number; // 獲得 > 0、花費 < 0
   sessionId?: ID;
   contributionId?: ID;
   speciesId?: ID;
-  petTypeId?: ID; // 寵物狀態全部由 pet_adopt / feed_spend 交易推導，不另存
+  petTypeId?: ID;
+  petId?: ID; // 寵物個體（pet_adopt / feed_spend）
+  facilityId?: ID;
   idempotencyKey: string; // reward:/coin:{sessionId}、spend:{contributionId}、species:{islandId}:{speciesId}
   createdAt: ISODate;
 }
@@ -117,6 +119,18 @@ export interface WeeklyGoal {
   targetMinutes: number;
 }
 
+/** 寵物個體：同一種可以養很多隻；成長由 feed_spend 交易推導。 */
+export interface PetInstance {
+  id: ID;
+  islandId: ID;
+  typeId: ID;
+  habitatId: HabitatId;
+  adoptedBy: ID;
+  adoptedAt: ISODate;
+  source: 'gift' | 'buy' | 'egg';
+  faceOverride: number | null; // 長大後在表情相簿選的表情；null = 孵化時隨機的表情
+}
+
 export interface SaveFile {
   schemaVersion: 1;
   mode: AppMode;
@@ -130,5 +144,6 @@ export interface SaveFile {
   contributions: Contribution[];
   discoveries: Discovery[];
   weeklyGoals: WeeklyGoal[];
+  pets: PetInstance[];
   savedAt: ISODate;
 }

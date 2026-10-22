@@ -1,7 +1,7 @@
 // 經濟、工程、生物發現與統計：全部是對 SaveFile 的純函式
-import { PROJECTS, SPECIES, HABITATS, PETS, SOUNDS, FEED_PER_MINUTES, COUNTDOWN_BONUS_PER_MINUTES, CHANCE, projectDef, type PetDef, type ProjectDef, type SoundUnlock } from '../content/config';
+import { PROJECTS, SPECIES, HABITATS, PETS, SOUNDS, FACES, FACILITIES, EGG_PRICE, RARITY_WEIGHT, MAX_PETS_PER_HABITAT, STARTER, FEED_PER_MINUTES, COUNTDOWN_BONUS_PER_MINUTES, CHANCE, facilityDef, petDef, projectDef, type PetDef, type ProjectDef, type SoundUnlock } from '../content/config';
 import { addSegmentsByDay, createSession, isOpen, settle } from './focus';
-import type { FocusSession, HabitatId, ID, SaveFile, TimerMode } from './types';
+import type { FocusSession, HabitatId, ID, PetInstance, SaveFile, TimerMode } from './types';
 
 export const POINT_MS = 60_000;
 const iso = (t: number) => new Date(t).toISOString();
@@ -15,7 +15,7 @@ export const islandId = (save: SaveFile) => save.profile.activeIslandId;
 export const rewardFor = (s: FocusSession) => (s.status === 'completed' ? Math.floor(s.accumulatedMs / POINT_MS) : 0);
 
 const POINT_KINDS = new Set(['focus_reward', 'project_spend']);
-const COIN_KINDS = new Set(['coin_reward', 'species_spend', 'pet_adopt']);
+const COIN_KINDS = new Set(['coin_reward', 'species_spend', 'pet_adopt', 'facility_buy']);
 const FEED_KINDS = new Set(['feed_reward', 'feed_spend']);
 
 /** 完成的專注每 5 分鐘 1 份飼料；倒數每撐完 25 分鐘再多 1 份（倒數提前結束是 abandoned，沒有）。 */
@@ -194,67 +194,166 @@ export function contributionsByUser(save: SaveFile) {
   return m;
 }
 
-// ---------- 寵物 ----------
+// ---------- 寵物（個體、名額、設施、表情） ----------
 
-const petKey = (save: SaveFile, petTypeId: string) => `pet:${islandId(save)}:${petTypeId}`;
-const adoptTx = (save: SaveFile, petTypeId: string) => save.transactions.find((t) => t.idempotencyKey === petKey(save, petTypeId));
+export interface PetView {
+  pet: PetInstance;
+  def: PetDef;
+  fed: number;
+  stage: number;
+  face: number;
+}
 
-export const isAdopted = (save: SaveFile, petTypeId: string) => !!adoptTx(save, petTypeId);
-export const adoptedAt = (save: SaveFile, petTypeId: string) => adoptTx(save, petTypeId)?.createdAt ?? null;
-export const canAdopt = (save: SaveFile, p: PetDef) => isDone(save, p.requiredProjectId) && !isAdopted(save, p.id);
+export const islandPets = (save: SaveFile) => save.pets.filter((p) => p.islandId === islandId(save));
+export const petById = (save: SaveFile, petId: string) => save.pets.find((p) => p.id === petId);
 
-/** 寵物累計吃了多少飼料（全體成員合計）。 */
-export const petFed = (save: SaveFile, petTypeId: string) =>
-  -save.transactions.reduce((sum, t) => (t.kind === 'feed_spend' && t.petTypeId === petTypeId && t.islandId === islandId(save) ? sum + t.amount : sum), 0);
+/** 這隻寵物累計吃了多少飼料（全體成員合計）。 */
+export const petFed = (save: SaveFile, petId: string) =>
+  -save.transactions.reduce((sum, t) => (t.kind === 'feed_spend' && t.petId === petId ? sum + t.amount : sum), 0);
 
 /** 0～3：由累計飼料推導，不另存。 */
 export const petStage = (p: PetDef, fed: number) => p.thresholds.filter((n) => fed >= n).length;
 export const petMaxFeed = (p: PetDef) => p.thresholds[p.thresholds.length - 1];
 
+/** 孵化時隨機的表情：由寵物 id 雜湊決定，重新整理不會變。 */
+export const naturalFace = (petId: string) => Math.floor(hash01(`${petId}:face`) * FACES.length);
+
+export function petView(save: SaveFile, pet: PetInstance): PetView {
+  const def = petDef(pet.typeId)!;
+  const fed = petFed(save, pet.id);
+  return { pet, def, fed, stage: petStage(def, fed), face: pet.faceOverride ?? naturalFace(pet.id) };
+}
+
 export const adoptedPets = (save: SaveFile, habitatId?: HabitatId) =>
-  PETS.filter((p) => isAdopted(save, p.id) && (!habitatId || p.habitatId === habitatId)).map((p) => ({ def: p, fed: petFed(save, p.id), stage: petStage(p, petFed(save, p.id)) }));
+  islandPets(save).filter((p) => !habitatId || p.habitatId === habitatId).map((p) => petView(save, p));
 
 /** 每位成員餵了這隻寵物多少。 */
-export function fedByUser(save: SaveFile, petTypeId: string) {
+export function fedByUser(save: SaveFile, petId: string) {
   const m = new Map<ID, number>();
-  for (const t of save.transactions) if (t.kind === 'feed_spend' && t.petTypeId === petTypeId && t.islandId === islandId(save)) m.set(t.userId, (m.get(t.userId) ?? 0) - t.amount);
+  for (const t of save.transactions) if (t.kind === 'feed_spend' && t.petId === petId) m.set(t.userId, (m.get(t.userId) ?? 0) - t.amount);
   return m;
 }
 
-export type PetResult = { ok: true; save: SaveFile } | { ok: false; error: string };
+// 名額與設施
 
-/** 用金幣領養；每種寵物在一座島只能領養一次，且棲地工程要先完成。 */
-export function adoptPet(save: SaveFile, userId: ID, petTypeId: string, now: number): PetResult {
-  const p = PETS.find((x) => x.id === petTypeId);
-  if (!p) return { ok: false, error: '找不到這種寵物。' };
-  if (isAdopted(save, p.id)) return { ok: false, error: `${p.name}已經在島上了。` };
-  if (!isDone(save, p.requiredProjectId)) return { ok: false, error: `需要先完成「${projectDef(p.requiredProjectId)?.title}」工程。` };
+const facilityKey = (save: SaveFile, facilityId: string) => `facility:${islandId(save)}:${facilityId}`;
+export const facilityOwned = (save: SaveFile, facilityId: string) => save.transactions.some((t) => t.idempotencyKey === facilityKey(save, facilityId));
+
+export function habitatSlots(save: SaveFile, habitatId: HabitatId) {
+  if (!habitatOpen(save, habitatId)) return 0;
+  const bought = FACILITIES.filter((f) => f.habitatId === habitatId && facilityOwned(save, f.id)).length;
+  return Math.min(MAX_PETS_PER_HABITAT, 1 + bought);
+}
+export const habitatPetCount = (save: SaveFile, habitatId: HabitatId) => islandPets(save).filter((p) => p.habitatId === habitatId).length;
+export const habitatFree = (save: SaveFile, habitatId: HabitatId) => habitatSlots(save, habitatId) - habitatPetCount(save, habitatId);
+
+/** 這種寵物目前能不能取得（棲地工程完成）。 */
+export const petAvailable = (save: SaveFile, p: PetDef) => isDone(save, p.requiredProjectId);
+
+export type ActionResult = { ok: true; save: SaveFile } | { ok: false; error: string };
+export type PetResult = { ok: true; save: SaveFile; pet: PetInstance } | { ok: false; error: string };
+
+export function buyFacility(save: SaveFile, userId: ID, facilityId: string, now: number): ActionResult {
+  const f = facilityDef(facilityId);
+  if (!f) return { ok: false, error: '找不到這個設施。' };
+  if (!habitatOpen(save, f.habitatId)) return { ok: false, error: `${HABITATS.find((h) => h.id === f.habitatId)?.name}還沒開放。` };
+  if (facilityOwned(save, f.id)) return { ok: false, error: `已經有${f.name}了。` };
   const have = coins(save, userId);
-  if (have < p.adoptPrice) return { ok: false, error: `金幣不足，還差 ${p.adoptPrice - have} 金幣。` };
+  if (have < f.price) return { ok: false, error: `金幣不足，還差 ${f.price - have} 金幣。` };
   return {
     ok: true,
-    save: { ...save, transactions: [...save.transactions, { id: newId(), userId, islandId: islandId(save), kind: 'pet_adopt', amount: -p.adoptPrice, petTypeId: p.id, idempotencyKey: petKey(save, p.id), createdAt: iso(now) }] },
+    save: { ...save, transactions: [...save.transactions, { id: newId(), userId, islandId: islandId(save), kind: 'facility_buy', amount: -f.price, facilityId: f.id, idempotencyKey: facilityKey(save, f.id), createdAt: iso(now) }] },
   };
+}
+
+function addPet(save: SaveFile, userId: ID, def: PetDef, source: PetInstance['source'], price: number, now: number): { save: SaveFile; pet: PetInstance } {
+  const pet: PetInstance = { id: newId(), islandId: islandId(save), typeId: def.id, habitatId: def.habitatId, adoptedBy: userId, adoptedAt: iso(now), source, faceOverride: null };
+  const tx =
+    price > 0
+      ? [{ id: newId(), userId, islandId: pet.islandId, kind: 'pet_adopt' as const, amount: -price, petId: pet.id, petTypeId: def.id, idempotencyKey: `pet:${pet.id}`, createdAt: iso(now) }]
+      : [];
+  return { save: { ...save, pets: [...save.pets, pet], transactions: [...save.transactions, ...tx] }, pet };
+}
+
+function slotError(save: SaveFile, habitatId: HabitatId) {
+  const name = HABITATS.find((h) => h.id === habitatId)?.name;
+  if (!habitatOpen(save, habitatId)) return `${name}還沒開放。`;
+  if (habitatFree(save, habitatId) <= 0)
+    return habitatSlots(save, habitatId) >= MAX_PETS_PER_HABITAT ? `${name}已經住滿 ${MAX_PETS_PER_HABITAT} 隻了。` : `${name}的名額已滿，到商店買設施就能多養一隻。`;
+  return null;
+}
+
+/** 指定購買：選好種類，表情在孵化時隨機揭曉。 */
+export function adoptPet(save: SaveFile, userId: ID, petTypeId: string, now: number): PetResult {
+  const def = petDef(petTypeId);
+  if (!def) return { ok: false, error: '找不到這種寵物。' };
+  if (!petAvailable(save, def)) return { ok: false, error: `需要先完成「${projectDef(def.requiredProjectId)?.title}」工程。` };
+  const full = slotError(save, def.habitatId);
+  if (full) return { ok: false, error: full };
+  const have = coins(save, userId);
+  if (have < def.adoptPrice) return { ok: false, error: `金幣不足，還差 ${def.adoptPrice - have} 金幣。` };
+  return { ok: true, ...addPet(save, userId, def, 'buy', def.adoptPrice, now) };
+}
+
+/** 驚喜蛋的機率：依稀有度加權；島上還沒養過的種類優先（養齊了才會重複）。 */
+export function eggOdds(save: SaveFile, habitatId: HabitatId) {
+  const pool = PETS.filter((p) => p.habitatId === habitatId && petAvailable(save, p));
+  const fresh = pool.filter((p) => !islandPets(save).some((x) => x.typeId === p.id));
+  const base = fresh.length ? fresh : pool;
+  const total = base.reduce((a, p) => a + RARITY_WEIGHT[p.rarity], 0);
+  return base.map((def) => ({ def, p: RARITY_WEIGHT[def.rarity] / total }));
+}
+
+export function buyEgg(save: SaveFile, userId: ID, habitatId: HabitatId, now: number, rand = Math.random()): PetResult {
+  const price = EGG_PRICE[habitatId];
+  if (!price) return { ok: false, error: '這個場景還沒有驚喜蛋。' };
+  const full = slotError(save, habitatId);
+  if (full) return { ok: false, error: full };
+  const odds = eggOdds(save, habitatId);
+  if (!odds.length) return { ok: false, error: '這個場景還沒有可以孵化的寵物，先修好棲地工程吧。' };
+  const have = coins(save, userId);
+  if (have < price) return { ok: false, error: `金幣不足，還差 ${price - have} 金幣。` };
+  let acc = 0;
+  const pick = odds.find((o) => (acc += o.p) > rand) ?? odds[odds.length - 1];
+  return { ok: true, ...addPet(save, userId, pick.def, 'egg', price, now) };
+}
+
+/** 新手禮物：完成第一個工程、島上還沒有任何寵物時，送一顆黃蝶的卵（只送一次）。 */
+export const starterGiftDue = (save: SaveFile) => isDone(save, STARTER.projectId) && islandPets(save).length === 0 && !save.pets.some((p) => p.source === 'gift');
+
+export function grantStarter(save: SaveFile, now: number): PetResult {
+  if (!starterGiftDue(save)) return { ok: false, error: '已經領過新手禮物了。' };
+  return { ok: true, ...addPet(save, save.profile.id, petDef(STARTER.petTypeId)!, 'gift', 0, now) };
+}
+
+/** 表情相簿：長大後才能自由切換。 */
+export function setFace(save: SaveFile, petId: string, face: number): ActionResult {
+  const pet = petById(save, petId);
+  if (!pet) return { ok: false, error: '找不到這隻寵物。' };
+  if (petView(save, pet).stage < 3) return { ok: false, error: '養到成體後才能換表情。' };
+  if (!Number.isInteger(face) || face < 0 || face >= FACES.length) return { ok: false, error: '沒有這個表情。' };
+  return { ok: true, save: { ...save, pets: save.pets.map((p) => (p.id === petId ? { ...p, faceOverride: face } : p)) } };
 }
 
 export type FeedResult = { ok: true; save: SaveFile; spent: number; from: number; to: number } | { ok: false; error: string };
 
 /** 餵食：實際用量 = min(輸入, 飼料存量, 長到成體還需要的量)。 */
-export function feedPet(save: SaveFile, userId: ID, petTypeId: string, input: number | 'all', now: number): FeedResult {
-  const p = PETS.find((x) => x.id === petTypeId);
-  if (!p || !isAdopted(save, p.id)) return { ok: false, error: '還沒有領養這隻寵物。' };
+export function feedPet(save: SaveFile, userId: ID, petId: string, input: number | 'all', now: number): FeedResult {
+  const pet = petById(save, petId);
+  if (!pet || pet.islandId !== islandId(save)) return { ok: false, error: '找不到這隻寵物。' };
+  const def = petDef(pet.typeId)!;
   if (input !== 'all' && (!Number.isInteger(input) || input <= 0)) return { ok: false, error: '請輸入大於 0 的整數。' };
-  const fed = petFed(save, p.id);
-  const left = petMaxFeed(p) - fed;
-  if (left <= 0) return { ok: false, error: `${p.name}已經長大了。` };
+  const fed = petFed(save, pet.id);
+  const left = petMaxFeed(def) - fed;
+  if (left <= 0) return { ok: false, error: `${def.name}已經長大了。` };
   const have = feed(save, userId);
   if (have <= 0) return { ok: false, error: '沒有飼料了。完成專注，每 5 分鐘得 1 份飼料。' };
   const spent = Math.min(input === 'all' ? have : input, have, left);
   const next: SaveFile = {
     ...save,
-    transactions: [...save.transactions, { id: newId(), userId, islandId: islandId(save), kind: 'feed_spend', amount: -spent, petTypeId: p.id, idempotencyKey: `feedspend:${newId()}`, createdAt: iso(now) }],
+    transactions: [...save.transactions, { id: newId(), userId, islandId: pet.islandId, kind: 'feed_spend', amount: -spent, petId: pet.id, petTypeId: def.id, idempotencyKey: `feedspend:${newId()}`, createdAt: iso(now) }],
   };
-  return { ok: true, save: next, spent, from: petStage(p, fed), to: petStage(p, fed + spent) };
+  return { ok: true, save: next, spent, from: petStage(def, fed), to: petStage(def, fed + spent) };
 }
 
 // ---------- 環境音收集 ----------
@@ -263,8 +362,7 @@ export function soundUnlocked(save: SaveFile, u: SoundUnlock) {
   if (u.kind === 'start') return true;
   if (u.kind === 'project') return isDone(save, u.id);
   if (u.kind === 'species') return !!discoveryOf(save, u.id);
-  const p = PETS.find((x) => x.id === u.id);
-  return !!p && isAdopted(save, p.id) && petStage(p, petFed(save, p.id)) === 3;
+  return adoptedPets(save).some((v) => v.def.id === u.id && v.stage === 3);
 }
 
 /** 棲地預設的環境音。 */

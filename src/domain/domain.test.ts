@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, weekStartKey } from './focus';
-import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, feed, feedFor, adoptPet, feedPet, petFed, adoptedPets, fedByUser, sessionRoll, chanceFor, chanceFind, soundUnlocked, focusSoundFor } from './game';
+import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, feed, feedFor, adoptPet, feedPet, adoptedPets, fedByUser, buyEgg, buyFacility, eggOdds, grantStarter, habitatSlots, naturalFace, setFace, starterGiftDue, sessionRoll, chanceFor, chanceFind, soundUnlocked, focusSoundFor } from './game';
 import { SOUNDS } from '../content/config';
 import { newSave, newDemoSave, validateSave, demoGrant } from './save';
 import type { SaveFile } from './types';
@@ -215,7 +215,7 @@ describe('統計與存檔', () => {
 });
 
 describe('寵物', () => {
-  /** 讓存檔完成到花圃（黃蝶可領養） */
+  /** 完成到花圃（黃蝶可取得）；minutes 決定點數、金幣與飼料 */
   function withFlowers(minutes = 120) {
     let save = focus(fresh(), minutes);
     for (const id of ['gh_entrance', 'gh_flowers']) {
@@ -225,6 +225,10 @@ describe('寵物', () => {
     }
     return save;
   }
+  const ok = <T extends { ok: boolean }>(r: T) => {
+    if (!r.ok) throw new Error((r as unknown as { error: string }).error);
+    return r as Extract<T, { ok: true }>;
+  };
 
   it('飼料：每 5 分鐘 1 份，倒數每 25 分鐘再加 1；放棄沒有飼料', () => {
     const save = fresh();
@@ -235,47 +239,95 @@ describe('寵物', () => {
     expect(feedFor(cd(50, 'abandoned'))).toBe(0);
     const done = closeSession(save, cd(25, 'completed'), T0 + 25 * MIN);
     expect(feed(done)).toBe(6);
-    expect(feed(grantReward(done, done.sessions[0].id, T0))).toBe(6); // 不重複發
+    expect(feed(grantReward(done, done.sessions[0].id, T0))).toBe(6);
   });
 
-  it('領養需要棲地工程與金幣，每種只能領養一次', () => {
-    const uid = fresh().profile.id;
-    expect(adoptPet(focus(fresh(), 60), uid, 'pet_butterfly', T0).ok).toBe(false); // 花圃未完成
-    let save = withFlowers();
-    expect(adoptPet(save, save.profile.id, 'pet_frog', T0).ok).toBe(false); // 溪流未開
-    const r = adoptPet(save, save.profile.id, 'pet_butterfly', T0);
-    if (!r.ok) throw new Error(r.error);
-    save = r.save;
-    expect(coins(save)).toBe(90); // 120 - 30
-    expect(adoptPet(save, save.profile.id, 'pet_butterfly', T0).ok).toBe(false);
-    expect(adoptedPets(save).map((p) => p.stage)).toEqual([0]);
+  it('新手禮物：完成第一個工程後送一顆黃蝶的卵，只送一次', () => {
+    let save = focus(fresh(), 10);
+    expect(starterGiftDue(save)).toBe(false);
+    save = ok(contribute(save, save.profile.id, 'gh_entrance', 'all', T0)).save;
+    expect(starterGiftDue(save)).toBe(true);
+    save = ok(grantStarter(save, T0)).save;
+    expect(adoptedPets(save).map((p) => [p.def.id, p.pet.source, p.stage])).toEqual([['pet_butterfly', 'gift', 0]]);
+    expect(grantStarter(save, T0).ok).toBe(false);
     expect(validateSave(save).ok).toBe(true);
   });
 
-  it('餵食：用量不超過存量與成體所需，跨過門檻會長大，長大後不能再餵', () => {
-    let save = withFlowers(); // 120 分鐘碼表 → 24 份飼料
+  it('名額：每個場景先 1 隻，設施 +1，最多 5 隻；同種可以養多隻', () => {
+    let save = withFlowers(2000); // 金幣充足
     const uid = save.profile.id;
-    expect(feedPet(save, uid, 'pet_butterfly', 5, T0).ok).toBe(false); // 還沒領養
-    const a = adoptPet(save, uid, 'pet_butterfly', T0);
-    if (!a.ok) throw new Error(a.error);
-    save = a.save;
-    for (const bad of [0, -1, 1.5]) expect(feedPet(save, uid, 'pet_butterfly', bad, T0).ok).toBe(false);
-    let r = feedPet(save, uid, 'pet_butterfly', 12, T0);
-    if (!r.ok) throw new Error(r.error);
-    expect([r.from, r.to]).toEqual([0, 1]); // 卵 → 毛毛蟲
+    expect(habitatSlots(save, 'greenhouse')).toBe(1);
+    expect(habitatSlots(save, 'stream')).toBe(0); // 溪流未開
+    save = ok(adoptPet(save, uid, 'pet_butterfly', T0)).save;
+    expect(adoptPet(save, uid, 'pet_butterfly', T0).ok).toBe(false); // 名額已滿
+    for (const f of ['gh_trellis', 'gh_nestbox', 'gh_basket', 'gh_planter']) save = ok(buyFacility(save, uid, f, T0)).save;
+    expect(buyFacility(save, uid, 'gh_trellis', T0).ok).toBe(false); // 每種設施一個
+    expect(buyFacility(save, uid, 'st_pond', T0).ok).toBe(false); // 溪流未開
+    expect(habitatSlots(save, 'greenhouse')).toBe(5);
+    for (let i = 0; i < 4; i++) save = ok(adoptPet(save, uid, 'pet_butterfly', T0)).save;
+    expect(adoptedPets(save, 'greenhouse')).toHaveLength(5);
+    expect(adoptPet(save, uid, 'pet_butterfly', T0).ok).toBe(false); // 最多 5 隻
+    expect(adoptPet(save, uid, 'pet_frog', T0).ok).toBe(false); // 溪流未開
+    expect(validateSave(save).ok).toBe(true);
+  });
+
+  it('驚喜蛋：只孵出可取得的種類，優先還沒養過的', () => {
+    let save = withFlowers(2000);
+    const uid = save.profile.id;
+    expect(eggOdds(save, 'greenhouse').map((o) => o.def.id)).toEqual(['pet_butterfly']); // 綠繡眼還要葉叢工程
+    save = ok(buyFacility(save, uid, 'gh_trellis', T0)).save;
+    save = ok(contribute(save, uid, 'gh_fountain', 'all', T0)).save;
+    save = ok(contribute(save, uid, 'gh_plants', 'all', T0)).save;
+    save = ok(adoptPet(save, uid, 'pet_butterfly', T0)).save;
+    expect(eggOdds(save, 'greenhouse').map((o) => o.def.id)).toEqual(['pet_whiteeye']); // 黃蝶已經養過
+    const r = ok(buyEgg(save, uid, 'greenhouse', T0, 0.99));
+    expect(r.pet.typeId).toBe('pet_whiteeye');
+    expect(coins(r.save)).toBe(coins(save) - 25);
+    expect(buyEgg(r.save, uid, 'greenhouse', T0).ok).toBe(false); // 名額已滿
+    expect(validateSave(r.save).ok).toBe(true);
+  });
+
+  it('餵食長大、表情孵化時固定、成體才能換表情', () => {
+    let save = withFlowers();
+    const uid = save.profile.id;
+    const r = ok(adoptPet(save, uid, 'pet_butterfly', T0));
     save = r.save;
-    save = focus(save, 300, T0 + 600 * MIN); // +60 份
-    r = feedPet(save, uid, 'pet_butterfly', 'all', T0);
-    if (!r.ok) throw new Error(r.error);
-    expect(r.spent).toBe(48); // 只餵到成體門檻 60
-    expect(r.to).toBe(3);
-    save = r.save;
-    expect(petFed(save, 'pet_butterfly')).toBe(60);
-    expect(feedPet(save, uid, 'pet_butterfly', 1, T0).ok).toBe(false);
-    expect(fedByUser(save, 'pet_butterfly').get(uid)).toBe(60);
+    const id = r.pet.id;
+    for (const bad of [0, -1, 1.5]) expect(feedPet(save, uid, id, bad, T0).ok).toBe(false);
+    const face = adoptedPets(save)[0].face;
+    expect(naturalFace(id)).toBe(face); // 同一隻永遠同一個表情
+    expect(setFace(save, id, 2).ok).toBe(false); // 還沒長大
+    let f = ok(feedPet(save, uid, id, 12, T0));
+    expect([f.from, f.to]).toEqual([0, 1]);
+    save = focus(f.save, 300, T0 + 600 * MIN);
+    f = ok(feedPet(save, uid, id, 'all', T0));
+    expect(f.spent).toBe(48);
+    expect(f.to).toBe(3);
+    save = ok(setFace(f.save, id, 4)).save;
+    expect(adoptedPets(save)[0].face).toBe(4);
+    expect(setFace(save, id, 6).ok).toBe(false);
+    expect(fedByUser(save, id).get(uid)).toBe(60);
     expect(validateSave(save).ok).toBe(true);
     const overfed = { ...save, transactions: save.transactions.map((t) => (t.kind === 'feed_spend' ? { ...t, amount: t.amount * 3 } : t)) };
     expect(validateSave(overfed).ok).toBe(false);
+  });
+
+  it('舊存檔（以種類記帳、沒有寵物個體）載入時自動轉換', () => {
+    let save = withFlowers();
+    const r = ok(adoptPet(save, save.profile.id, 'pet_butterfly', T0));
+    save = ok(feedPet(r.save, save.profile.id, r.pet.id, 5, T0)).save;
+    // 模擬舊格式：沒有 pets、交易只有 petTypeId、領養 key 以種類命名
+    const legacy = {
+      ...save,
+      pets: undefined,
+      transactions: save.transactions.map((t) =>
+        t.kind === 'pet_adopt' ? { ...t, petId: undefined, idempotencyKey: `pet:${t.islandId}:pet_butterfly` } : t.kind === 'feed_spend' ? { ...t, petId: undefined } : t,
+      ),
+    };
+    const v = validateSave(legacy);
+    if (!v.ok) throw new Error(v.error);
+    expect(v.save.pets.map((p) => p.id)).toEqual(['legacy-pet_butterfly']);
+    expect(adoptedPets(v.save)[0].fed).toBe(5);
   });
 });
 

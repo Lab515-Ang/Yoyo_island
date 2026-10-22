@@ -2,6 +2,8 @@
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as THREE from 'three';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { PetArt, faceArtUrl, petArtUrl } from '../components/PetArt';
 import type { HabitatId } from '../domain/types';
 
 export interface SceneProps {
@@ -11,7 +13,8 @@ export interface SceneProps {
   onSelect?: (speciesId: string) => void;
   onSlow?: () => void;
   backdrop?: boolean; // 專注畫面的全螢幕背景：場景往上移，留出下方放倒數泡泡
-  pets?: { id: string; stage: number }[]; // 已領養的寵物與目前階段（點擊回傳 pet:{id}）
+  pets?: ScenePet[]; // 住在這個場景的寵物（點擊回傳 pet:{id}）
+  facilities?: string[]; // 已購買的設施
 }
 
 const C = {
@@ -78,14 +81,6 @@ function PerfWatch({ onSlow }: { onSlow?: () => void }) {
   return null;
 }
 
-/** 放大的透明點擊範圍，放在會移動的群組內，手機也點得到 */
-const Hit = ({ r = 0.5 }: { r?: number }) => (
-  <mesh>
-    <sphereGeometry args={[r, 8, 8]} />
-    <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-  </mesh>
-);
-
 /** 事件會從子物件冒泡到這一層 */
 function Pick({ id, onSelect, children }: { id: string; onSelect?: (id: string) => void; children: ReactNode }) {
   const click = (e: ThreeEvent<MouseEvent>) => {
@@ -111,273 +106,196 @@ function useAnim(still: boolean, fn: Anim) {
   return ref;
 }
 
-// ---------- 生物 ----------
+// ---------- 寵物（2D 圖片，永遠面向鏡頭）與設施 ----------
 
-function Butterfly({ wing, accent, still, path }: { wing: string; accent: string; still: boolean; path: Anim }) {
-  const ref = useAnim(still, path);
-  const l = useRef<THREE.Group>(null!);
-  const r = useRef<THREE.Group>(null!);
-  useFrame(({ clock }) => {
-    const a = still ? 0.5 : 0.25 + Math.abs(Math.sin(clock.elapsedTime * 5)) * 0.9;
-    l.current.rotation.z = a;
-    r.current.rotation.z = -a;
-  });
-  const W = ({ side }: { side: 1 | -1 }) => (
-    <group ref={side === 1 ? l : r}>
-      <mesh position={[0.17 * side, 0, 0.04]} rotation={[-Math.PI / 2, 0, 0]} scale={[1, 1.15, 1]}>
-        <circleGeometry args={[0.17, 12]} />
-        <meshLambertMaterial color={wing} side={THREE.DoubleSide} />
-      </mesh>
-      <mesh position={[0.12 * side, 0.001, -0.12]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.1, 10]} />
-        <meshLambertMaterial color={accent} side={THREE.DoubleSide} />
-      </mesh>
-    </group>
-  );
-  return (
-    <group ref={ref} scale={1.8}>
-      <Hit />
-      <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <capsuleGeometry args={[0.035, 0.22, 4, 8]} />
-        <Mat color="#4a3d2e" />
-      </mesh>
-      <W side={1} />
-      <W side={-1} />
-    </group>
-  );
+export interface ScenePet {
+  id: string;
+  typeId: string;
+  art?: boolean;
+  stage: number;
+  face: number;
 }
 
-// ---------- 寵物（每隻 4 個階段，簡單幾何） ----------
-
-const PET_SPOT: Record<string, [number, number, number]> = {
-  pet_butterfly: [-1.9, 0.12, 2.0],
-  pet_whiteeye: [1.7, 0.12, -2.5],
-  pet_frog: [-1.3, 0.1, 0.5],
-  pet_firefly: [4.2, 0.3, 1.35],
-  pet_axolotl: [0.7, 0.12, -0.45],
+/** 每個場景最多 5 隻，依領養順序放在固定位置。 */
+const PET_SPOTS: Record<string, [number, number, number][]> = {
+  greenhouse: [[-1.9, 0.1, 2.0], [1.9, 0.1, 2.0], [-1.6, 0.1, -1.9], [1.7, 0.1, -2.0], [-3.6, 0.1, -0.8]],
+  stream: [[-1.4, 0.3, 1.5], [0.4, 0.3, 1.6], [-3.4, 0.3, -1.6], [1.0, 0.3, -1.6], [-4.6, 0.3, 1.6]],
 };
 
-type V3 = [number, number, number];
-
-function Ball({ p = [0, 0, 0], r, color, s = [1, 1, 1], opacity, emissive }: { p?: V3; r: number; color: string; s?: V3; opacity?: number; emissive?: string }) {
-  return (
-    <mesh position={p} scale={s}>
-      <sphereGeometry args={[r, 12, 10]} />
-      <meshLambertMaterial color={color} transparent={opacity !== undefined} opacity={opacity ?? 1} emissive={emissive ?? '#000000'} />
-    </mesh>
-  );
-}
-
-function SmallBird({ body, belly, ring }: { body: string; belly?: string; ring?: boolean }) {
-  return (
-    <group position={[0, 0.16, 0]}>
-      <Ball r={0.14} color={body} s={[0.9, 0.8, 1.15]} />
-      {belly && <Ball p={[0, -0.04, 0.05]} r={0.1} color={belly} s={[0.9, 0.7, 1]} />}
-      <Ball p={[0, 0.1, 0.12]} r={0.09} color={body} />
-      {ring && (
-        <mesh position={[0.06, 0.12, 0.16]} rotation={[0, 0.6, 0]}>
-          <torusGeometry args={[0.028, 0.01, 6, 14]} />
-          <Mat color="#ffffff" />
-        </mesh>
-      )}
-      <Ball p={[0.06, 0.12, 0.17]} r={0.015} color="#2e2a26" />
-      <mesh position={[0, 0.09, 0.22]} rotation={[Math.PI / 2, 0, 0]}>
-        <coneGeometry args={[0.02, 0.07, 6]} />
-        <Mat color="#5b4a33" />
-      </mesh>
-    </group>
-  );
-}
-
-function PetModel({ id, stage, still }: { id: string; stage: number; still: boolean }) {
-  if (id === 'pet_butterfly') {
-    if (stage === 0)
-      return (
-        <group>
-          <Ball r={0.22} color={C.sage} s={[1, 0.15, 0.6]} />
-          <Ball p={[0, 0.05, 0]} r={0.05} color="#f6e7a6" />
-        </group>
-      );
-    if (stage === 1)
-      return (
-        <group>
-          <Ball r={0.28} color={C.sage} s={[1, 0.15, 0.6]} />
-          {[-0.12, -0.04, 0.04, 0.12].map((x, i) => (
-            <Ball key={x} p={[x, 0.07 + (i % 2) * 0.02, 0]} r={0.05} color={i === 3 ? '#6f9a6e' : '#9cc96b'} />
-          ))}
-        </group>
-      );
-    if (stage === 2)
-      return (
-        <group>
-          <mesh position={[0, 0.3, 0]}>
-            <cylinderGeometry args={[0.012, 0.012, 0.6, 5]} />
-            <Mat color={C.woodDark} />
-          </mesh>
-          <mesh position={[0.06, 0.38, 0]} rotation={[Math.PI, 0, 0]}>
-            <coneGeometry args={[0.06, 0.22, 10]} />
-            <Mat color="#9cc96b" />
-          </mesh>
-        </group>
-      );
-    return (
-      <Butterfly
-        wing="#f3cf5a"
-        accent="#eab949"
-        still={still}
-        path={(g, t) => {
-          g.position.set(Math.sin(t * 0.5) * 0.35, 0.45 + Math.sin(t * 1.3) * 0.06, Math.cos(t * 0.5) * 0.35);
-          g.rotation.y = t * 0.5 + Math.PI / 2;
-        }}
-      />
-    );
-  }
-  if (id === 'pet_whiteeye')
-    return (
-      <group>
-        <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
-          <torusGeometry args={[0.16, 0.06, 8, 16]} />
-          <Mat color={C.woodDark} />
-        </mesh>
-        {stage === 0 && <Ball p={[0, 0.08, 0]} r={0.07} color="#d8eef0" s={[1, 1.25, 1]} />}
-        {stage === 1 && (
-          <group position={[0, 0.06, 0]}>
-            <Ball p={[0, 0.06, 0]} r={0.1} color="#c9bdb3" />
-            <mesh position={[0, 0.16, 0.04]} rotation={[0.3, 0, 0]}>
-              <coneGeometry args={[0.03, 0.07, 6]} />
-              <Mat color="#f2c14e" />
-            </mesh>
-          </group>
-        )}
-        {stage === 2 && <SmallBird body="#9db56a" />}
-        {stage === 3 && <SmallBird body="#b9c94a" belly="#efe9c9" ring />}
-      </group>
-    );
-  if (id === 'pet_frog') {
-    if (stage === 0)
-      return (
-        <group>
-          {[[0, 0], [0.09, 0.03], [-0.07, 0.05], [0.03, -0.08], [-0.05, -0.05]].map(([x, z]) => (
-            <group key={`${x}${z}`} position={[x, 0.03, z]}>
-              <Ball r={0.05} color="#eef8f3" opacity={0.85} />
-              <Ball r={0.018} color="#3a3a33" />
-            </group>
-          ))}
-        </group>
-      );
-    if (stage < 3)
-      return (
-        <group position={[0, 0.03, 0]}>
-          <Ball r={0.08} color={stage === 1 ? '#4b5240' : '#5f7a4a'} s={[1, 0.8, 1]} />
-          <Ball p={[0.14, 0, 0]} r={0.1} color="#6b7360" s={[1, 0.25, 0.6]} />
-          {stage === 2 &&
-            [-0.05, 0.05].map((z) => (
-              <mesh key={z} position={[0.06, -0.03, z]} rotation={[0, 0, 0.6]}>
-                <cylinderGeometry args={[0.012, 0.012, 0.1, 5]} />
-                <Mat color="#5f7a4a" />
-              </mesh>
-            ))}
-        </group>
-      );
-    return (
-      <group>
-        <mesh position={[0, -0.01, 0]}>
-          <cylinderGeometry args={[0.22, 0.22, 0.02, 14]} />
-          <Mat color={C.sageDark} />
-        </mesh>
-        <group position={[0, 0.08, 0]}>
-          <Ball r={0.12} color="#79b36a" s={[1, 0.6, 1.1]} />
-          {[-0.05, 0.05].map((x) => (
-            <group key={x}>
-              <Ball p={[x, 0.07, 0.06]} r={0.035} color="#79b36a" />
-              <Ball p={[x, 0.09, 0.085]} r={0.015} color="#2e2a26" />
-            </group>
-          ))}
-        </group>
-      </group>
-    );
-  }
-  if (id === 'pet_firefly') {
-    if (stage === 0)
-      return (
-        <group>
-          <Ball r={0.22} color="#7fa36a" s={[1, 0.25, 0.8]} />
-          {[[-0.06, 0], [0, 0.04], [0.06, -0.02]].map(([x, z]) => (
-            <Ball key={`${x}${z}`} p={[x, 0.05, z]} r={0.018} color="#f3e08a" />
-          ))}
-        </group>
-      );
-    if (stage === 1)
-      return (
-        <group>
-          <mesh>
-            <cylinderGeometry args={[0.22, 0.22, 0.02, 14]} />
-            <Mat color={C.water} opacity={0.8} />
-          </mesh>
-          {[-0.09, -0.03, 0.03, 0.09].map((x) => (
-            <Ball key={x} p={[x, 0.03, 0]} r={0.035} color="#3c3a35" />
-          ))}
-        </group>
-      );
-    if (stage === 2)
-      return (
-        <group>
-          <Ball r={0.16} color={C.soil} s={[1, 0.35, 1]} />
-          <Ball p={[0, 0.08, 0]} r={0.06} color="#f1e2b8" s={[1, 1.4, 1]} />
-        </group>
-      );
-    return (
-      <group position={[0, 0.25, 0]}>
-        <Ball r={0.06} color="#2e2a26" s={[0.8, 0.7, 1.3]} />
-        <Ball p={[0, 0.01, 0.08]} r={0.035} color="#e98a6b" />
-        <Ball p={[0, -0.01, -0.08]} r={0.045} color="#f6e36a" emissive="#f6e36a" />
-        <pointLight position={[0, 0, -0.1]} color="#fff3a8" intensity={0.8} distance={1.4} />
-      </group>
-    );
-  }
-  // 六角恐龍：0 是卵，1～3 粉紅身體，階段越後越大、外鰓越多
-  if (stage === 0)
-    return (
-      <group position={[0, 0.04, 0]}>
-        <Ball r={0.08} color="#f4eef8" opacity={0.85} />
-        <Ball r={0.025} color="#4a3f52" />
-      </group>
-    );
-  const k = [0, 0.7, 0.9, 1.15][stage];
-  return (
-    <group position={[0, 0.04, 0]} scale={k}>
-      <mesh rotation={[0, 0, Math.PI / 2]}>
-        <capsuleGeometry args={[0.06, 0.22, 4, 8]} />
-        <Mat color="#f4b8c6" />
-      </mesh>
-      {stage === 3 && <Ball p={[-0.17, 0.01, 0]} r={0.08} color="#f7b3c4" />}
-      {stage >= 2 &&
-        [-1, 1].flatMap((side) =>
-          [0, 1, 2].slice(0, stage === 3 ? 3 : 2).map((i) => (
-            <mesh key={`${side}${i}`} position={[-0.18 + i * 0.03, 0.04, side * 0.07]} rotation={[side * 0.9, 0, 0.3 - i * 0.3]}>
-              <coneGeometry args={[0.012, 0.09, 5]} />
-              <Mat color="#e46e8c" />
-            </mesh>
-          )),
-        )}
-    </group>
-  );
-}
-
-function Pet({ id, stage, still, onSelect }: { id: string; stage: number; still: boolean; onSelect?: (id: string) => void }) {
-  const ref = useAnim(still, (g, t) => {
-    g.position.y = Math.sin(t * 1.4 + id.length) * 0.015; // 輕微的呼吸／漂浮
+const loadImage = (src: string) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
   });
+
+/** 把寵物圖（美術圖疊圖，或臨時 SVG）畫成貼圖。 */
+function usePetTexture(p: ScenePet) {
+  const [tex, setTex] = useState<THREE.CanvasTexture | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const urls = p.art
+      ? [petArtUrl(p.typeId, p.stage), ...(p.stage > 0 ? [faceArtUrl(p.typeId, p.stage, p.face)] : [])]
+      : [`data:image/svg+xml;charset=utf-8,${encodeURIComponent(renderToStaticMarkup(<PetArt id={p.typeId} stage={p.stage} face={p.face} size={256} />))}`];
+    Promise.all(urls.map(loadImage))
+      .then((imgs) => {
+        if (!alive) return;
+        const c = document.createElement('canvas');
+        c.width = c.height = 256;
+        const g = c.getContext('2d')!;
+        for (const img of imgs) g.drawImage(img, 0, 0, 256, 256);
+        const t = new THREE.CanvasTexture(c);
+        t.colorSpace = THREE.SRGBColorSpace;
+        setTex(t);
+      })
+      .catch(() => undefined); // 圖檔缺漏時不顯示，不影響場景
+    return () => {
+      alive = false;
+    };
+  }, [p.typeId, p.art, p.stage, p.face]);
+  return tex;
+}
+
+function PetSprite({ pet, spot, still, onSelect }: { pet: ScenePet; spot: [number, number, number]; still: boolean; onSelect?: (id: string) => void }) {
+  const tex = usePetTexture(pet);
+  const phase = pet.id.length + spot[0];
+  const ref = useAnim(still, (g, t) => {
+    g.position.y = Math.abs(Math.sin(t * 1.4 + phase)) * 0.05; // 輕輕彈跳
+    g.scale.y = 1 + Math.sin(t * 2.2 + phase) * 0.02; // 呼吸
+  });
+  const s = [0.6, 0.85, 1, 1.15][pet.stage] * 1.5;
   return (
-    <Pick id={`pet:${id}`} onSelect={onSelect}>
-      <group position={PET_SPOT[id]} scale={1.6}>
+    <Pick id={`pet:${pet.id}`} onSelect={onSelect}>
+      <group position={spot}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]} raycast={noHit}>
+          <circleGeometry args={[s * 0.32, 16]} />
+          <meshBasicMaterial color="#2f4a36" transparent opacity={0.14} depthWrite={false} />
+        </mesh>
         <group ref={ref}>
-          <Hit r={0.35} />
-          <PetModel id={id} stage={stage} still={still} />
+          {tex && (
+            // 美術規格：腳底在畫布 472/512 處，往下補回 40px 的留白，讓腳踩在地上
+            <sprite scale={[s, s, 1]} position={[0, s / 2 - s * (40 / 512), 0]}>
+              <spriteMaterial map={tex} transparent depthWrite={false} />
+            </sprite>
+          )}
         </group>
       </group>
     </Pick>
   );
+}
+
+function Facility({ id }: { id: string }) {
+  switch (id) {
+    case 'gh_trellis':
+      return (
+        <group position={[-2.3, 0.1, -2.7]}>
+          {[-0.6, 0.6].map((x) => (
+            <mesh key={x} position={[x, 0.7, 0]}>
+              <cylinderGeometry args={[0.05, 0.05, 1.4, 6]} />
+              <Mat color={C.wood} />
+            </mesh>
+          ))}
+          <mesh position={[0, 1.4, 0]}>
+            <torusGeometry args={[0.6, 0.05, 6, 20, Math.PI]} />
+            <Mat color={C.wood} />
+          </mesh>
+          {[0.3, 0.9, 1.5, 2.1, 2.7].map((a, i) => (
+            <Flower key={a} p={[Math.cos(a) * 0.6, 1.4 + Math.sin(a) * 0.6 - 0.14, 0]} color={FLOWER[i % FLOWER.length]} h={0.1} />
+          ))}
+        </group>
+      );
+    case 'gh_nestbox':
+      return (
+        <group position={[3.5, 1.9, -2.55]}>
+          <mesh>
+            <boxGeometry args={[0.36, 0.42, 0.32]} />
+            <Mat color={C.wood} />
+          </mesh>
+          <mesh position={[0, 0.27, 0]} rotation={[0, 0, Math.PI / 4]}>
+            <boxGeometry args={[0.32, 0.32, 0.38]} />
+            <Mat color={C.woodDark} />
+          </mesh>
+          <mesh position={[0, 0.02, 0.17]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.07, 0.07, 0.02, 12]} />
+            <Mat color="#3a3128" />
+          </mesh>
+        </group>
+      );
+    case 'gh_basket':
+      return (
+        <group position={[-1.4, 2.6, -4.1]}>
+          <mesh position={[0, 0.5, 0]}>
+            <cylinderGeometry args={[0.01, 0.01, 1, 4]} />
+            <Mat color={C.woodDark} />
+          </mesh>
+          <mesh>
+            <sphereGeometry args={[0.3, 12, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2]} />
+            <Mat color={C.wood} />
+          </mesh>
+          <Bush p={[0, -0.12, 0]} s={0.5} />
+          <Flower p={[0.12, 0, 0.1]} color={FLOWER[3]} h={0.12} />
+        </group>
+      );
+    case 'gh_planter':
+      return (
+        <group position={[3.3, 0.1, 2.5]}>
+          <mesh position={[0, 0.35, 0]}>
+            <boxGeometry args={[1, 0.3, 0.5]} />
+            <Mat color={C.wood} />
+          </mesh>
+          {[-0.4, 0.4].map((x) => (
+            <mesh key={x} position={[x, 0.12, 0]}>
+              <boxGeometry args={[0.08, 0.25, 0.4]} />
+              <Mat color={C.woodDark} />
+            </mesh>
+          ))}
+          {[-0.3, 0, 0.3].map((x, i) => (
+            <Bush key={x} p={[x, 0.45, 0]} s={0.35} color={i % 2 ? C.sage : C.sageDark} />
+          ))}
+        </group>
+      );
+    case 'st_pond':
+      return (
+        <group position={[-3.8, 0.3, 2.7]}>
+          <mesh position={[0, 0.02, 0]}>
+            <cylinderGeometry args={[0.6, 0.6, 0.02, 20]} />
+            <Mat color={C.water} />
+          </mesh>
+          {Array.from({ length: 9 }, (_, i) => (i / 9) * Math.PI * 2).map((a) => (
+            <Rock key={a} p={[Math.cos(a) * 0.68, 0.04, Math.sin(a) * 0.68]} s={0.12} />
+          ))}
+        </group>
+      );
+    case 'st_rocks':
+      return (
+        <group position={[-0.8, 0.3, -2.3]}>
+          <Rock p={[0, 0.12, 0]} s={0.35} />
+          <Rock p={[0.4, 0.08, 0.15]} s={0.24} />
+          <Rock p={[-0.35, 0.06, 0.2]} s={0.2} />
+        </group>
+      );
+    case 'st_reeds':
+      return (
+        <group position={[4.6, 0.3, 1.9]}>
+          {spread(9, 0.4).map(([x, z], i) => (
+            <mesh key={i} position={[x, 0.5, z]} rotation={[0, 0, (i % 3 - 1) * 0.1]}>
+              <cylinderGeometry args={[0.02, 0.03, 1, 5]} />
+              <Mat color={C.sageDark} />
+            </mesh>
+          ))}
+        </group>
+      );
+    case 'st_log':
+      return (
+        <mesh position={[4.2, 0.42, -2.1]} rotation={[0, 0.4, Math.PI / 2]}>
+          <cylinderGeometry args={[0.16, 0.18, 1.6, 10]} />
+          <Mat color={C.woodDark} />
+        </mesh>
+      );
+    default:
+      return null;
+  }
 }
 
 // ---------- 場景物件 ----------
@@ -778,7 +696,7 @@ function Stream({ done, still }: { done: (id: string) => boolean; still: boolean
   );
 }
 
-export default function Scene3D({ habitatId, done, reducedMotion, onSelect, onSlow, backdrop, pets = [] }: SceneProps) {
+export default function Scene3D({ habitatId, done, reducedMotion, onSelect, onSlow, backdrop, pets = [], facilities = [] }: SceneProps) {
   const [hidden, setHidden] = useState(document.hidden);
   useEffect(() => {
     const on = () => setHidden(document.hidden);
@@ -801,8 +719,11 @@ export default function Scene3D({ habitatId, done, reducedMotion, onSelect, onSl
       <FitCamera dist={habitatId === 'stream' ? 10.5 : 10} raise={backdrop ? 0.2 : 0} />
       {!reducedMotion && <PerfWatch onSlow={onSlow} />}
       {habitatId === 'stream' ? <Stream {...props} /> : <Greenhouse {...props} />}
-      {pets.map((p) => (
-        <Pet key={p.id} id={p.id} stage={p.stage} still={reducedMotion} onSelect={onSelect} />
+      {facilities.map((f) => (
+        <Facility key={f} id={f} />
+      ))}
+      {pets.slice(0, PET_SPOTS[habitatId].length).map((p, i) => (
+        <PetSprite key={p.id} pet={p} spot={PET_SPOTS[habitatId][i]} still={reducedMotion} onSelect={onSelect} />
       ))}
     </Canvas>
   );

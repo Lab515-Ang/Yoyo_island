@@ -156,10 +156,75 @@ const ART: Record<string, ReactElement[]> = {
   ],
 };
 
-export function PetArt({ id, stage, size = 64, hidden = false }: { id: string; stage: number; size?: number; hidden?: boolean }) {
+/** 6 組表情的臨時圖（24×24），美術圖到之前用小徽章疊在右下角。 */
+const FACE_ART: ReactElement[] = [
+  // 開心
+  <g>
+    <path d="M7 10 q2 -3 4 0 M13 10 q2 -3 4 0" stroke="#2e2a26" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+    <path d="M8 14 q4 4 8 0" stroke="#2e2a26" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+  </g>,
+  // 瞇瞇眼
+  <g>
+    <path d="M7 10 h4 M13 10 h4" stroke="#2e2a26" strokeWidth="1.5" strokeLinecap="round" />
+    <path d="M10 15 q2 1.5 4 0" stroke="#2e2a26" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+  </g>,
+  // 驚訝
+  <g>
+    <circle cx="9" cy="10" r="2" fill="#2e2a26" />
+    <circle cx="15" cy="10" r="2" fill="#2e2a26" />
+    <ellipse cx="12" cy="16" rx="1.6" ry="2" fill="#2e2a26" />
+  </g>,
+  // 害羞
+  <g>
+    <circle cx="9" cy="10" r="1.2" fill="#2e2a26" />
+    <circle cx="15" cy="10" r="1.2" fill="#2e2a26" />
+    <ellipse cx="7" cy="13.5" rx="2" ry="1.2" fill="#f2a7a0" />
+    <ellipse cx="17" cy="13.5" rx="2" ry="1.2" fill="#f2a7a0" />
+    <path d="M11 15 h2" stroke="#2e2a26" strokeWidth="1.3" strokeLinecap="round" />
+  </g>,
+  // 睏睏
+  <g>
+    <path d="M7 10 q2 2 4 0 M13 10 q2 2 4 0" stroke="#2e2a26" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+    <ellipse cx="12" cy="15.5" rx="1.4" ry="1" fill="#2e2a26" />
+    <text x="17" y="7" fontSize="5" fill="#6d7f6f">z</text>
+  </g>,
+  // 調皮
+  <g>
+    <path d="M7 10 q2 -2.5 4 0" stroke="#2e2a26" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+    <circle cx="15" cy="10" r="1.5" fill="#2e2a26" />
+    <path d="M8 14 q4 3 8 0" stroke="#2e2a26" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+    <path d="M12 15.5 q1.5 3 3 0" fill="#e98a6b" />
+  </g>,
+];
+
+/** 美術圖檔路徑（規格見 docs/美術規格-寵物.md）：每層都是同尺寸、對齊好的透明圖。 */
+export const petArtUrl = (typeId: string, stage: number) => `/pets/${typeId}/stage${stage + 1}.png`;
+export const faceArtUrl = (typeId: string, stage: number, face: number) => `/pets/${typeId}/face${face + 1}_stage${stage + 1}.png`;
+
+/** 臨時圖：寵物本體＋右下角表情徽章（卵的階段沒有表情）。 */
+export function PetArt({ id, stage, face, size = 64, hidden = false }: { id: string; stage: number; face?: number; size?: number; hidden?: boolean }) {
   return (
-    <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden="true" className={hidden ? 'silhouette' : undefined}>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width={size} height={size} aria-hidden="true" className={hidden ? 'silhouette' : undefined}>
       {ART[id]?.[stage]}
+      {face !== undefined && stage > 0 && !hidden && (
+        <g transform="translate(42 42)">
+          <circle cx="11" cy="11" r="11" fill="#fffbf2" stroke="#e7dcc5" />
+          <svg x="-1" y="-1" width="24" height="24" viewBox="0 0 24 24">
+            {FACE_ART[face]}
+          </svg>
+        </g>
+      )}
     </svg>
+  );
+}
+
+/** 寵物圖：有美術圖就疊圖（本體＋表情），沒有就用臨時圖。 */
+export function PetImage({ typeId, art, stage, face, size = 64, hidden = false }: { typeId: string; art?: boolean; stage: number; face?: number; size?: number; hidden?: boolean }) {
+  if (!art) return <PetArt id={typeId} stage={stage} face={face} size={size} hidden={hidden} />;
+  return (
+    <span className={hidden ? 'pet-image silhouette' : 'pet-image'} style={{ width: size, height: size }} aria-hidden="true">
+      <img src={petArtUrl(typeId, stage)} alt="" />
+      {face !== undefined && stage > 0 && !hidden && <img src={faceArtUrl(typeId, stage, face)} alt="" />}
+    </span>
   );
 }

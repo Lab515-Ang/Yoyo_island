@@ -1,7 +1,7 @@
 import { useSave } from '../app/store';
 import { COPY, habitatName, PETS } from '../content/config';
 import { Progress } from '../components/ui';
-import { activeProject, adoptedPets, canAdopt, coins, projectRow } from '../domain/game';
+import { activeProject, adoptedPets, coins, habitatFree, petAvailable, projectRow } from '../domain/game';
 import { WeeklyGoal } from './Together';
 
 /** 任務：目前的修復工程、本週專注時間目標、可領養與成長中的寵物。 */
@@ -9,7 +9,7 @@ export function Quests({ onIsland, onShop }: { onIsland: () => void; onShop: () 
   const { save } = useSave();
   const project = activeProject(save);
   const got = project ? (projectRow(save, project.id)?.contributedPoints ?? 0) : 0;
-  const adoptable = PETS.filter((p) => canAdopt(save, p));
+  const adoptable = PETS.filter((p) => petAvailable(save, p) && habitatFree(save, p.habitatId) > 0);
   const growing = adoptedPets(save).filter((p) => p.stage < 3);
   return (
     <div className="page">
@@ -52,7 +52,7 @@ export function Quests({ onIsland, onShop }: { onIsland: () => void; onShop: () 
             成長中：{growing.map(({ def, fed, stage }) => `${def.name}（再 ${def.thresholds[stage] - fed} 份飼料長成${def.stages[stage + 1]}）`).join('、')}
           </p>
         )}
-        {!adoptable.length && !growing.length && <p className="muted">修好下一個棲地工程，就能領養新的寵物。</p>}
+        {!adoptable.length && !growing.length && <p className="muted">名額已滿或還沒有可領養的寵物。修好棲地、在商店買設施，就能養更多隻。</p>}
       </section>
     </div>
   );
