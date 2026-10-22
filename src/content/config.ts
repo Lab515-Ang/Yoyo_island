@@ -87,6 +87,41 @@ export const SPECIES: SpeciesDef[] = [
 ];
 export const speciesDef = (id: string) => SPECIES.find((s) => s.id === id);
 
+// ---------- 寵物（數值可集中調整） ----------
+
+export type Rarity = 'common' | 'rare' | 'special';
+export const RARITY_LABEL: Record<Rarity, string> = { common: '常見', rare: '稀有', special: '特殊' };
+
+export interface PetDef {
+  id: string;
+  name: string;
+  rarity: Rarity;
+  habitatId: HabitatId;
+  requiredProjectId: string; // 棲地條件
+  adoptPrice: number; // 領養所需金幣
+  stages: [string, string, string, string]; // 四個成長階段名稱
+  thresholds: [number, number, number]; // 進入第 2、3、4 階段所需的累計飼料
+  blurb: string;
+}
+
+const COMMON: PetDef['thresholds'] = [12, 30, 60];
+const RARE: PetDef['thresholds'] = [20, 50, 100];
+const SPECIAL: PetDef['thresholds'] = [30, 75, 150];
+
+// 第一階段只放已開放棲地的 5 隻；林間草地、海岸、海灣開放後再加入其餘 5 隻
+export const PETS: PetDef[] = [
+  { id: 'pet_butterfly', name: '黃蝶', rarity: 'common', habitatId: 'greenhouse', requiredProjectId: 'gh_flowers', adoptPrice: 30, stages: ['卵', '毛毛蟲', '蛹', '黃蝶'], thresholds: COMMON, blurb: '從一顆小小的卵開始，慢慢變成在花間飛舞的蝴蝶。' },
+  { id: 'pet_whiteeye', name: '綠繡眼', rarity: 'common', habitatId: 'greenhouse', requiredProjectId: 'gh_plants', adoptPrice: 40, stages: ['蛋', '雛鳥', '幼鳥', '綠繡眼'], thresholds: COMMON, blurb: '長大後眼睛周圍會出現一圈白色的羽毛。' },
+  { id: 'pet_frog', name: '青蛙', rarity: 'common', habitatId: 'stream', requiredProjectId: 'st_entrance', adoptPrice: 40, stages: ['卵塊', '蝌蚪', '長腳蝌蚪', '青蛙'], thresholds: COMMON, blurb: '從水裡的蝌蚪，一點一點長出腳，最後跳上岸。' },
+  { id: 'pet_firefly', name: '螢火蟲', rarity: 'rare', habitatId: 'stream', requiredProjectId: 'st_water', adoptPrice: 80, stages: ['卵', '水中幼蟲', '蛹', '螢火蟲'], thresholds: RARE, blurb: '幼蟲住在乾淨的水裡，長大後會發出柔和的光。' },
+  { id: 'pet_axolotl', name: '六角恐龍', rarity: 'special', habitatId: 'stream', requiredProjectId: 'st_bridge', adoptPrice: 150, stages: ['卵', '幼體', '長出外鰓', '六角恐龍'], thresholds: SPECIAL, blurb: '長大後仍保留幼體的模樣，頭兩側有像羽毛的外鰓。' },
+];
+export const petDef = (id: string) => PETS.find((p) => p.id === id);
+
+/** 專注每 5 分鐘 1 份飼料；倒數每撐完 25 分鐘再多 1 份。 */
+export const FEED_PER_MINUTES = 5;
+export const COUNTDOWN_BONUS_PER_MINUTES = 25;
+
 export const COPY = {
   start: '為自己留一段時間。',
   complete: (min: number) => `這 ${min} 分鐘，讓小島更靠近春天。`,

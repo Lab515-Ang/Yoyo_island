@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, weekStartKey } from './focus';
-import { balance, closeSession, coins, contribute, grantReward, inviteSpecies, settleOpenSessions, visitHabitat, minutesByDay, activeProject, habitatOpen, putSession, speciesPresent } from './game';
+import { balance, closeSession, coins, contribute, grantReward, inviteSpecies, settleOpenSessions, visitHabitat, minutesByDay, activeProject, habitatOpen, putSession, speciesPresent, feed, feedFor, adoptPet, feedPet, petFed, adoptedPets, fedByUser } from './game';
 import { newSave, newDemoSave, validateSave, demoGrant } from './save';
 import type { SaveFile } from './types';
 
@@ -94,7 +94,7 @@ describe('點數結算', () => {
     save = grantReward(save, id, T0);
     expect(balance(save)).toBe(25);
     expect(coins(save)).toBe(25);
-    expect(save.transactions).toHaveLength(2); // 點數與金幣各一筆
+    expect(save.transactions).toHaveLength(3); // 點數、金幣、飼料各一筆
   });
 
   it('倒數提前結束（abandoned）點數與金幣都是 0', () => {
@@ -230,5 +230,70 @@ describe('統計與存檔', () => {
     expect(activeProject(demo)?.id).toBe('gh_flowers');
     expect(balance(demo)).toBe(10);
     expect(coins(demo)).toBe(40);
+  });
+});
+
+describe('寵物', () => {
+  /** 讓存檔完成到花圃（黃蝶可領養） */
+  function withFlowers(minutes = 120) {
+    let save = focus(fresh(), minutes);
+    for (const id of ['gh_entrance', 'gh_flowers']) {
+      const r = contribute(save, save.profile.id, id, 'all', T0);
+      if (!r.ok) throw new Error(r.error);
+      save = r.save;
+    }
+    return save;
+  }
+
+  it('飼料：每 5 分鐘 1 份，倒數每 25 分鐘再加 1；放棄沒有飼料', () => {
+    const save = fresh();
+    const cd = (min: number, status: 'completed' | 'abandoned') => finish(session(save, 'countdown', 60), T0 + min * MIN, status);
+    expect(feedFor(cd(25, 'completed'))).toBe(6);
+    expect(feedFor(cd(4, 'completed'))).toBe(0);
+    expect(feedFor(finish(session(save, 'stopwatch', null), T0 + 25 * MIN, 'completed'))).toBe(5);
+    expect(feedFor(cd(50, 'abandoned'))).toBe(0);
+    const done = closeSession(save, cd(25, 'completed'), T0 + 25 * MIN);
+    expect(feed(done)).toBe(6);
+    expect(feed(grantReward(done, done.sessions[0].id, T0))).toBe(6); // 不重複發
+  });
+
+  it('領養需要棲地工程與金幣，每種只能領養一次', () => {
+    const uid = fresh().profile.id;
+    expect(adoptPet(focus(fresh(), 60), uid, 'pet_butterfly', T0).ok).toBe(false); // 花圃未完成
+    let save = withFlowers();
+    expect(adoptPet(save, save.profile.id, 'pet_frog', T0).ok).toBe(false); // 溪流未開
+    const r = adoptPet(save, save.profile.id, 'pet_butterfly', T0);
+    if (!r.ok) throw new Error(r.error);
+    save = r.save;
+    expect(coins(save)).toBe(90); // 120 - 30
+    expect(adoptPet(save, save.profile.id, 'pet_butterfly', T0).ok).toBe(false);
+    expect(adoptedPets(save).map((p) => p.stage)).toEqual([0]);
+    expect(validateSave(save).ok).toBe(true);
+  });
+
+  it('餵食：用量不超過存量與成體所需，跨過門檻會長大，長大後不能再餵', () => {
+    let save = withFlowers(); // 120 分鐘碼表 → 24 份飼料
+    const uid = save.profile.id;
+    expect(feedPet(save, uid, 'pet_butterfly', 5, T0).ok).toBe(false); // 還沒領養
+    const a = adoptPet(save, uid, 'pet_butterfly', T0);
+    if (!a.ok) throw new Error(a.error);
+    save = a.save;
+    for (const bad of [0, -1, 1.5]) expect(feedPet(save, uid, 'pet_butterfly', bad, T0).ok).toBe(false);
+    let r = feedPet(save, uid, 'pet_butterfly', 12, T0);
+    if (!r.ok) throw new Error(r.error);
+    expect([r.from, r.to]).toEqual([0, 1]); // 卵 → 毛毛蟲
+    save = r.save;
+    save = focus(save, 300, T0 + 600 * MIN); // +60 份
+    r = feedPet(save, uid, 'pet_butterfly', 'all', T0);
+    if (!r.ok) throw new Error(r.error);
+    expect(r.spent).toBe(48); // 只餵到成體門檻 60
+    expect(r.to).toBe(3);
+    save = r.save;
+    expect(petFed(save, 'pet_butterfly')).toBe(60);
+    expect(feedPet(save, uid, 'pet_butterfly', 1, T0).ok).toBe(false);
+    expect(fedByUser(save, 'pet_butterfly').get(uid)).toBe(60);
+    expect(validateSave(save).ok).toBe(true);
+    const overfed = { ...save, transactions: save.transactions.map((t) => (t.kind === 'feed_spend' ? { ...t, amount: t.amount * 3 } : t)) };
+    expect(validateSave(overfed).ok).toBe(false);
   });
 });

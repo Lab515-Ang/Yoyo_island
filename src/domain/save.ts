@@ -1,6 +1,6 @@
 // 存檔建立、驗證與示範資料
-import { PROJECTS, HABITATS, SPECIES } from '../content/config';
-import { contribute, balance, coins } from './game';
+import { PROJECTS, HABITATS, SPECIES, PETS, petDef } from '../content/config';
+import { contribute, balance, coins, feed, feedFor, petMaxFeed } from './game';
 import type { AppMode, SaveFile, Settings } from './types';
 
 const iso = (t: number) => new Date(t).toISOString();
@@ -44,10 +44,16 @@ export function newSave(mode: AppMode, who: { nickname: string; islandName: stri
 // ---------- 示範模式（獨立存檔） ----------
 
 /** 示範專用贈點／贈幣：key 以 demo-grant: / demo-coin: 開頭，validateSave 拒絕出現在 personal 存檔。 */
-export function demoGrant(save: SaveFile, userId: string, amount: number, now: number, currency: 'points' | 'coins' = 'points'): SaveFile {
+const DEMO_GRANT = {
+  points: { kind: 'focus_reward', prefix: 'demo-grant' },
+  coins: { kind: 'coin_reward', prefix: 'demo-coin' },
+  feed: { kind: 'feed_reward', prefix: 'demo-feed' },
+} as const;
+
+export function demoGrant(save: SaveFile, userId: string, amount: number, now: number, currency: keyof typeof DEMO_GRANT = 'points'): SaveFile {
   if (save.mode !== 'demo') throw new Error('demo only');
-  const kind = currency === 'points' ? 'focus_reward' : 'coin_reward';
-  const key = `${currency === 'points' ? 'demo-grant' : 'demo-coin'}:${newId()}`;
+  const { kind, prefix } = DEMO_GRANT[currency];
+  const key = `${prefix}:${newId()}`;
   return {
     ...save,
     transactions: [...save.transactions, { id: newId(), userId, islandId: save.profile.activeIslandId, kind, amount, idempotencyKey: key, createdAt: iso(now) }],
@@ -77,7 +83,7 @@ export function newDemoSave(from: SaveFile | null, now: number): SaveFile {
     const r = contribute(s, ids[who], pid, pts, now);
     if (r.ok) s = r.save;
   }
-  return demoGrant(demoGrant(s, s.profile.id, 10, now), s.profile.id, 40, now, 'coins');
+  return demoGrant(demoGrant(demoGrant(s, s.profile.id, 10, now), s.profile.id, 40, now, 'coins'), s.profile.id, 20, now, 'feed');
 }
 
 // ---------- 驗證 ----------
@@ -118,23 +124,32 @@ export function validateSave(raw: unknown): Validation {
   if (open > 1) return fail('存檔中有多個未結算的專注。');
 
   const keys = new Set<string>();
-  const rewarded = { focus_reward: new Set<string>(), coin_reward: new Set<string>() };
-  const invited: string[] = [];
+  const rewarded = { focus_reward: new Set<string>(), coin_reward: new Set<string>(), feed_reward: new Set<string>() };
+  const invited: string[] = []; // 邀請生物或領養寵物時要求的工程
+  const fedTotal = new Map<string, number>();
   for (const t of save.transactions) {
     if (!isObj(t) || !Number.isInteger(t.amount) || t.amount === 0 || !isStr(t.idempotencyKey)) return fail('點數紀錄格式不正確。');
     if (keys.has(t.idempotencyKey)) return fail('點數紀錄重複。');
     keys.add(t.idempotencyKey);
-    if (t.kind === 'focus_reward' || t.kind === 'coin_reward') {
+    if (t.kind === 'focus_reward' || t.kind === 'coin_reward' || t.kind === 'feed_reward') {
       if (t.amount < 0) return fail('點數紀錄數值不正確。');
-      if (t.idempotencyKey.startsWith('demo-grant:') || t.idempotencyKey.startsWith('demo-coin:')) {
+      if (t.idempotencyKey.startsWith('demo-')) {
         if (save.mode !== 'demo') return fail('個人存檔中含有示範贈點。');
       } else {
-        // 每個完成的 session 最多各一筆點數與金幣，數量等於有效分鐘
+        // 每個完成的 session 最多各一筆點數、金幣、飼料
         const s = t.sessionId ? sessions.get(t.sessionId) : undefined;
         const seen = rewarded[t.kind];
-        if (!s || s.status !== 'completed' || seen.has(s.id) || t.amount !== Math.floor(s.accumulatedMs / 60000)) return fail('專注獎勵與紀錄不符。');
+        const expected = s && (t.kind === 'feed_reward' ? feedFor(s) : Math.floor(s.accumulatedMs / 60000));
+        if (!s || s.status !== 'completed' || seen.has(s.id) || t.amount !== expected) return fail('專注獎勵與紀錄不符。');
         seen.add(s.id);
       }
+    } else if (t.kind === 'pet_adopt') {
+      const pet = petDef(t.petTypeId ?? '');
+      if (!pet || t.amount !== -pet.adoptPrice || t.idempotencyKey !== `pet:${t.islandId}:${pet.id}`) return fail('寵物領養紀錄不符。');
+      invited.push(pet.requiredProjectId);
+    } else if (t.kind === 'feed_spend') {
+      if (t.amount > 0 || !petDef(t.petTypeId ?? '')) return fail('餵食紀錄不符。');
+      fedTotal.set(t.petTypeId!, (fedTotal.get(t.petTypeId!) ?? 0) - t.amount);
     } else if (t.kind === 'species_spend') {
       const sp = SPECIES.find((x) => x.id === t.speciesId);
       if (!sp || t.amount !== -sp.price || t.idempotencyKey !== `species:${t.islandId}:${sp.id}`) return fail('生物邀請紀錄不符。');
@@ -149,7 +164,7 @@ export function validateSave(raw: unknown): Validation {
     if (!save.transactions.some((t) => t.contributionId === c.id)) return fail('工程投入缺少對應的點數紀錄。');
   }
   for (const m of save.memberships) {
-    if (balance(save, m.userId) < 0 || coins(save, m.userId) < 0) return fail('錢包餘額不可小於 0。');
+    if (balance(save, m.userId) < 0 || coins(save, m.userId) < 0 || feed(save, m.userId) < 0) return fail('錢包餘額不可小於 0。');
   }
   for (const def of PROJECTS) {
     const row = save.projects.find((r) => r.projectId === def.id && r.islandId === save.profile.activeIslandId);
@@ -157,6 +172,10 @@ export function validateSave(raw: unknown): Validation {
     const sum = save.contributions.filter((c) => c.projectId === def.id && c.islandId === row.islandId).reduce((a, c) => a + c.points, 0);
     if (sum !== row.contributedPoints || sum > def.requiredPoints) return fail('工程進度與投入紀錄不符。');
     if (!!row.completedAt !== (sum === def.requiredPoints)) return fail('工程完成狀態不正確。');
+  }
+  for (const [petId, total] of fedTotal) {
+    const pet = PETS.find((p) => p.id === petId)!;
+    if (!keys.has(`pet:${save.profile.activeIslandId}:${petId}`) || total > petMaxFeed(pet)) return fail('寵物餵食紀錄不符。');
   }
   for (const pid of invited) {
     if (!save.projects.some((r) => r.projectId === pid && r.completedAt)) return fail('生物邀請早於棲地工程完成。');

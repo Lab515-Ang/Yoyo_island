@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGame, useNow, useSave } from './app/store';
 import { APP_NAME, COPY, avatarEmoji } from './content/config';
-import { balance, coins, openSession, settleOpenSessions } from './domain/game';
+import { balance, coins, feed, openSession, settleOpenSessions } from './domain/game';
 import * as storage from './data/storage';
 import { remainingMs } from './domain/focus';
 import { notifyEnd, playChime } from './sound';
@@ -146,12 +146,15 @@ function Main() {
             <span className="brand-name">🏠 {APP_NAME}</span>
             <span className="muted small">{save.islands[0]?.name}</span>
           </button>
-          <div className="wallet" title="成長點數與金幣">
+          <div className="wallet" title="成長點數、金幣與飼料">
             <span title="成長點數">
               🌱 <strong>{balance(save)}</strong>
             </span>
             <span title="金幣">
               <Coin /> <strong>{coins(save)}</strong>
+            </span>
+            <span title="飼料">
+              🌾 <strong>{feed(save)}</strong>
             </span>
           </div>
           <button className="avatar-btn" onClick={() => go('settings')} aria-label="設定">
@@ -170,7 +173,7 @@ function Main() {
         </nav>
         <main className="content">
           {view === 'lobby' && <Lobby onStarted={() => setSummaryId(null)} onGoIsland={() => go('island')} />}
-          {view === 'island' && <IslandPage habitat={habitat} setHabitat={setHabitat} />}
+          {view === 'island' && <IslandPage habitat={habitat} setHabitat={setHabitat} onShop={() => go('shop')} />}
           {view === 'quests' && <Quests onIsland={() => go('island')} onEnter={enter} onShop={() => go('shop')} />}
           {view === 'records' && <Records />}
           {view === 'sounds' && <Sounds />}

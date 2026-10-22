@@ -1,7 +1,7 @@
 import { useSave } from '../app/store';
 import { COPY } from '../content/config';
 import { Coin } from '../components/ui';
-import { activeProject, balance, coins, earnedFor, remainingFor } from '../domain/game';
+import { activeProject, balance, coins, earnedFor, feed, remainingFor } from '../domain/game';
 
 export function Summary({ sessionId, onDone, onProject }: { sessionId: string; onDone: () => void; onProject: () => void }) {
   const { save } = useSave();
@@ -30,7 +30,7 @@ export function Summary({ sessionId, onDone, onProject }: { sessionId: string; o
               <>
                 <p className="eyebrow">專注未完成</p>
                 <h1>這段專注提前結束了。</h1>
-                <p>沒有撐到倒數結束，這次沒有獲得成長點數和金幣。休息一下，下次再試試。</p>
+                <p>沒有撐到倒數結束，這次沒有獲得成長點數、金幣和飼料。休息一下，下次再試試。</p>
               </>
             )}
             <dl className="stats">
@@ -48,11 +48,15 @@ export function Summary({ sessionId, onDone, onProject }: { sessionId: string; o
                 <dt>金幣</dt>
                 <dd>+{earned.coins}</dd>
               </div>
+              <div>
+                <dt>飼料</dt>
+                <dd>+{earned.feed}</dd>
+              </div>
             </dl>
           </section>
 
           <p className="small muted center-text">
-            現有 🌱 {wallet} 點 · <Coin /> {coins(save)} 金幣
+            現有 🌱 {wallet} 點 · <Coin /> {coins(save)} 金幣 · 🌾 {feed(save)} 份飼料
           </p>
 
           {project ? (

@@ -3,12 +3,12 @@ import { useSave } from '../app/store';
 import { HABITATS, MAX_CUSTOM_MINUTES, QUICK_MINUTES, TAGS, habitatName } from '../content/config';
 import { fmtDateTime, fmtMinutes } from '../components/ui';
 import { localDateKey, shiftDateKey } from '../domain/focus';
-import { habitatOpen, minutesByDay, rewardFor } from '../domain/game';
+import { feedFor, habitatOpen, minutesByDay, rewardFor } from '../domain/game';
 import type { FocusSession, Settings } from '../domain/types';
 
 export function sessionLine(s: FocusSession) {
   const min = Math.floor(s.accumulatedMs / 60000);
-  return `${s.taskTitle} · ${s.tag} · ${min} 分鐘${s.status === 'abandoned' ? '（提前結束，無獎勵）' : ` · +${rewardFor(s)} 點 +${rewardFor(s)} 金幣`}`;
+  return `${s.taskTitle} · ${s.tag} · ${min} 分鐘${s.status === 'abandoned' ? '（提前結束，無獎勵）' : ` · +${rewardFor(s)} 點 +${rewardFor(s)} 金幣 +${feedFor(s)} 飼料`}`;
 }
 
 /** 專注紀錄與專注計畫設置：大廳開始專注時的預設值，以及完整紀錄。 */

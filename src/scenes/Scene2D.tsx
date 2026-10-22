@@ -1,6 +1,7 @@
 // 不支援 WebGL / 效能不足時的 2D 降級：保留工程變化與可點熱區
 import { speciesDef } from '../content/config';
 import { Creature } from '../components/Creature';
+import { PetArt } from '../components/PetArt';
 import type { SceneProps } from './Scene3D';
 
 const SPOT: Record<string, [number, number]> = {
@@ -14,7 +15,15 @@ const SPOT: Record<string, [number, number]> = {
   waterside_bird: [200, 95],
 };
 
-export default function Scene2D({ habitatId, done, present, reducedMotion, onSelect, backdrop }: SceneProps) {
+const PET_SPOT: Record<string, [number, number]> = {
+  pet_butterfly: [120, 205],
+  pet_whiteeye: [250, 118],
+  pet_frog: [90, 128],
+  pet_firefly: [322, 178],
+  pet_axolotl: [172, 140],
+};
+
+export default function Scene2D({ habitatId, done, present, reducedMotion, onSelect, backdrop, pets = [] }: SceneProps) {
   const flowers = Array.from({ length: 12 }, (_, i) => [40 + (i % 6) * 14, 160 + Math.floor(i / 6) * 10, i] as const);
   return (
     <svg viewBox="0 0 360 240" preserveAspectRatio={backdrop ? 'xMidYMin slice' : undefined} className={`scene2d${reducedMotion ? '' : ' animate'}`} role="img" aria-label="簡化 2D 棲地場景">
@@ -107,6 +116,18 @@ export default function Scene2D({ habitatId, done, present, reducedMotion, onSel
           )}
         </g>
       )}
+      {pets.map(({ id, stage }) => {
+        const [x, y] = PET_SPOT[id];
+        const pick = () => onSelect?.(`pet:${id}`);
+        return (
+          <g key={id} className="creature-hit drift" role="button" tabIndex={0} aria-label="寵物" onClick={pick} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && pick()}>
+            <circle cx={x} cy={y} r="22" fill="transparent" />
+            <svg x={x - 20} y={y - 20} width="40" height="40" viewBox="0 0 64 64">
+              <PetArt id={id} stage={stage} size={64} />
+            </svg>
+          </g>
+        );
+      })}
       {present.map((id) => {
         const [x, y] = SPOT[id];
         return (

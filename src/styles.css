@@ -970,3 +970,58 @@ legend {
   background: radial-gradient(circle at 35% 35%, #ffe08a, #e8b85a 60%, #c99434);
   box-shadow: inset 0 0 0 1.5px #c99434;
 }
+.pet-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 0.6rem;
+}
+.pet-chip {
+  border-radius: var(--radius);
+  padding: 0.7rem 0.6rem;
+  gap: 0.2rem;
+  justify-content: flex-start;
+}
+.pet-chip .bar {
+  width: 100%;
+  height: 8px;
+  margin: 0.2rem 0 0;
+}
+.badge.pet {
+  background: var(--sage-deep);
+}
+.stage-strip {
+  list-style: none;
+  padding: 0;
+  margin: 0.8rem 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.3rem;
+  text-align: center;
+}
+.stage-strip li {
+  display: grid;
+  justify-items: center;
+  color: var(--muted);
+}
+.stage-strip li.reached {
+  color: var(--text);
+  font-weight: 600;
+}
+.brand-name {
+  white-space: nowrap;
+}
+/* 窄螢幕：三種資源 + 選單 + 頭像要擠在一行 */
+@media (max-width: 420px) {
+  .topbar {
+    gap: 0.5rem;
+    padding: 0.6rem 0.75rem;
+  }
+  .brand .small {
+    display: none;
+  }
+  .wallet {
+    gap: 0.45rem;
+    padding: 0.3em 0.6em;
+    font-size: 0.9rem;
+  }
+}

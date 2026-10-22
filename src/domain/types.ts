@@ -73,12 +73,15 @@ export interface PointTransaction {
   id: ID;
   userId: ID;
   islandId: ID;
-  // 成長點數：focus_reward / project_spend；金幣：coin_reward / species_spend
-  kind: 'focus_reward' | 'project_spend' | 'coin_reward' | 'species_spend';
+  // 成長點數：focus_reward / project_spend
+  // 金幣：coin_reward / species_spend / pet_adopt
+  // 飼料：feed_reward / feed_spend
+  kind: 'focus_reward' | 'project_spend' | 'coin_reward' | 'species_spend' | 'pet_adopt' | 'feed_reward' | 'feed_spend';
   amount: number; // 獲得 > 0、花費 < 0
   sessionId?: ID;
   contributionId?: ID;
   speciesId?: ID;
+  petTypeId?: ID; // 寵物狀態全部由 pet_adopt / feed_spend 交易推導，不另存
   idempotencyKey: string; // reward:/coin:{sessionId}、spend:{contributionId}、species:{islandId}:{speciesId}
   createdAt: ISODate;
 }

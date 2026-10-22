@@ -1,5 +1,5 @@
 // 經濟、工程、生物發現與統計：全部是對 SaveFile 的純函式
-import { PROJECTS, SPECIES, HABITATS, projectDef, type ProjectDef, type SpeciesDef } from '../content/config';
+import { PROJECTS, SPECIES, HABITATS, PETS, FEED_PER_MINUTES, COUNTDOWN_BONUS_PER_MINUTES, projectDef, type PetDef, type ProjectDef, type SpeciesDef } from '../content/config';
 import { addSegmentsByDay, createSession, isOpen, settle } from './focus';
 import type { FocusSession, HabitatId, ID, SaveFile, TimerMode } from './types';
 
@@ -15,7 +15,15 @@ export const islandId = (save: SaveFile) => save.profile.activeIslandId;
 export const rewardFor = (s: FocusSession) => (s.status === 'completed' ? Math.floor(s.accumulatedMs / POINT_MS) : 0);
 
 const POINT_KINDS = new Set(['focus_reward', 'project_spend']);
-const COIN_KINDS = new Set(['coin_reward', 'species_spend']);
+const COIN_KINDS = new Set(['coin_reward', 'species_spend', 'pet_adopt']);
+const FEED_KINDS = new Set(['feed_reward', 'feed_spend']);
+
+/** 完成的專注每 5 分鐘 1 份飼料；倒數每撐完 25 分鐘再多 1 份（倒數提前結束是 abandoned，沒有）。 */
+export function feedFor(s: FocusSession) {
+  if (s.status !== 'completed') return 0;
+  const min = Math.floor(s.accumulatedMs / POINT_MS);
+  return Math.floor(min / FEED_PER_MINUTES) + (s.mode === 'countdown' ? Math.floor(min / COUNTDOWN_BONUS_PER_MINUTES) : 0);
+}
 
 function sumKinds(save: SaveFile, userId: ID, kinds: Set<string>) {
   const isl = islandId(save);
@@ -25,6 +33,8 @@ function sumKinds(save: SaveFile, userId: ID, kinds: Set<string>) {
 export const balance = (save: SaveFile, userId: ID = save.profile.id) => sumKinds(save, userId, POINT_KINDS);
 /** 金幣錢包 */
 export const coins = (save: SaveFile, userId: ID = save.profile.id) => sumKinds(save, userId, COIN_KINDS);
+/** 飼料存量 */
+export const feed = (save: SaveFile, userId: ID = save.profile.id) => sumKinds(save, userId, FEED_KINDS);
 
 export const openSession = (save: SaveFile) => save.sessions.find(isOpen) ?? null;
 
@@ -49,16 +59,16 @@ export function grantReward(save: SaveFile, sessionId: ID, now: number): SaveFil
   if (!s || s.status !== 'completed') return save;
   const amount = rewardFor(s);
   if (amount <= 0) return save;
-  const add = (kind: 'focus_reward' | 'coin_reward', key: string) =>
-    save.transactions.some((t) => t.idempotencyKey === key) ? [] : [{ id: newId(), userId: s.userId, islandId: s.islandId, kind, amount, sessionId: s.id, idempotencyKey: key, createdAt: iso(now) }];
-  const fresh = [...add('focus_reward', `reward:${s.id}`), ...add('coin_reward', `coin:${s.id}`)];
+  const add = (kind: 'focus_reward' | 'coin_reward' | 'feed_reward', key: string, n = amount) =>
+    n <= 0 || save.transactions.some((t) => t.idempotencyKey === key) ? [] : [{ id: newId(), userId: s.userId, islandId: s.islandId, kind, amount: n, sessionId: s.id, idempotencyKey: key, createdAt: iso(now) }];
+  const fresh = [...add('focus_reward', `reward:${s.id}`), ...add('coin_reward', `coin:${s.id}`), ...add('feed_reward', `feed:${s.id}`, feedFor(s))];
   return fresh.length ? { ...save, transactions: [...save.transactions, ...fresh] } : save;
 }
 
 /** 該 session 實際拿到的點數與金幣（結算畫面用）。 */
 export function earnedFor(save: SaveFile, sessionId: ID) {
   const get = (key: string) => save.transactions.find((t) => t.idempotencyKey === key)?.amount ?? 0;
-  return { points: get(`reward:${sessionId}`), coins: get(`coin:${sessionId}`) };
+  return { points: get(`reward:${sessionId}`), coins: get(`coin:${sessionId}`), feed: get(`feed:${sessionId}`) };
 }
 
 /** 收尾 session 並結算（完成時發點），一次提交。 */
@@ -194,4 +204,67 @@ export function contributionsByUser(save: SaveFile) {
   const m = new Map<ID, number>();
   for (const c of save.contributions) if (c.islandId === islandId(save)) m.set(c.userId, (m.get(c.userId) ?? 0) + c.points);
   return m;
+}
+
+// ---------- 寵物 ----------
+
+const petKey = (save: SaveFile, petTypeId: string) => `pet:${islandId(save)}:${petTypeId}`;
+const adoptTx = (save: SaveFile, petTypeId: string) => save.transactions.find((t) => t.idempotencyKey === petKey(save, petTypeId));
+
+export const isAdopted = (save: SaveFile, petTypeId: string) => !!adoptTx(save, petTypeId);
+export const adoptedAt = (save: SaveFile, petTypeId: string) => adoptTx(save, petTypeId)?.createdAt ?? null;
+export const canAdopt = (save: SaveFile, p: PetDef) => isDone(save, p.requiredProjectId) && !isAdopted(save, p.id);
+
+/** 寵物累計吃了多少飼料（全體成員合計）。 */
+export const petFed = (save: SaveFile, petTypeId: string) =>
+  -save.transactions.reduce((sum, t) => (t.kind === 'feed_spend' && t.petTypeId === petTypeId && t.islandId === islandId(save) ? sum + t.amount : sum), 0);
+
+/** 0～3：由累計飼料推導，不另存。 */
+export const petStage = (p: PetDef, fed: number) => p.thresholds.filter((n) => fed >= n).length;
+export const petMaxFeed = (p: PetDef) => p.thresholds[p.thresholds.length - 1];
+
+export const adoptedPets = (save: SaveFile, habitatId?: HabitatId) =>
+  PETS.filter((p) => isAdopted(save, p.id) && (!habitatId || p.habitatId === habitatId)).map((p) => ({ def: p, fed: petFed(save, p.id), stage: petStage(p, petFed(save, p.id)) }));
+
+/** 每位成員餵了這隻寵物多少。 */
+export function fedByUser(save: SaveFile, petTypeId: string) {
+  const m = new Map<ID, number>();
+  for (const t of save.transactions) if (t.kind === 'feed_spend' && t.petTypeId === petTypeId && t.islandId === islandId(save)) m.set(t.userId, (m.get(t.userId) ?? 0) - t.amount);
+  return m;
+}
+
+export type PetResult = { ok: true; save: SaveFile } | { ok: false; error: string };
+
+/** 用金幣領養；每種寵物在一座島只能領養一次，且棲地工程要先完成。 */
+export function adoptPet(save: SaveFile, userId: ID, petTypeId: string, now: number): PetResult {
+  const p = PETS.find((x) => x.id === petTypeId);
+  if (!p) return { ok: false, error: '找不到這種寵物。' };
+  if (isAdopted(save, p.id)) return { ok: false, error: `${p.name}已經在島上了。` };
+  if (!isDone(save, p.requiredProjectId)) return { ok: false, error: `需要先完成「${projectDef(p.requiredProjectId)?.title}」工程。` };
+  const have = coins(save, userId);
+  if (have < p.adoptPrice) return { ok: false, error: `金幣不足，還差 ${p.adoptPrice - have} 金幣。` };
+  return {
+    ok: true,
+    save: { ...save, transactions: [...save.transactions, { id: newId(), userId, islandId: islandId(save), kind: 'pet_adopt', amount: -p.adoptPrice, petTypeId: p.id, idempotencyKey: petKey(save, p.id), createdAt: iso(now) }] },
+  };
+}
+
+export type FeedResult = { ok: true; save: SaveFile; spent: number; from: number; to: number } | { ok: false; error: string };
+
+/** 餵食：實際用量 = min(輸入, 飼料存量, 長到成體還需要的量)。 */
+export function feedPet(save: SaveFile, userId: ID, petTypeId: string, input: number | 'all', now: number): FeedResult {
+  const p = PETS.find((x) => x.id === petTypeId);
+  if (!p || !isAdopted(save, p.id)) return { ok: false, error: '還沒有領養這隻寵物。' };
+  if (input !== 'all' && (!Number.isInteger(input) || input <= 0)) return { ok: false, error: '請輸入大於 0 的整數。' };
+  const fed = petFed(save, p.id);
+  const left = petMaxFeed(p) - fed;
+  if (left <= 0) return { ok: false, error: `${p.name}已經長大了。` };
+  const have = feed(save, userId);
+  if (have <= 0) return { ok: false, error: '沒有飼料了。完成專注，每 5 分鐘得 1 份飼料。' };
+  const spent = Math.min(input === 'all' ? have : input, have, left);
+  const next: SaveFile = {
+    ...save,
+    transactions: [...save.transactions, { id: newId(), userId, islandId: islandId(save), kind: 'feed_spend', amount: -spent, petTypeId: p.id, idempotencyKey: `feedspend:${newId()}`, createdAt: iso(now) }],
+  };
+  return { ok: true, save: next, spent, from: petStage(p, fed), to: petStage(p, fed + spent) };
 }

@@ -95,7 +95,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
     </div>
       {ending && (
         <Modal title="要放棄這段專注嗎？" onClose={() => setEnding(false)}>
-          <p>倒數還沒結束。現在放棄，已專注的 {elapsedMin} 分鐘不會獲得任何成長點數和金幣，只會留下時間紀錄。</p>
+          <p>倒數還沒結束。現在放棄，已專注的 {elapsedMin} 分鐘不會獲得任何成長點數、金幣和飼料，只會留下時間紀錄。</p>
           <div className="stack">
             <button className="primary wide" onClick={() => setEnding(false)}>
               繼續專注

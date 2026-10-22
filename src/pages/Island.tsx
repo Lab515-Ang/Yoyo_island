@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useSave } from '../app/store';
-import { COPY, HABITATS, PROJECTS, habitatName } from '../content/config';
+import { COPY, HABITATS, PETS, PROJECTS, habitatName } from '../content/config';
 import { Creature } from '../components/Creature';
 import { Progress, SpeciesCard } from '../components/ui';
-import { activeProject, balance, contribute, discoveryOf, habitatOpen, isDone, projectRow, remainingFor, speciesPresent, visitHabitat } from '../domain/game';
+import { PetArt } from '../components/PetArt';
+import { PetCard } from '../components/PetCard';
+import { activeProject, adoptedPets, balance, canAdopt, contribute, discoveryOf, feed, habitatOpen, isDone, petMaxFeed, projectRow, remainingFor, speciesPresent, visitHabitat } from '../domain/game';
 import type { HabitatId } from '../domain/types';
 import { HabitatScene, prefersReducedMotion } from '../scenes/HabitatScene';
 import { IslandMap } from '../scenes/IslandMap';
 import { useAmbient } from '../sound';
 
-export function IslandPage({ habitat, setHabitat }: { habitat: HabitatId | null; setHabitat: (h: HabitatId | null) => void }) {
+export function IslandPage({ habitat, setHabitat, onShop }: { habitat: HabitatId | null; setHabitat: (h: HabitatId | null) => void; onShop: () => void }) {
   const { save } = useSave();
   if (habitat && habitatOpen(save, habitat)) return <HabitatView id={habitat} onBack={() => setHabitat(null)} />;
   const project = activeProject(save);
@@ -32,6 +34,7 @@ export function IslandPage({ habitat, setHabitat }: { habitat: HabitatId | null;
           )}
         </div>
       </section>
+      <MyPets onShop={onShop} />
       {project ? <ProjectPanel onEnter={setHabitat} /> : <section className="card"><p>{COPY.allRestored}</p></section>}
       <section className="card">
         <h2>修復路線</h2>
@@ -148,10 +151,54 @@ function ProjectPanel({ onEnter }: { onEnter: (h: HabitatId) => void }) {
   );
 }
 
+/** 我的寵物：已領養的寵物與成長進度，點開可餵食。 */
+function MyPets({ onShop }: { onShop: () => void }) {
+  const { save } = useSave();
+  const [card, setCard] = useState<string | null>(null);
+  const pets = adoptedPets(save);
+  const adoptable = PETS.filter((p) => canAdopt(save, p));
+  return (
+    <section className="card">
+      <div className="row between">
+        <h2>我的寵物</h2>
+        <span className="small">🌾 {feed(save)} 份飼料</span>
+      </div>
+      {pets.length ? (
+        <div className="pet-row">
+          {pets.map(({ def, fed, stage }) => {
+            const prev = stage === 0 ? 0 : def.thresholds[stage - 1];
+            const next = stage === 3 ? petMaxFeed(def) : def.thresholds[stage];
+            return (
+              <button key={def.id} className="pet-chip" onClick={() => setCard(def.id)}>
+                <PetArt id={def.id} stage={stage} size={56} />
+                <strong>{def.name}</strong>
+                <span className="small muted">{def.stages[stage]}</span>
+                {stage < 3 ? <Progress value={(fed - prev) / (next - prev)} label={`${def.name}成長進度`} /> : <span className="small cond">已長大</span>}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="muted">還沒有寵物。修好棲地後，可以到商店用金幣領養一顆卵，用專注得到的飼料把牠養大。</p>
+      )}
+      {adoptable.length > 0 && (
+        <p className="small">
+          可以領養：{adoptable.map((p) => p.name).join('、')}{' '}
+          <button className="link" onClick={onShop}>
+            去商店
+          </button>
+        </p>
+      )}
+      {card && <PetCard petId={card} onClose={() => setCard(null)} />}
+    </section>
+  );
+}
+
 function HabitatView({ id, onBack }: { id: HabitatId; onBack: () => void }) {
   const { save, update, notify } = useSave();
   const [card, setCard] = useState<string | null>(null);
   const present = speciesPresent(save, id);
+  const pets = adoptedPets(save, id);
   const water = id === 'stream' || isDone(save, 'gh_fountain');
   useAmbient(save.settings.soundEnabled, save.settings.soundVolume, water);
 
@@ -182,8 +229,17 @@ function HabitatView({ id, onBack }: { id: HabitatId; onBack: () => void }) {
       </section>
       <section className="card">
         <h2>在這裡的生物</h2>
-        {present.length ? (
+        {present.length || pets.length ? (
           <div className="creature-row">
+            {pets.map(({ def, stage }) => (
+              <button key={def.id} className="creature-chip" onClick={() => setCard(`pet:${def.id}`)}>
+                <PetArt id={def.id} stage={stage} size={40} />
+                <span>
+                  {def.name}・{def.stages[stage]}
+                </span>
+                <span className="badge pet">寵物</span>
+              </button>
+            ))}
             {present.map((s) => (
               <button key={s.id} className="creature-chip" onClick={() => setCard(s.id)}>
                 <Creature id={s.id} size={40} />
@@ -197,7 +253,11 @@ function HabitatView({ id, onBack }: { id: HabitatId; onBack: () => void }) {
         )}
         <p className="muted small">{h.blurb} 點場景中的生物或上方名稱可以打開圖鑑卡。</p>
       </section>
-      {card && <SpeciesCard save={save} speciesId={card} onClose={() => setCard(null)} />}
+      {card?.startsWith('pet:') ? (
+        <PetCard petId={card.slice(4)} onClose={() => setCard(null)} />
+      ) : (
+        card && <SpeciesCard save={save} speciesId={card} onClose={() => setCard(null)} />
+      )}
     </div>
   );
 }
