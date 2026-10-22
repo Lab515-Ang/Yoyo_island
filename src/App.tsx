@@ -33,6 +33,16 @@ const NAV: { id: View; label: string; icon: string; soon?: boolean }[] = [
   { id: 'settings', label: '設定', icon: '⚙️' },
 ];
 
+// 介面偏好，不屬於存檔：key 不用存檔前綴，避免觸發其他分頁的「存檔已更新」
+const NAV_KEY = 'qiguang-ui:navCollapsed';
+function readCollapsed() {
+  try {
+    return localStorage.getItem(NAV_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 /** 尚未實作的區塊：清楚標示，不放假內容。 */
 function NotYet({ title }: { title: string }) {
   return (
@@ -59,7 +69,17 @@ function Main() {
   const [habitat, setHabitat] = useState<HabitatId | null>(null);
   const [summaryId, setSummaryId] = useState<string | null>(null);
   const [navOpen, setNavOpen] = useState(false); // 手機：抽屜
-  const [collapsed, setCollapsed] = useState(false); // 桌面：收合成圖示列
+  const [collapsed, setCollapsedState] = useState(readCollapsed); // 桌面：收合成圖示列
+  const setCollapsed = (fn: (c: boolean) => boolean) =>
+    setCollapsedState((c) => {
+      const next = fn(c);
+      try {
+        localStorage.setItem(NAV_KEY, next ? '1' : '0');
+      } catch {
+        // 無法保存只影響下次開啟的選單狀態
+      }
+      return next;
+    });
   const wide = () => matchMedia('(min-width: 900px)').matches;
   const open = openSession(save);
   const now = useNow(500, !!open);
