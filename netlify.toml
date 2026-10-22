@@ -1,0 +1,19 @@
+# Netlify 部署設定：每次推送到 main 都會先跑測試再建置
+[build]
+  command = "npm test && npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# service worker 每次都要檢查新版，才能及時更新
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# 檔名帶雜湊，可以長期快取
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
