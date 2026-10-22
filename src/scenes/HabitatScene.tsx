@@ -38,7 +38,7 @@ export function HabitatScene({ habitatId, onSelect, calm = false }: { habitatId:
   const done = useCallback((id: string) => isDone(save, id), [save]);
   const present = speciesPresent(save, habitatId).map((s) => s.id);
   const reducedMotion = save.settings.reducedMotion || prefersReducedMotion();
-  const props = { habitatId, done, present, reducedMotion, onSelect: calm ? undefined : onSelect };
+  const props = { habitatId, done, present, reducedMotion, onSelect: calm ? undefined : onSelect, closeUp: calm };
   const flat = <Scene2D {...props} />;
   const degrade = useCallback(() => {
     setDegraded(true);

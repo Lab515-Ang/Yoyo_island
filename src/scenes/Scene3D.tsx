@@ -11,6 +11,7 @@ export interface SceneProps {
   reducedMotion: boolean;
   onSelect?: (speciesId: string) => void;
   onSlow?: () => void;
+  closeUp?: boolean; // 專注畫面的圓形泡泡：鏡頭拉近
 }
 
 const C = {
@@ -753,7 +754,7 @@ function Stream({ done, present, still, onSelect }: { done: (id: string) => bool
   );
 }
 
-export default function Scene3D({ habitatId, done, present, reducedMotion, onSelect, onSlow }: SceneProps) {
+export default function Scene3D({ habitatId, done, present, reducedMotion, onSelect, onSlow, closeUp }: SceneProps) {
   const [hidden, setHidden] = useState(document.hidden);
   useEffect(() => {
     const on = () => setHidden(document.hidden);
@@ -774,7 +775,7 @@ export default function Scene3D({ habitatId, done, present, reducedMotion, onSel
       <color attach="background" args={[habitatId === 'stream' ? '#cfe5df' : '#d9ead9']} />
       <hemisphereLight args={['#fff4dc', '#9fbf9a', 1.6]} />
       <directionalLight position={[5, 9, 5]} intensity={1.5} color="#fff0d2" />
-      <FitCamera dist={habitatId === 'stream' ? 10.5 : 10} />
+      <FitCamera dist={(habitatId === 'stream' ? 10.5 : 10) * (closeUp ? 0.78 : 1)} />
       {!reducedMotion && <PerfWatch onSlow={onSlow} />}
       {habitatId === 'stream' ? <Stream {...props} /> : <Greenhouse {...props} />}
     </Canvas>

@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type MouseEvent } from 'react';
 import { useNow, useSave } from '../app/store';
-import { APP_NAME, habitatName } from '../content/config';
+import { APP_NAME } from '../content/config';
 import { Modal } from '../components/ui';
 import { elapsedMs, finish, pause, remainingMs, resume } from '../domain/focus';
 import { closeSession, isDone, putSession } from '../domain/game';
 import type { FocusSession, SaveFile } from '../domain/types';
-import { HabitatScene, prefersReducedMotion } from '../scenes/HabitatScene';
+import { HabitatScene } from '../scenes/HabitatScene';
 import { useAmbient } from '../sound';
 
 const clock = (ms: number) => {
@@ -41,59 +41,52 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   const cur = (s: SaveFile) => s.sessions.find((x) => x.id === session.id)!;
 
   const elapsedMin = Math.floor(elapsedMs(session, now) / 60000);
-  const reduced = save.settings.reducedMotion || prefersReducedMotion();
+
+  // 控制鈕平常隱藏，輕觸畫面才出現；進行中 4 秒後自動收起，暫停時常駐
+  const [showControls, setShowControls] = useState(false);
+  useEffect(() => {
+    if (!showControls || paused || ending) return;
+    const id = window.setTimeout(() => setShowControls(false), 4000);
+    return () => clearTimeout(id);
+  }, [showControls, paused, ending]);
+  const act = (fn: () => void) => (e: MouseEvent) => {
+    e.stopPropagation();
+    fn();
+  };
 
   return (
-    <div className="focus">
-      <div className="focus-scene" aria-hidden="true">
+    <>
+    <div className={showControls || paused ? 'focus show-controls' : 'focus'} onClick={() => setShowControls((v) => !v)}>
+      <div className="focus-bubble" aria-hidden="true">
         <HabitatScene habitatId={session.habitatId} calm />
       </div>
-      <div className="focus-panel">
-        <p className="muted">
-          {session.tag} · {habitatName(session.habitatId)}
-        </p>
-        <h1 className="focus-task">{session.taskTitle}</h1>
-        <div className="focus-time" role="timer" aria-live="off" aria-label={countdown ? '剩餘時間' : '已專注時間'}>
-          {clock(shown)}
-        </div>
-        <p className="muted small">{countdown ? `目標 ${Math.round((session.targetSeconds ?? 0) / 60) || '<1'} 分鐘` : '正向計時'}</p>
-        {countdown && (
-          <button
-            className="link small"
-            aria-pressed={save.settings.endChime}
-            onClick={() => update((s) => ({ ...s, settings: { ...s.settings, endChime: !s.settings.endChime } }))}
-          >
-            {save.settings.endChime ? '🔔 結束時響鈴：開' : '🔕 結束時響鈴：關'}
+      <div className="focus-time" role="timer" aria-live="off" aria-label={countdown ? '剩餘時間' : '已專注時間'}>
+        {clock(shown)}
+      </div>
+      <p className="focus-status" aria-live="polite">
+        {paused ? '已暫停' : ''}
+      </p>
+      <div className="focus-controls">
+        {paused ? (
+          <button className="pill" onClick={act(() => update((s) => putSession(s, resume(cur(s), Date.now()))))}>
+            恢復
+          </button>
+        ) : (
+          <button className="pill" onClick={act(() => update((s) => putSession(s, pause(cur(s), Date.now()))))}>
+            暫停
           </button>
         )}
-        {paused && (
-          <div className="breath">
-            <span className={reduced ? 'breath-dot still' : 'breath-dot'} aria-hidden="true" />
-            <p className="small">暫停中。吸氣四拍，吐氣六拍，準備好再回來。</p>
-          </div>
+        {countdown ? (
+          <button className="pill ghost-light" onClick={act(() => setEnding(true))}>
+            提前結束
+          </button>
+        ) : (
+          <button className="pill ghost-light" onClick={act(end)}>
+            完成這段專注
+          </button>
         )}
-        <div className="row center">
-          {paused ? (
-            <button className="primary" onClick={() => update((s) => putSession(s, resume(cur(s), Date.now())))}>
-              恢復
-            </button>
-          ) : (
-            <button className="primary" onClick={() => update((s) => putSession(s, pause(cur(s), Date.now())))}>
-              暫停
-            </button>
-          )}
-          {countdown ? (
-            <button className="ghost" onClick={() => setEnding(true)}>
-              提前結束
-            </button>
-          ) : (
-            <button className="ghost" onClick={end}>
-              完成這段專注
-            </button>
-          )}
-        </div>
-        <p className="muted small note">計時代表你自己記錄的投入時間；切到其他 App 不會被當成分心。</p>
       </div>
+    </div>
       {ending && (
         <Modal title="要提前結束這段專注嗎？" onClose={() => setEnding(false)}>
           <p className="muted">目前已專注 {elapsedMin} 分鐘。</p>
@@ -108,6 +101,6 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
           </div>
         </Modal>
       )}
-    </div>
+    </>
   );
 }
