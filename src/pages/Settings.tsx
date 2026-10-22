@@ -1,0 +1,169 @@
+import { useState } from 'react';
+import { useSave } from '../app/store';
+import { AVATARS } from '../content/config';
+import { validateSave } from '../domain/save';
+import { openSession } from '../domain/game';
+import type { SaveFile } from '../domain/types';
+
+const TIMEZONES: string[] = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
+
+export function SettingsPage() {
+  const { save, update, replace, resetAll, mode, notify } = useSave();
+  const [nickname, setNickname] = useState(save.profile.nickname);
+  const [island, setIsland] = useState(save.islands[0]?.name ?? '');
+  const [preview, setPreview] = useState<SaveFile | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const st = save.settings;
+  const set = (patch: Partial<SaveFile['settings']>) => update((s) => ({ ...s, settings: { ...s.settings, ...patch } }));
+
+  const saveNames = () => {
+    const n = nickname.trim();
+    const i = island.trim();
+    if (!n || !i) return notify('暱稱與島名不能空白。');
+    update((s) => ({ ...s, profile: { ...s.profile, nickname: n }, islands: s.islands.map((x) => (x.id === s.profile.activeIslandId ? { ...x, name: i } : x)) }));
+    notify('已更新名稱。');
+  };
+
+  const exportSave = () => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(save, null, 2)], { type: 'application/json' }));
+    a.download = `qiguang-island-${mode}-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const pickFile = async (file: File | undefined) => {
+    setPreview(null);
+    setImportError(null);
+    if (!file) return;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(await file.text());
+    } catch {
+      return setImportError('這個檔案不是有效的 JSON 存檔。');
+    }
+    const v = validateSave(parsed);
+    if (!v.ok) return setImportError(`無法匯入：${v.error}`);
+    if (v.save.mode !== mode) return setImportError(v.save.mode === 'demo' ? '這是示範存檔，請先開啟本機合作示範再匯入。' : '這是個人存檔，請先回到你的小島再匯入。');
+    setPreview(v.save);
+  };
+
+  return (
+    <div className="page">
+      <h1>{mode === 'demo' ? '設定（示範存檔）' : '設定'}</h1>
+      <section className="card">
+      <section className="sheet-section">
+        <h3>個人</h3>
+        <label>
+          暱稱
+          <input value={nickname} onChange={(e) => setNickname(e.target.value)} maxLength={20} />
+        </label>
+        <label>
+          島名
+          <input value={island} onChange={(e) => setIsland(e.target.value)} maxLength={20} />
+        </label>
+        <button onClick={saveNames}>儲存名稱</button>
+        <div className="avatar-grid">
+          {AVATARS.map((a) => (
+            <button key={a.id} className={a.id === save.profile.avatarId ? 'avatar-opt selected' : 'avatar-opt'} aria-pressed={a.id === save.profile.avatarId} aria-label={a.label} onClick={() => update((s) => ({ ...s, profile: { ...s.profile, avatarId: a.id } }))}>
+              {a.emoji}
+            </button>
+          ))}
+        </div>
+        {TIMEZONES.length > 0 && (
+          <label>
+            時區（每日統計依此計算）
+            <select value={save.profile.timezone} onChange={(e) => update((s) => ({ ...s, profile: { ...s.profile, timezone: e.target.value } }))}>
+              {TIMEZONES.map((tz) => (
+                <option key={tz}>{tz}</option>
+              ))}
+            </select>
+          </label>
+        )}
+      </section>
+
+      <section className="sheet-section">
+        <h3>畫面</h3>
+        <label className="toggle">
+          <input type="checkbox" checked={st.reducedMotion} onChange={(e) => set({ reducedMotion: e.target.checked })} />
+          低動態效果（生物與水面靜止）
+        </label>
+        <label className="toggle">
+          <input type="checkbox" checked={st.sceneMode === '2d'} onChange={(e) => set({ sceneMode: e.target.checked ? '2d' : 'auto' })} />
+          使用簡化 2D 場景（較省電）
+        </label>
+        <p className="small muted">環境音的開關與音量在「大自然交響樂」。</p>
+      </section>
+
+      <section className="sheet-section">
+        <h3>資料</h3>
+        <p className="small muted">進度只保存在這台裝置的瀏覽器裡。換裝置或清除瀏覽器資料前，請先匯出。</p>
+        <div className="row wrap">
+          <button onClick={exportSave}>匯出存檔</button>
+          <label className="button-like">
+            匯入存檔
+            <input type="file" accept="application/json,.json" hidden onChange={(e) => pickFile(e.target.files?.[0])} />
+          </label>
+        </div>
+        {importError && <p className="error" role="alert">{importError}</p>}
+        {preview && (
+          <div className="notice">
+            <p>
+              <strong>匯入預覽</strong>（{preview.mode === 'demo' ? '示範存檔' : '個人存檔'}）
+            </p>
+            <ul className="small">
+              <li>
+                {preview.profile.nickname} 的「{preview.islands[0]?.name}」
+              </li>
+              <li>
+                專注 {preview.sessions.length} 筆 · 工程投入 {preview.contributions.length} 筆 · 發現 {preview.discoveries.length} 種
+              </li>
+              <li>存檔時間 {new Date(preview.savedAt).toLocaleString('zh-TW')}</li>
+            </ul>
+            <p className="small">確認後會取代目前的{mode === 'demo' ? '示範' : ''}存檔。</p>
+            <div className="row">
+              <button
+                className="primary"
+                disabled={!!openSession(save)}
+                onClick={() => {
+                  if (replace(preview)) {
+                    notify('已匯入存檔。');
+                    setPreview(null);
+                  }
+                }}
+              >
+                確認取代
+              </button>
+              <button className="ghost" onClick={() => setPreview(null)}>
+                取消
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="sheet-section">
+        <h3>重設</h3>
+        {confirmReset ? (
+          <div className="notice">
+            <p>這會清除這台裝置上棲光小島的所有資料（包含示範存檔），無法復原。建議先匯出。</p>
+            <div className="row">
+              <button className="danger" onClick={resetAll}>
+                確認全部重設
+              </button>
+              <button className="ghost" onClick={() => setConfirmReset(false)}>
+                取消
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button className="danger" onClick={() => setConfirmReset(true)}>
+            重設全部資料…
+          </button>
+        )}
+      </section>
+      </section>
+    </div>
+  );
+}
