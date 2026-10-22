@@ -174,13 +174,13 @@ function Main() {
         <main className="content">
           {view === 'lobby' && <Lobby onStarted={() => setSummaryId(null)} onGoIsland={() => go('island')} />}
           {view === 'island' && <IslandPage habitat={habitat} setHabitat={setHabitat} onShop={() => go('shop')} />}
-          {view === 'quests' && <Quests onIsland={() => go('island')} onEnter={enter} onShop={() => go('shop')} />}
+          {view === 'quests' && <Quests onIsland={() => go('island')} onShop={() => go('shop')} />}
           {view === 'records' && <Records />}
           {view === 'sounds' && <Sounds onSettings={() => go('settings')} />}
           {view === 'journey' && <Journey onEnter={enter} />}
           {view === 'friends' && <Together />}
           {view === 'achievements' && <NotYet title="成就" />}
-          {view === 'shop' && <Shop onEnter={enter} />}
+          {view === 'shop' && <Shop />}
           {view === 'news' && <NotYet title="活動消息" />}
           {view === 'settings' && <SettingsPage />}
         </main>

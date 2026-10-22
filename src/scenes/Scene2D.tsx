@@ -1,19 +1,7 @@
 // 不支援 WebGL / 效能不足時的 2D 降級：保留工程變化與可點熱區
-import { speciesDef } from '../content/config';
-import { Creature } from '../components/Creature';
 import { PetArt } from '../components/PetArt';
 import type { SceneProps } from './Scene3D';
 
-const SPOT: Record<string, [number, number]> = {
-  butterfly_yellow: [70, 70],
-  bee: [110, 120],
-  butterfly_green: [250, 50],
-  ladybird: [270, 150],
-  dragonfly: [120, 70],
-  minnow: [60, 135],
-  frog: [270, 165],
-  waterside_bird: [200, 95],
-};
 
 const PET_SPOT: Record<string, [number, number]> = {
   pet_butterfly: [120, 205],
@@ -23,7 +11,7 @@ const PET_SPOT: Record<string, [number, number]> = {
   pet_axolotl: [172, 140],
 };
 
-export default function Scene2D({ habitatId, done, present, reducedMotion, onSelect, backdrop, pets = [] }: SceneProps) {
+export default function Scene2D({ habitatId, done, reducedMotion, onSelect, backdrop, pets = [] }: SceneProps) {
   const flowers = Array.from({ length: 12 }, (_, i) => [40 + (i % 6) * 14, 160 + Math.floor(i / 6) * 10, i] as const);
   return (
     <svg viewBox="0 0 360 240" preserveAspectRatio={backdrop ? 'xMidYMin slice' : undefined} className={`scene2d${reducedMotion ? '' : ' animate'}`} role="img" aria-label="簡化 2D 棲地場景">
@@ -124,25 +112,6 @@ export default function Scene2D({ habitatId, done, present, reducedMotion, onSel
             <circle cx={x} cy={y} r="22" fill="transparent" />
             <svg x={x - 20} y={y - 20} width="40" height="40" viewBox="0 0 64 64">
               <PetArt id={id} stage={stage} size={64} />
-            </svg>
-          </g>
-        );
-      })}
-      {present.map((id) => {
-        const [x, y] = SPOT[id];
-        return (
-          <g
-            key={id}
-            className="creature-hit drift"
-            role="button"
-            tabIndex={0}
-            aria-label={speciesDef(id)?.name}
-            onClick={() => onSelect?.(id)}
-            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect?.(id)}
-          >
-            <circle cx={x} cy={y} r="22" fill="transparent" />
-            <svg x={x - 18} y={y - 18} width="36" height="36" viewBox="0 0 64 64">
-              <Creature id={id} size={64} />
             </svg>
           </g>
         );

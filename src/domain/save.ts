@@ -153,6 +153,7 @@ export function validateSave(raw: unknown): Validation {
       fedTotal.set(t.petTypeId!, (fedTotal.get(t.petTypeId!) ?? 0) - t.amount);
     } else if (t.kind === 'species_spend') {
       const sp = SPECIES.find((x) => x.id === t.speciesId);
+      // 舊版「邀請野生訪客」留下的交易：仍需數值正確，但新版不再產生
       if (!sp || t.amount !== -sp.price || t.idempotencyKey !== `species:${t.islandId}:${sp.id}`) return fail('生物邀請紀錄不符。');
       invited.push(sp.requiredProjectId);
     } else if (t.kind === 'project_spend') {

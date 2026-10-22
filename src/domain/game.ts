@@ -1,5 +1,5 @@
 // 經濟、工程、生物發現與統計：全部是對 SaveFile 的純函式
-import { PROJECTS, SPECIES, HABITATS, PETS, SOUNDS, FEED_PER_MINUTES, COUNTDOWN_BONUS_PER_MINUTES, CHANCE, projectDef, type PetDef, type ProjectDef, type SoundUnlock, type SpeciesDef } from '../content/config';
+import { PROJECTS, SPECIES, HABITATS, PETS, SOUNDS, FEED_PER_MINUTES, COUNTDOWN_BONUS_PER_MINUTES, CHANCE, projectDef, type PetDef, type ProjectDef, type SoundUnlock } from '../content/config';
 import { addSegmentsByDay, createSession, isOpen, settle } from './focus';
 import type { FocusSession, HabitatId, ID, SaveFile, TimerMode } from './types';
 
@@ -93,7 +93,7 @@ export function chanceFor(s: FocusSession) {
   return min < CHANCE.minMinutes ? 0 : Math.min(CHANCE.max, min * CHANCE.perMinute);
 }
 
-/** 專注完成時的偶遇：從還沒發現的生物中挑一種，直接收進圖鑑並視為已入住（不用金幣）。 */
+/** 專注完成時的偶遇：從還沒發現的生物中挑一種，收進圖鑑。 */
 export function rollChance(save: SaveFile, s: FocusSession, now: number): SaveFile {
   if (save.discoveries.some((d) => d.sessionId === s.id)) return save;
   if (sessionRoll(s.id) >= chanceFor(s)) return save;
@@ -128,7 +128,7 @@ export const remainingFor = (save: SaveFile, def: ProjectDef) => def.requiredPoi
 export const activeProject = (save: SaveFile): ProjectDef | null => PROJECTS.find((p) => !isDone(save, p.id)) ?? null;
 
 export type ContributeResult =
-  | { ok: true; save: SaveFile; spent: number; completed: ProjectDef | null; unlocked: SpeciesDef[] }
+  | { ok: true; save: SaveFile; spent: number; completed: ProjectDef | null; unlocked: PetDef[] }
   | { ok: false; error: string };
 
 /** 實際扣點 = min(輸入值, 錢包餘額, 工程剩餘需求)；交易、貢獻、工程進度一起提交。 */
@@ -157,7 +157,7 @@ export function contribute(save: SaveFile, userId: ID, projectId: string, input:
     const active = activeProject(next);
     next = { ...next, islands: next.islands.map((i) => (i.id === isl ? { ...i, activeProjectId: active?.id ?? null } : i)) };
   }
-  return { ok: true, save: next, spent, completed: completed ? def : null, unlocked: completed ? SPECIES.filter((s) => s.requiredProjectId === def.id) : [] };
+  return { ok: true, save: next, spent, completed: completed ? def : null, unlocked: completed ? PETS.filter((p) => p.requiredProjectId === def.id) : [] }; // 工程完成後可領養的寵物
 }
 
 // ---------- 棲地與生物 ----------
@@ -167,53 +167,8 @@ export function habitatOpen(save: SaveFile, id: HabitatId) {
   return !!h?.playable && isDone(save, h.unlockProjectId);
 }
 
+/** 圖鑑：生物只會在專注時偶遇而收進圖鑑，不會住進小島（住在島上的只有商店領養的寵物）。 */
 export const discoveryOf = (save: SaveFile, speciesId: string) => save.discoveries.find((d) => d.speciesId === speciesId && d.islandId === islandId(save));
-
-const speciesKey = (save: SaveFile, speciesId: string) => `species:${islandId(save)}:${speciesId}`;
-
-/** 已邀請入住：用金幣邀請過，或改版前就已發現（舊存檔不需要再付）。 */
-export const isOwned = (save: SaveFile, speciesId: string) =>
-  !!discoveryOf(save, speciesId) || save.transactions.some((t) => t.idempotencyKey === speciesKey(save, speciesId));
-
-/** 棲地工程完成、還沒邀請的生物，可以在商店用金幣邀請。 */
-export const isInvitable = (save: SaveFile, s: SpeciesDef) => isDone(save, s.requiredProjectId) && !isOwned(save, s.id);
-
-export type InviteResult = { ok: true; save: SaveFile } | { ok: false; error: string };
-
-/** 用金幣邀請生物入住；每個物種在一座島只能邀請一次。 */
-export function inviteSpecies(save: SaveFile, userId: ID, speciesId: string, now: number): InviteResult {
-  const s = SPECIES.find((x) => x.id === speciesId);
-  if (!s) return { ok: false, error: '找不到這種生物。' };
-  if (isOwned(save, s.id)) return { ok: false, error: `${s.name}已經住在島上了。` };
-  if (!isDone(save, s.requiredProjectId)) return { ok: false, error: `需要先完成「${projectDef(s.requiredProjectId)?.title}」工程。` };
-  const have = coins(save, userId);
-  if (have < s.price) return { ok: false, error: `金幣不足，還差 ${s.price - have} 金幣。` };
-  return {
-    ok: true,
-    save: {
-      ...save,
-      transactions: [...save.transactions, { id: newId(), userId, islandId: islandId(save), kind: 'species_spend', amount: -s.price, speciesId: s.id, idempotencyKey: speciesKey(save, s.id), createdAt: iso(now) }],
-    },
-  };
-}
-
-/** 已邀請入住的生物才會出現在棲地；場景由工程與邀請狀態推導。 */
-export const speciesPresent = (save: SaveFile, habitatId: HabitatId) => SPECIES.filter((s) => s.habitatId === habitatId && isDone(save, s.requiredProjectId) && isOwned(save, s.id));
-
-/** 進入棲地時首次發現；同一 (島, 物種) 只記錄一次。 */
-export function visitHabitat(save: SaveFile, habitatId: HabitatId, now: number): { save: SaveFile; discovered: SpeciesDef[] } {
-  if (!habitatOpen(save, habitatId)) return { save, discovered: [] };
-  const fresh = speciesPresent(save, habitatId).filter((s) => !discoveryOf(save, s.id));
-  if (!fresh.length) return { save, discovered: [] };
-  const isl = islandId(save);
-  return {
-    save: { ...save, discoveries: [...save.discoveries, ...fresh.map((s) => ({ islandId: isl, speciesId: s.id, discoveredAt: iso(now), triggeredByProjectId: s.requiredProjectId }))] },
-    discovered: fresh,
-  };
-}
-
-/** 已邀請、但還沒進棲地見過的生物。 */
-export const pendingVisitors = (save: SaveFile) => SPECIES.filter((s) => isDone(save, s.requiredProjectId) && isOwned(save, s.id) && !discoveryOf(save, s.id));
 
 export function habitatProgress(save: SaveFile, habitatId: HabitatId) {
   const defs = PROJECTS.filter((p) => p.habitatId === habitatId);

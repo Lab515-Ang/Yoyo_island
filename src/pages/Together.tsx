@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useSave } from '../app/store';
-import { COPY, avatarEmoji, projectDef } from '../content/config';
+import { avatarEmoji, COPY, projectDef } from '../content/config';
 import { Progress, fmtDateTime } from '../components/ui';
 import { localDateKey, shiftDateKey, weekStartKey } from '../domain/focus';
-import { activeProject, adoptPet, adoptedPets, balance, contributionsByUser, contribute, fedByUser, feedPet, inviteSpecies, isAdopted, islandId, isOwned, minutesByDay, petFed } from '../domain/game';
+import { activeProject, adoptedPets, adoptPet, balance, contribute, contributionsByUser, fedByUser, feedPet, isAdopted, islandId, minutesByDay, petFed } from '../domain/game';
 import { demoGrant } from '../domain/save';
 import type { SaveFile } from '../domain/types';
 import { PETS, PROJECTS, SPECIES } from '../content/config';
@@ -43,12 +43,6 @@ export function Together() {
           const f = feedPet(next, helper, p.id, p.thresholds[1], Date.now());
           if (f.ok) next = f.save;
         }
-      }
-      for (const sp of SPECIES) {
-        if (isOwned(next, sp.id)) continue;
-        next = demoGrant(next, next.profile.id, sp.price, Date.now(), 'coins');
-        const r = inviteSpecies(next, next.profile.id, sp.id, Date.now());
-        if (r.ok) next = r.save;
       }
       return next;
     }) && notify('示範路線已全部完成，寵物和生物都住進來了。到「我的小島」看看吧。');

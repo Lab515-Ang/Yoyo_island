@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useSave } from '../app/store';
 import { COPY, HABITATS, PETS, PROJECTS, habitatName } from '../content/config';
-import { Creature } from '../components/Creature';
-import { Progress, SpeciesCard } from '../components/ui';
+import { Progress } from '../components/ui';
 import { PetArt } from '../components/PetArt';
 import { PetCard } from '../components/PetCard';
-import { activeProject, adoptedPets, balance, canAdopt, contribute, discoveryOf, feed, habitatOpen, habitatSound, isDone, petMaxFeed, projectRow, remainingFor, speciesPresent, visitHabitat } from '../domain/game';
+import { activeProject, adoptedPets, balance, canAdopt, contribute, feed, habitatOpen, habitatSound, isDone, petMaxFeed, projectRow, remainingFor } from '../domain/game';
 import type { HabitatId } from '../domain/types';
 import { HabitatScene, prefersReducedMotion } from '../scenes/HabitatScene';
 import { IslandMap } from '../scenes/IslandMap';
@@ -86,7 +85,7 @@ function ProjectPanel({ onEnter }: { onEnter: (h: HabitatId) => void }) {
     if (!saved) return;
     setAmount('');
     if (r.completed) {
-      const extra = r.completed.id === 'st_entrance' ? '溪流濕地開放了，也可以選作專注背景。' : r.unlocked.length ? COPY.canInvite(r.unlocked.map((s) => s.name).join('、')) : r.completed.description + '。';
+      const extra = r.completed.id === 'st_entrance' ? '溪流濕地開放了，也可以選作專注背景。' : r.unlocked.length ? COPY.canAdopt(r.unlocked.map((p) => p.name).join('、')) : r.completed.description + '。';
       setJustDone({ title: r.completed.title, habitatId: r.completed.habitatId, message: extra });
       notify(`「${r.completed.title}」完成了！`); // 最後一個工程完成時面板會換成「全部修復」，靠提示告知
     } else {
@@ -195,22 +194,11 @@ function MyPets({ onShop }: { onShop: () => void }) {
 }
 
 function HabitatView({ id, onBack }: { id: HabitatId; onBack: () => void }) {
-  const { save, update, notify } = useSave();
+  const { save } = useSave();
   const [card, setCard] = useState<string | null>(null);
-  const present = speciesPresent(save, id);
   const pets = adoptedPets(save, id);
   useAmbient(save.settings.soundEnabled, save.settings.soundVolume, habitatSound(save, id));
 
-  // 進入棲地時首次發現（同一物種只記錄一次）
-  useEffect(() => {
-    let found: string[] = [];
-    update((s) => {
-      const r = visitHabitat(s, id, Date.now());
-      found = r.discovered.map((x) => x.name);
-      return r.save;
-    });
-    if (found.length) notify(`有新朋友來訪：${found.join('、')}。點牠們看看圖鑑卡吧。`);
-  }, [id, update, notify]);
 
   const h = HABITATS.find((x) => x.id === id)!;
   const reduced = save.settings.reducedMotion || prefersReducedMotion();
@@ -227,8 +215,8 @@ function HabitatView({ id, onBack }: { id: HabitatId; onBack: () => void }) {
         <HabitatScene habitatId={id} onSelect={setCard} />
       </section>
       <section className="card">
-        <h2>在這裡的生物</h2>
-        {present.length || pets.length ? (
+        <h2>住在這裡的寵物</h2>
+        {pets.length ? (
           <div className="creature-row">
             {pets.map(({ def, stage }) => (
               <button key={def.id} className="creature-chip" onClick={() => setCard(`pet:${def.id}`)}>
@@ -236,27 +224,15 @@ function HabitatView({ id, onBack }: { id: HabitatId; onBack: () => void }) {
                 <span>
                   {def.name}・{def.stages[stage]}
                 </span>
-                <span className="badge pet">寵物</span>
-              </button>
-            ))}
-            {present.map((s) => (
-              <button key={s.id} className="creature-chip" onClick={() => setCard(s.id)}>
-                <Creature id={s.id} size={40} />
-                <span>{s.name}</span>
-                {!discoveryOf(save, s.id) && <span className="badge">新</span>}
               </button>
             ))}
           </div>
         ) : (
-          <p className="muted">還很安靜。修好這裡的工程後，可以到商店用金幣邀請生物入住。</p>
+          <p className="muted">還沒有寵物住在這裡。修好棲地後，可以到商店領養。</p>
         )}
-        <p className="muted small">{h.blurb} 點場景中的生物或上方名稱可以打開圖鑑卡。</p>
+        <p className="muted small">{h.blurb} 點場景中的寵物可以打開寵物卡餵食。</p>
       </section>
-      {card?.startsWith('pet:') ? (
-        <PetCard petId={card.slice(4)} onClose={() => setCard(null)} />
-      ) : (
-        card && <SpeciesCard save={save} speciesId={card} onClose={() => setCard(null)} />
-      )}
+      {card && <PetCard petId={card.replace(/^pet:/, '')} onClose={() => setCard(null)} />}
     </div>
   );
 }

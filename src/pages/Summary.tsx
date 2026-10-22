@@ -1,7 +1,7 @@
 import { useSave } from '../app/store';
-import { COPY, habitatName, speciesDef } from '../content/config';
+import { COPY, speciesDef } from '../content/config';
 import { Coin } from '../components/ui';
-import { activeProject, balance, chanceFind, coins, earnedFor, feed, isDone, remainingFor } from '../domain/game';
+import { activeProject, balance, chanceFind, coins, earnedFor, feed, remainingFor } from '../domain/game';
 import { Creature } from '../components/Creature';
 
 export function Summary({ sessionId, onDone, onProject }: { sessionId: string; onDone: () => void; onProject: () => void }) {
@@ -62,10 +62,7 @@ export function Summary({ sessionId, onDone, onProject }: { sessionId: string; o
               <p className="eyebrow">偶遇！</p>
               <Creature id={found.speciesId} size={96} />
               <h2>{speciesDef(found.speciesId)?.name}在你專注的時候來訪了</h2>
-              <p className="small muted">
-                已收進圖鑑，也住進了{habitatName(speciesDef(found.speciesId)!.habitatId)}
-                {isDone(save, speciesDef(found.speciesId)!.requiredProjectId) ? '。' : '（棲地修好後就會在場景裡看到牠）。'}
-              </p>
+              <p className="small muted">已收進圖鑑，可以到「我的歷程 → 生物圖鑑」看看牠。</p>
             </section>
           )}
 

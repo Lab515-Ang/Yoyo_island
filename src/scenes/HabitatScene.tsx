@@ -1,6 +1,6 @@
 import { Component, lazy, Suspense, useCallback, useState, type ReactNode } from 'react';
 import { useSave } from '../app/store';
-import { adoptedPets, isDone, speciesPresent } from '../domain/game';
+import { adoptedPets, isDone } from '../domain/game';
 import type { HabitatId } from '../domain/types';
 import Scene2D from './Scene2D';
 
@@ -36,10 +36,9 @@ export function HabitatScene({ habitatId, onSelect, calm = false }: { habitatId:
   const { save, notify } = useSave();
   const [degraded, setDegraded] = useState(false);
   const done = useCallback((id: string) => isDone(save, id), [save]);
-  const present = speciesPresent(save, habitatId).map((s) => s.id);
   const pets = adoptedPets(save, habitatId).map((p) => ({ id: p.def.id, stage: p.stage }));
   const reducedMotion = save.settings.reducedMotion || prefersReducedMotion();
-  const props = { habitatId, done, present, pets, reducedMotion, onSelect: calm ? undefined : onSelect, backdrop: calm };
+  const props = { habitatId, done, pets, reducedMotion, onSelect: calm ? undefined : onSelect, backdrop: calm };
   const flat = <Scene2D {...props} />;
   const degrade = useCallback(() => {
     setDegraded(true);

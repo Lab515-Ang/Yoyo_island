@@ -1,4 +1,4 @@
-// 原創低多邊形 3D 棲地：所有物件由工程狀態推導（不另存裝飾布林值）
+// 原創低多邊形 3D 棲地：場景物件由工程狀態推導；住在島上的只有領養的寵物
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as THREE from 'three';
@@ -7,7 +7,6 @@ import type { HabitatId } from '../domain/types';
 export interface SceneProps {
   habitatId: HabitatId;
   done: (projectId: string) => boolean;
-  present: string[]; // 目前會出現的生物 id
   reducedMotion: boolean;
   onSelect?: (speciesId: string) => void;
   onSlow?: () => void;
@@ -144,168 +143,6 @@ function Butterfly({ wing, accent, still, path }: { wing: string; accent: string
       </mesh>
       <W side={1} />
       <W side={-1} />
-    </group>
-  );
-}
-
-function Bee({ still }: { still: boolean }) {
-  const ref = useAnim(still, (g, t) => {
-    const k = Math.floor(t / 3) % 3; // 花間移動、短暫懸停
-    const target = [[-3.2, 0.75, 0.4], [-2.4, 0.8, 1.1], [-2.7, 0.7, 0.1]][k];
-    g.position.lerp(new THREE.Vector3(...target), 0.03);
-    g.position.y += Math.sin(t * 6) * 0.003;
-  });
-  return (
-    <group ref={ref} position={[-2.8, 0.75, 0.6]} scale={1.8}>
-      <Hit />
-      <mesh scale={[1, 0.85, 1.25]}>
-        <sphereGeometry args={[0.11, 12, 10]} />
-        <Mat color="#f2c14e" />
-      </mesh>
-      <mesh position={[0, 0, 0.02]} scale={[1.02, 0.87, 0.35]}>
-        <sphereGeometry args={[0.11, 12, 10]} />
-        <Mat color="#3a3128" />
-      </mesh>
-      <mesh position={[0.07, 0.1, 0]} rotation={[0, 0, -0.4]} scale={[1, 0.2, 0.7]}>
-        <sphereGeometry args={[0.08, 8, 6]} />
-        <Mat color="#e6f4f6" opacity={0.8} />
-      </mesh>
-      <mesh position={[-0.07, 0.1, 0]} rotation={[0, 0, 0.4]} scale={[1, 0.2, 0.7]}>
-        <sphereGeometry args={[0.08, 8, 6]} />
-        <Mat color="#e6f4f6" opacity={0.8} />
-      </mesh>
-    </group>
-  );
-}
-
-function Ladybird({ still }: { still: boolean }) {
-  const ref = useAnim(still, (g, t) => {
-    const p = (Math.sin(t * 0.25) + 1) / 2; // 沿葉片緩慢移動
-    g.position.set(2.45 + p * 0.6, 0.83, 0.75 - p * 0.3);
-    g.rotation.y = Math.cos(t * 0.25) > 0 ? -1.1 : 2;
-  });
-  return (
-    <group ref={ref} position={[2.6, 0.83, 0.7]} scale={2}>
-      <Hit r={0.4} />
-      <mesh scale={[1, 0.6, 1.15]}>
-        <sphereGeometry args={[0.09, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <Mat color="#d9543f" />
-      </mesh>
-      <mesh position={[0, 0.01, 0.1]}>
-        <sphereGeometry args={[0.04, 8, 6]} />
-        <Mat color="#2e2a26" />
-      </mesh>
-    </group>
-  );
-}
-
-function Dragonfly({ still }: { still: boolean }) {
-  const ref = useAnim(still, (g, t) => {
-    const c = t % 10; // 巡飛 7 秒，停在蘆葦尖 3 秒
-    if (c < 7) {
-      const a = (c / 7) * Math.PI * 2;
-      g.position.set(Math.sin(a) * 3.2, 0.9 + Math.sin(a * 3) * 0.12, Math.cos(a) * 0.5);
-      g.rotation.y = a + Math.PI / 2;
-    } else g.position.lerp(new THREE.Vector3(-2.6, 1.32, 1.3), 0.08);
-  });
-  return (
-    <group ref={ref} position={[-2.6, 1.32, 1.3]} scale={1.6}>
-      <Hit />
-      <mesh rotation={[0, 0, Math.PI / 2]}>
-        <capsuleGeometry args={[0.03, 0.4, 4, 8]} />
-        <Mat color="#3f8f9a" />
-      </mesh>
-      {[-0.06, 0.06].map((x) =>
-        [1, -1].map((s) => (
-          <mesh key={`${x}${s}`} position={[x, 0.02, 0.18 * s]} rotation={[-Math.PI / 2, 0, 0]} scale={[0.35, 1, 1]}>
-            <circleGeometry args={[0.16, 10]} />
-            <meshLambertMaterial color="#e2f6f8" transparent opacity={0.75} side={THREE.DoubleSide} depthWrite={false} />
-          </mesh>
-        )),
-      )}
-    </group>
-  );
-}
-
-function Minnows({ still }: { still: boolean }) {
-  const ref = useAnim(still, (g, t) => {
-    g.rotation.y = -t * 0.25;
-  });
-  return (
-    <group position={[-3, 0.13, 0]}>
-      <Hit r={0.9} />
-      <group ref={ref} scale={1.4}>
-        {[0, 1, 2, 3, 4].map((i) => (
-          <mesh key={i} position={[Math.cos(i * 1.3) * (0.6 + i * 0.08), 0, Math.sin(i * 1.3) * 0.45]} rotation={[0, -i * 1.3, 0]} scale={[0.5, 0.35, 1]}>
-            <sphereGeometry args={[0.13, 10, 8]} />
-            <Mat color="#b9c8cf" />
-          </mesh>
-        ))}
-      </group>
-    </group>
-  );
-}
-
-function Frog({ still }: { still: boolean }) {
-  const ref = useAnim(still, (g, t) => {
-    g.scale.y = 1.6 * (1 + Math.sin(t * 2) * 0.04); // 呼吸起伏
-    const c = t % 9;
-    g.position.y = 0.42 + (c > 8.4 ? Math.sin(((c - 8.4) / 0.6) * Math.PI) * 0.3 : 0); // 偶爾跳動
-  });
-  return (
-    <group ref={ref} position={[3.3, 0.42, 1.55]} rotation={[0, -0.5, 0]} scale={1.6}>
-      <Hit />
-      <mesh scale={[1, 0.6, 1.1]}>
-        <sphereGeometry args={[0.22, 14, 10]} />
-        <Mat color="#79b36a" />
-      </mesh>
-      {[-0.1, 0.1].map((x) => (
-        <mesh key={x} position={[x, 0.12, 0.12]}>
-          <sphereGeometry args={[0.06, 10, 8]} />
-          <Mat color="#79b36a" />
-        </mesh>
-      ))}
-      {[-0.1, 0.1].map((x) => (
-        <mesh key={`e${x}`} position={[x, 0.15, 0.17]}>
-          <sphereGeometry args={[0.025, 8, 6]} />
-          <Mat color="#2e2a26" />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-function Bird({ still }: { still: boolean }) {
-  const head = useRef<THREE.Group>(null!);
-  const ref = useAnim(still, (g, t) => {
-    const p = Math.sin(t * 0.3); // 岸邊走動
-    g.position.x = -1.6 + p * 0.9;
-    g.rotation.y = Math.cos(t * 0.3) > 0 ? Math.PI / 2 : -Math.PI / 2;
-    if (head.current) head.current.rotation.x = Math.max(0, Math.sin(t * 0.9)) * 0.8; // 低頭觀察
-  });
-  return (
-    <group ref={ref} position={[-1.6, 0.62, -1.45]} scale={1.5}>
-      <Hit />
-      <mesh scale={[0.8, 0.75, 1.2]}>
-        <sphereGeometry args={[0.2, 14, 10]} />
-        <Mat color="#8d8a7c" />
-      </mesh>
-      <group ref={head} position={[0, 0.16, 0.18]}>
-        <mesh position={[0, 0.06, 0.04]}>
-          <sphereGeometry args={[0.11, 12, 10]} />
-          <Mat color="#8d8a7c" />
-        </mesh>
-        <mesh position={[0, 0.05, 0.18]} rotation={[Math.PI / 2, 0, 0]}>
-          <coneGeometry args={[0.03, 0.12, 8]} />
-          <Mat color="#d9a441" />
-        </mesh>
-      </group>
-      {[-0.06, 0.06].map((x) => (
-        <mesh key={x} position={[x, -0.22, 0]}>
-          <cylinderGeometry args={[0.012, 0.012, 0.2, 5]} />
-          <Mat color="#c98d3d" />
-        </mesh>
-      ))}
     </group>
   );
 }
@@ -621,7 +458,7 @@ function Water({ y, still, color, opacity, children }: { y: number; still: boole
   );
 }
 
-function Greenhouse({ done, present, still, onSelect }: { done: (id: string) => boolean; present: Set<string>; still: boolean; onSelect?: (id: string) => void }) {
+function Greenhouse({ done, still }: { done: (id: string) => boolean; still: boolean }) {
   const R = 4.8;
   const pillars = [0, 1, 2, 3, 4, 5].map((i) => (i / 5) * Math.PI);
   const flowers = useMemo(() => spread(14, 0.8), []);
@@ -809,41 +646,11 @@ function Greenhouse({ done, present, still, onSelect }: { done: (id: string) => 
       )}
       {done('gh_flowers') && !done('gh_plants') && <Bush p={[0, 0.1, -3.8]} s={0.9} />}
 
-      {/* 生物 */}
-      {present.has('butterfly_yellow') && (
-        <Pick id="butterfly_yellow" onSelect={onSelect}>
-          <Butterfly wing="#f3cf5a" accent="#eab949" still={still} path={(g, t) => {
-            const rest = t % 12 > 9; // 停棲
-            const a = t * 0.45;
-            g.position.lerp(rest ? new THREE.Vector3(-2.6, 0.75, 0.9) : new THREE.Vector3(-2.8 + Math.cos(a) * 0.9, 1.1 + Math.sin(a * 2) * 0.15, 0.6 + Math.sin(a) * 0.9), 0.05);
-            g.rotation.y = -a;
-          }} />
-        </Pick>
-      )}
-      {present.has('butterfly_green') && (
-        <Pick id="butterfly_green" onSelect={onSelect}>
-          <Butterfly wing="#2f3b33" accent="#6fd0a6" still={still} path={(g, t) => {
-            const a = -t * 0.3 + 2;
-            g.position.set(Math.cos(a) * 2.4, 2 + Math.sin(t * 0.8) * 0.25, Math.sin(a) * 2.4 - 0.4);
-            g.rotation.y = -a + Math.PI;
-          }} />
-        </Pick>
-      )}
-      {present.has('bee') && (
-        <Pick id="bee" onSelect={onSelect}>
-          <Bee still={still} />
-        </Pick>
-      )}
-      {present.has('ladybird') && (
-        <Pick id="ladybird" onSelect={onSelect}>
-          <Ladybird still={still} />
-        </Pick>
-      )}
     </group>
   );
 }
 
-function Stream({ done, present, still, onSelect }: { done: (id: string) => boolean; present: Set<string>; still: boolean; onSelect?: (id: string) => void }) {
+function Stream({ done, still }: { done: (id: string) => boolean; still: boolean }) {
   const clear = done('st_water');
   const reeds = useMemo(() => [...spread(9, 1).map(([x, z]) => [x * 2 - 3, z * 0.4 + 1.35] as const), ...spread(7, 1).map(([x, z]) => [x * 2 + 1, z * 0.3 - 1.35] as const)], []);
   return (
@@ -967,40 +774,18 @@ function Stream({ done, present, still, onSelect }: { done: (id: string) => bool
         )}
       </group>
 
-      {/* 生物 */}
-      {present.has('dragonfly') && (
-        <Pick id="dragonfly" onSelect={onSelect}>
-          <Dragonfly still={still} />
-        </Pick>
-      )}
-      {present.has('minnow') && (
-        <Pick id="minnow" onSelect={onSelect}>
-          <Minnows still={still} />
-        </Pick>
-      )}
-      {present.has('frog') && (
-        <Pick id="frog" onSelect={onSelect}>
-          <Frog still={still} />
-        </Pick>
-      )}
-      {present.has('waterside_bird') && (
-        <Pick id="waterside_bird" onSelect={onSelect}>
-          <Bird still={still} />
-        </Pick>
-      )}
     </group>
   );
 }
 
-export default function Scene3D({ habitatId, done, present, reducedMotion, onSelect, onSlow, backdrop, pets = [] }: SceneProps) {
+export default function Scene3D({ habitatId, done, reducedMotion, onSelect, onSlow, backdrop, pets = [] }: SceneProps) {
   const [hidden, setHidden] = useState(document.hidden);
   useEffect(() => {
     const on = () => setHidden(document.hidden);
     document.addEventListener('visibilitychange', on);
     return () => document.removeEventListener('visibilitychange', on);
   }, []);
-  const set = useMemo(() => new Set(present), [present]);
-  const props = { done, present: set, still: reducedMotion, onSelect };
+  const props = { done, still: reducedMotion };
   return (
     <Canvas
       // 背景分頁停止渲染；低動態模式只在變化時重繪

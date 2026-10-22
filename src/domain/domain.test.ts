@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, weekStartKey } from './focus';
-import { balance, closeSession, coins, contribute, grantReward, inviteSpecies, settleOpenSessions, visitHabitat, minutesByDay, activeProject, habitatOpen, putSession, speciesPresent, feed, feedFor, adoptPet, feedPet, petFed, adoptedPets, fedByUser, sessionRoll, chanceFor, chanceFind, soundUnlocked, focusSoundFor } from './game';
+import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, feed, feedFor, adoptPet, feedPet, petFed, adoptedPets, fedByUser, sessionRoll, chanceFor, chanceFind, soundUnlocked, focusSoundFor } from './game';
 import { SOUNDS } from '../content/config';
 import { newSave, newDemoSave, validateSave, demoGrant } from './save';
 import type { SaveFile } from './types';
@@ -165,29 +165,16 @@ describe('工程投入', () => {
     expect(validateSave(r.save).ok).toBe(true);
   });
 
-  it('工程完成後要用金幣邀請，生物才會入住；進入棲地才發現，且只發現一次', () => {
-    let save = focus(fresh(), 40); // 40 點 + 40 金幣
-    const uid = save.profile.id;
-    expect(inviteSpecies(save, uid, 'butterfly_yellow', T0).ok).toBe(false); // 花圃還沒修好
+  it('工程完成會開放對應的寵物領養；工程完成不會自動把生物收進圖鑑；溪流需先打開步道', () => {
+    let save = focus(fresh(), 40);
     for (const id of ['gh_entrance', 'gh_flowers']) {
-      const r = contribute(save, uid, id, 'all', T0);
+      const r = contribute(save, save.profile.id, id, 'all', T0);
       if (!r.ok) throw new Error(r.error);
       save = r.save;
-      if (id === 'gh_flowers') expect(r.unlocked.map((s) => s.id)).toEqual(['butterfly_yellow']);
+      if (id === 'gh_flowers') expect(r.unlocked.map((p) => p.id)).toEqual(['pet_butterfly']);
     }
-    expect(speciesPresent(save, 'greenhouse')).toHaveLength(0); // 還沒邀請
-    expect(visitHabitat(save, 'greenhouse', T0).discovered).toHaveLength(0);
-    expect(inviteSpecies(save, uid, 'bee', T0).ok).toBe(false); // 噴泉還沒修好
-    const inv = inviteSpecies(save, uid, 'butterfly_yellow', T0);
-    if (!inv.ok) throw new Error(inv.error);
-    save = inv.save;
-    expect(coins(save)).toBe(10); // 40 - 30
-    expect(inviteSpecies(save, uid, 'butterfly_yellow', T0).ok).toBe(false); // 不能重複邀請
-    expect(validateSave(save).ok).toBe(true);
-    const v = visitHabitat(save, 'greenhouse', T0);
-    expect(v.discovered.map((s) => s.id)).toEqual(['butterfly_yellow']);
-    expect(visitHabitat(v.save, 'greenhouse', T0).discovered).toHaveLength(0);
-    expect(habitatOpen(v.save, 'stream')).toBe(false);
+    expect(save.discoveries).toHaveLength(0);
+    expect(habitatOpen(save, 'stream')).toBe(false);
   });
 });
 
@@ -198,20 +185,6 @@ describe('統計與存檔', () => {
     save = closeSession(save, s, T0 + 27 * MIN);
     expect(minutesByDay(save).get('2026-10-22')).toBe(17 * MIN);
     expect(balance(save)).toBe(10);
-  });
-
-  it('金幣不足不能邀請；竄改邀請價格會被驗證拒絕', () => {
-    let save = focus(fresh(), 25);
-    for (const id of ['gh_entrance', 'gh_flowers']) {
-      save = focus(save, 20, T0 + 60 * MIN);
-      const r = contribute(save, save.profile.id, id, 'all', T0);
-      if (r.ok) save = r.save;
-    }
-    // 25 + 20 + 20 = 65 金幣：可邀請黃蝶 30，之後剩 35 不夠第二次邀請任何 40+ 的
-    const r = inviteSpecies(save, save.profile.id, 'butterfly_yellow', T0);
-    if (!r.ok) throw new Error(r.error);
-    const cheap = { ...r.save, transactions: r.save.transactions.map((t) => (t.kind === 'species_spend' ? { ...t, amount: -1 } : t)) };
-    expect(validateSave(cheap).ok).toBe(false);
   });
 
   it('驗證拒絕竄改、未知版本與在個人存檔出現的示範贈點', () => {
@@ -323,7 +296,7 @@ describe('偶遇生物', () => {
     expect(at(60, 'abandoned')).toBe(0);
   });
 
-  it('骰中時收進圖鑑並視為入住，同一段專注重複結算不會再抽', () => {
+  it('骰中時收進圖鑑，同一段專注重複結算不會再抽', () => {
     let save = fresh();
     const s = finish(session(save, 'stopwatch', null, T0, lucky()), T0 + 30 * MIN, 'completed');
     save = closeSession(save, s, T0 + 30 * MIN);

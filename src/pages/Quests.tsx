@@ -1,17 +1,16 @@
 import { useSave } from '../app/store';
-import { COPY, SPECIES, habitatName } from '../content/config';
+import { COPY, habitatName, PETS } from '../content/config';
 import { Progress } from '../components/ui';
-import { activeProject, coins, habitatOpen, isInvitable, pendingVisitors, projectRow } from '../domain/game';
-import type { HabitatId } from '../domain/types';
+import { activeProject, adoptedPets, canAdopt, coins, projectRow } from '../domain/game';
 import { WeeklyGoal } from './Together';
 
-/** 任務：目前的修復工程、本週專注時間目標、可邀請與等待見面的生物。 */
-export function Quests({ onIsland, onEnter, onShop }: { onIsland: () => void; onEnter: (h: HabitatId) => void; onShop: () => void }) {
+/** 任務：目前的修復工程、本週專注時間目標、可領養與成長中的寵物。 */
+export function Quests({ onIsland, onShop }: { onIsland: () => void; onShop: () => void }) {
   const { save } = useSave();
   const project = activeProject(save);
   const got = project ? (projectRow(save, project.id)?.contributedPoints ?? 0) : 0;
-  const waiting = pendingVisitors(save);
-  const invitable = SPECIES.filter((s) => isInvitable(save, s));
+  const adoptable = PETS.filter((p) => canAdopt(save, p));
+  const growing = adoptedPets(save).filter((p) => p.stage < 3);
   return (
     <div className="page">
       <h1>任務</h1>
@@ -39,31 +38,21 @@ export function Quests({ onIsland, onEnter, onShop }: { onIsland: () => void; on
       <WeeklyGoal save={save} />
 
       <section className="card">
-        <p className="eyebrow">生物</p>
-        {invitable.length > 0 && (
+        <p className="eyebrow">寵物</p>
+        {adoptable.length > 0 && (
           <>
-            <p>
-              可以邀請：{invitable.map((s) => `${s.name}（${s.price} 金幣）`).join('、')}。你有 {coins(save)} 金幣。
-            </p>
+            <p>可以領養：{adoptable.map((p) => `${p.name}（${p.adoptPrice} 金幣）`).join('、')}。你有 {coins(save)} 金幣。</p>
             <button className="ghost" onClick={onShop}>
-              去商店邀請
+              去商店領養
             </button>
           </>
         )}
-        {waiting.length ? (
-          <>
-            <p>已入住，去棲地就能遇見：{waiting.map((s) => s.name).join('、')}</p>
-            <div className="row wrap">
-              {[...new Set(waiting.map((s) => s.habitatId))].filter((h) => habitatOpen(save, h)).map((h) => (
-                <button key={h} className="ghost" onClick={() => onEnter(h)}>
-                  去{habitatName(h)}
-                </button>
-              ))}
-            </div>
-          </>
-        ) : (
-          !invitable.length && <p className="muted">完成下一個工程，就能用金幣邀請新朋友。</p>
+        {growing.length > 0 && (
+          <p>
+            成長中：{growing.map(({ def, fed, stage }) => `${def.name}（再 ${def.thresholds[stage] - fed} 份飼料長成${def.stages[stage + 1]}）`).join('、')}
+          </p>
         )}
+        {!adoptable.length && !growing.length && <p className="muted">修好下一個棲地工程，就能領養新的寵物。</p>}
       </section>
     </div>
   );

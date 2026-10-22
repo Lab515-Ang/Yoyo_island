@@ -3,7 +3,7 @@ import { useSave } from '../app/store';
 import { CATEGORY_LABEL, HABITATS, SPECIES, habitatName } from '../content/config';
 import { Creature } from '../components/Creature';
 import { SpeciesCard, conditionText } from '../components/ui';
-import { discoveryOf, habitatOpen, pendingVisitors } from '../domain/game';
+import { discoveryOf } from '../domain/game';
 import type { HabitatId } from '../domain/types';
 
 export function Codex({ onEnter }: { onEnter: (h: HabitatId) => void }) {
@@ -13,23 +13,12 @@ export function Codex({ onEnter }: { onEnter: (h: HabitatId) => void }) {
   const [card, setCard] = useState<string | null>(null);
   const found = SPECIES.filter((s) => discoveryOf(save, s.id)).length;
   const list = SPECIES.filter((s) => (habitat === 'all' || s.habitatId === habitat) && (show === 'all' || (show === 'found') === !!discoveryOf(save, s.id)));
-  const waiting = pendingVisitors(save);
 
   return (
     <div className="page sub">
       <p className="muted">
         已發現 {found} / {SPECIES.length} 種
       </p>
-      {waiting.length > 0 && (
-        <div className="notice">
-          有新朋友在等你：{waiting.map((s) => s.name).join('、')}。
-          {[...new Set(waiting.map((s) => s.habitatId))].filter((h) => habitatOpen(save, h)).map((h) => (
-            <button key={h} className="link" onClick={() => onEnter(h)}>
-              去{habitatName(h)}看看
-            </button>
-          ))}
-        </div>
-      )}
       <div className="segmented small" role="radiogroup" aria-label="發現狀態">
         {(
           [

@@ -69,7 +69,7 @@ export interface SpeciesDef {
   requiredProjectId: string;
   description: string;
   behaviorLabel: string;
-  price: number; // 邀請所需金幣
+  price: number; // 舊版「邀請野生訪客」的價格，只用來驗證舊存檔的交易紀錄
 }
 
 export const CATEGORY_LABEL = { insect: '昆蟲', fish: '魚類', amphibian: '兩棲類', bird: '鳥類' } as const;
@@ -150,7 +150,7 @@ export const COPY = {
   complete: (min: number) => `這 ${min} 分鐘，讓小島更靠近春天。`,
   projectNeed: (pts: number, promise: string) => `再 ${pts} 點，${promise}。`,
   newVisitor: (habitat: string) => `有新朋友來訪。去${habitat}看看吧。`,
-  canInvite: (names: string) => `${names}可以邀請了，到商店用金幣邀請吧。`,
+  canAdopt: (names: string) => `${names}可以領養了，到商店用金幣領養吧。`,
   welcomeBack: '歡迎回來，小島一直在這裡。',
   allRestored: '這一階段的棲地已經恢復。今天也一起好好生活。',
   demoBanner: '本機合作示範，非即時連線',
