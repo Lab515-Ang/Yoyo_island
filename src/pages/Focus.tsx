@@ -57,6 +57,15 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
           {clock(shown)}
         </div>
         <p className="muted small">{countdown ? `目標 ${Math.round((session.targetSeconds ?? 0) / 60) || '<1'} 分鐘` : '正向計時'}</p>
+        {countdown && (
+          <button
+            className="link small"
+            aria-pressed={save.settings.endChime}
+            onClick={() => update((s) => ({ ...s, settings: { ...s.settings, endChime: !s.settings.endChime } }))}
+          >
+            {save.settings.endChime ? '🔔 結束時響鈴：開' : '🔕 結束時響鈴：關'}
+          </button>
+        )}
         {paused && (
           <div className="breath">
             <span className={reduced ? 'breath-dot still' : 'breath-dot'} aria-hidden="true" />

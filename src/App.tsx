@@ -3,6 +3,8 @@ import { useGame, useNow, useSave } from './app/store';
 import { APP_NAME, COPY, avatarEmoji } from './content/config';
 import { balance, openSession, settleOpenSessions } from './domain/game';
 import * as storage from './data/storage';
+import { remainingMs } from './domain/focus';
+import { notifyEnd, playChime } from './sound';
 import type { HabitatId } from './domain/types';
 import { Onboarding } from './pages/Onboarding';
 import { Lobby } from './pages/Lobby';
@@ -63,10 +65,25 @@ function Main() {
   const now = useNow(500, !!open);
 
   // 倒數在背景或重新整理時歸零：結算一次並顯示結算畫面
+  const [wake, setWake] = useState(0);
   useEffect(() => {
     const r = settleOpenSessions(save, Date.now());
-    if (r.completed && update(() => r.save)) setSummaryId(r.completed.id);
-  }, [now, save, update]);
+    if (!r.completed || !update(() => r.save)) return;
+    setSummaryId(r.completed.id);
+    // 剛歸零才提醒；隔很久重新開啟時不補響
+    if (Date.now() - Date.parse(r.completed.endedAt!) < 60_000) {
+      const st = save.settings;
+      if (st.endChime) playChime(st.soundVolume);
+      if (st.endNotify) void notifyEnd(`${APP_NAME}・專注完成`, `「${r.completed.taskTitle}」完成了 ${Math.floor(r.completed.accumulatedMs / 60000)} 分鐘，回來看看小島吧。`);
+    }
+  }, [now, wake, save, update]);
+
+  // 背景分頁的 interval 會被節流，另排一個剛好在歸零時觸發的 timeout
+  useEffect(() => {
+    if (!open || open.status !== 'running' || open.mode !== 'countdown') return;
+    const id = window.setTimeout(() => setWake((w) => w + 1), remainingMs(open, Date.now()) + 50);
+    return () => clearTimeout(id);
+  }, [open]);
 
   // 換模式時回到大廳（首次掛載不算，避免清掉重新載入後的結算畫面）
   const lastMode = useRef(mode);

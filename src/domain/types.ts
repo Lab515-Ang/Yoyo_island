@@ -18,6 +18,8 @@ export interface Profile {
 export interface Settings {
   soundEnabled: boolean;
   soundVolume: number;
+  endChime: boolean; // 倒數歸零提示音
+  endNotify: boolean; // 倒數歸零系統通知
   reducedMotion: boolean;
   sceneMode: 'auto' | '2d';
   preferredHabitatId: HabitatId;

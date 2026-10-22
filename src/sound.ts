@@ -26,3 +26,39 @@ export function useAmbient(active: boolean, volume: number, water: boolean) {
     return () => void ctx.close();
   }, [active, volume, water]);
 }
+
+/** 倒數結束的柔和三音鐘聲（即時合成）。 */
+export function playChime(volume: number) {
+  if (typeof AudioContext === 'undefined' || volume <= 0) return;
+  const ctx = new AudioContext();
+  void ctx.resume();
+  const t = ctx.currentTime;
+  [523.25, 659.25, 783.99].forEach((f, i) => {
+    const o = ctx.createOscillator();
+    o.frequency.value = f;
+    const g = ctx.createGain();
+    const s = t + i * 0.4;
+    g.gain.setValueAtTime(0, s);
+    g.gain.linearRampToValueAtTime(0.3 * volume, s + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, s + 2.4);
+    o.connect(g).connect(ctx.destination);
+    o.start(s);
+    o.stop(s + 2.5);
+  });
+  setTimeout(() => void ctx.close(), 4000);
+}
+
+export const notifySupported = () => typeof Notification !== 'undefined';
+
+/** 系統通知；有 service worker 時走 showNotification（手機瀏覽器只支援這條路）。 */
+export async function notifyEnd(title: string, body: string) {
+  if (!notifySupported() || Notification.permission !== 'granted') return;
+  const opts = { body, icon: '/icon-192.png', tag: 'focus-end' };
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (reg) return void (await reg.showNotification(title, opts));
+    new Notification(title, opts);
+  } catch {
+    // 通知失敗不影響結算
+  }
+}

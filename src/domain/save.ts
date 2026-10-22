@@ -9,6 +9,8 @@ const newId = () => crypto.randomUUID();
 export const defaultSettings = (): Settings => ({
   soundEnabled: false,
   soundVolume: 0.5,
+  endChime: false, // 音效預設關閉，玩家開啟後才播放
+  endNotify: false,
   reducedMotion: false,
   sceneMode: 'auto',
   preferredHabitatId: 'greenhouse',
