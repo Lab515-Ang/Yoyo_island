@@ -70,7 +70,10 @@ export function SpeciesCard({ save, speciesId, onClose }: { save: SaveFile; spec
             <dt>代表行為</dt>
             <dd>{s.behaviorLabel}</dd>
             <dt>首次發現</dt>
-            <dd>{fmtDateTime(d.discoveredAt)}</dd>
+            <dd>
+              {fmtDateTime(d.discoveredAt)}
+              {d.sessionId ? '・專注時偶遇' : ''}
+            </dd>
           </>
         ) : (
           <>

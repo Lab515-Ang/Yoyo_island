@@ -1,7 +1,8 @@
 import { useSave } from '../app/store';
-import { COPY } from '../content/config';
+import { COPY, habitatName, speciesDef } from '../content/config';
 import { Coin } from '../components/ui';
-import { activeProject, balance, coins, earnedFor, feed, remainingFor } from '../domain/game';
+import { activeProject, balance, chanceFind, coins, earnedFor, feed, isDone, remainingFor } from '../domain/game';
+import { Creature } from '../components/Creature';
 
 export function Summary({ sessionId, onDone, onProject }: { sessionId: string; onDone: () => void; onProject: () => void }) {
   const { save } = useSave();
@@ -10,6 +11,7 @@ export function Summary({ sessionId, onDone, onProject }: { sessionId: string; o
   const min = Math.floor(s.accumulatedMs / 60000);
   const sec = Math.floor((s.accumulatedMs % 60000) / 1000);
   const earned = earnedFor(save, s.id);
+  const found = chanceFind(save, s.id);
   const done = s.status === 'completed';
   const wallet = balance(save);
   const project = activeProject(save);
@@ -54,6 +56,18 @@ export function Summary({ sessionId, onDone, onProject }: { sessionId: string; o
               </div>
             </dl>
           </section>
+
+          {found && (
+            <section className="card center chance">
+              <p className="eyebrow">偶遇！</p>
+              <Creature id={found.speciesId} size={96} />
+              <h2>{speciesDef(found.speciesId)?.name}在你專注的時候來訪了</h2>
+              <p className="small muted">
+                已收進圖鑑，也住進了{habitatName(speciesDef(found.speciesId)!.habitatId)}
+                {isDone(save, speciesDef(found.speciesId)!.requiredProjectId) ? '。' : '（棲地修好後就會在場景裡看到牠）。'}
+              </p>
+            </section>
+          )}
 
           <p className="small muted center-text">
             現有 🌱 {wallet} 點 · <Coin /> {coins(save)} 金幣 · 🌾 {feed(save)} 份飼料

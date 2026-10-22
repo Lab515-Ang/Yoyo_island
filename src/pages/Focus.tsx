@@ -3,7 +3,7 @@ import { useNow, useSave } from '../app/store';
 import { APP_NAME } from '../content/config';
 import { Modal } from '../components/ui';
 import { elapsedMs, finish, pause, remainingMs, resume } from '../domain/focus';
-import { closeSession, isDone, putSession } from '../domain/game';
+import { closeSession, focusSoundFor, putSession } from '../domain/game';
 import type { FocusSession, SaveFile } from '../domain/types';
 import { HabitatScene, prefersReducedMotion } from '../scenes/HabitatScene';
 import { useAmbient } from '../sound';
@@ -24,8 +24,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   const countdown = session.mode === 'countdown';
   const shown = countdown ? remainingMs(session, now) : elapsedMs(session, now);
   const paused = session.status === 'paused';
-  const water = session.habitatId === 'stream' || isDone(save, 'gh_fountain');
-  useAmbient(save.settings.soundEnabled && !paused, save.settings.soundVolume, water);
+  useAmbient(save.settings.soundEnabled && !paused, save.settings.soundVolume, focusSoundFor(save, session.habitatId));
 
   useEffect(() => {
     document.title = `${clock(shown)} · ${APP_NAME}`;

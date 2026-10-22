@@ -20,6 +20,7 @@ export interface Settings {
   soundVolume: number;
   endChime: boolean; // 倒數歸零提示音
   endNotify: boolean; // 倒數歸零系統通知
+  focusSound: string; // 專注背景音：'auto' 跟著棲地，或已收集的環境音 id
   reducedMotion: boolean;
   sceneMode: 'auto' | '2d';
   preferredHabitatId: HabitatId;
@@ -107,6 +108,7 @@ export interface Discovery {
   speciesId: ID;
   discoveredAt: ISODate;
   triggeredByProjectId: ID;
+  sessionId?: ID; // 專注完成時偶遇（隨機解鎖）的那一段專注
 }
 
 export interface WeeklyGoal {

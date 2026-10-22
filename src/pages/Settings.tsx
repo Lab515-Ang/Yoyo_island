@@ -3,6 +3,7 @@ import { useSave } from '../app/store';
 import { AVATARS } from '../content/config';
 import { validateSave } from '../domain/save';
 import { openSession } from '../domain/game';
+import { notifySupported, playChime } from '../sound';
 import type { SaveFile } from '../domain/types';
 
 const TIMEZONES: string[] = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
@@ -14,6 +15,16 @@ export function SettingsPage() {
   const [preview, setPreview] = useState<SaveFile | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [notifyMsg, setNotifyMsg] = useState<string | null>(null);
+
+  const toggleNotify = async (on: boolean) => {
+    setNotifyMsg(null);
+    if (!on) return set({ endNotify: false });
+    if (!notifySupported()) return setNotifyMsg('這個瀏覽器不支援系統通知。');
+    const p = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission;
+    if (p === 'granted') set({ endNotify: true });
+    else setNotifyMsg('瀏覽器封鎖了通知。請到瀏覽器的網站設定允許「通知」後再開啟。');
+  };
   const st = save.settings;
   const set = (patch: Partial<SaveFile['settings']>) => update((s) => ({ ...s, settings: { ...s.settings, ...patch } }));
 
@@ -84,6 +95,31 @@ export function SettingsPage() {
       </section>
 
       <section className="sheet-section">
+        <h3>聲音</h3>
+        <label className="toggle">
+          <input type="checkbox" checked={st.soundEnabled} onChange={(e) => set({ soundEnabled: e.target.checked })} />
+          專注與棲地中播放環境音
+        </label>
+        <label>
+          音量
+          <input type="range" min={0} max={1} step={0.05} value={st.soundVolume} onChange={(e) => set({ soundVolume: Number(e.target.value) })} />
+        </label>
+        <label className="toggle">
+          <input type="checkbox" checked={st.endChime} onChange={(e) => set({ endChime: e.target.checked })} />
+          倒數結束提示音（柔和鐘聲）
+        </label>
+        <button onClick={() => playChime(st.soundVolume)} disabled={st.soundVolume <= 0}>
+          🔔 試聽鐘聲
+        </button>
+        <label className="toggle">
+          <input type="checkbox" checked={st.endNotify} onChange={(e) => void toggleNotify(e.target.checked)} />
+          倒數結束系統通知（切到其他視窗也看得到）
+        </label>
+        {notifyMsg && <p className="error">{notifyMsg}</p>}
+        <p className="small muted">要聽哪一種環境音，可以在「大自然交響樂」挑選已收集的聲音。</p>
+      </section>
+
+      <section className="sheet-section">
         <h3>畫面</h3>
         <label className="toggle">
           <input type="checkbox" checked={st.reducedMotion} onChange={(e) => set({ reducedMotion: e.target.checked })} />
@@ -93,7 +129,6 @@ export function SettingsPage() {
           <input type="checkbox" checked={st.sceneMode === '2d'} onChange={(e) => set({ sceneMode: e.target.checked ? '2d' : 'auto' })} />
           使用簡化 2D 場景（較省電）
         </label>
-        <p className="small muted">環境音的開關與音量在「大自然交響樂」。</p>
       </section>
 
       <section className="sheet-section">

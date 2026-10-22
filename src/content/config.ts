@@ -118,6 +118,29 @@ export const PETS: PetDef[] = [
 ];
 export const petDef = (id: string) => PETS.find((p) => p.id === id);
 
+// ---------- 大自然交響樂：可收集的環境音 ----------
+
+export type SoundUnlock = { kind: 'start' } | { kind: 'project'; id: string } | { kind: 'species'; id: string } | { kind: 'petGrown'; id: string };
+export interface SoundDef {
+  id: string;
+  name: string;
+  icon: string;
+  desc: string;
+  unlock: SoundUnlock;
+}
+export const SOUNDS: SoundDef[] = [
+  { id: 'breeze', name: '溫室微風', icon: '🍃', desc: '風輕輕吹過玻璃屋頂。', unlock: { kind: 'start' } },
+  { id: 'fountain', name: '噴泉水聲', icon: '⛲', desc: '修好的噴泉，水滴落回池子裡。', unlock: { kind: 'project', id: 'gh_fountain' } },
+  { id: 'bees', name: '花間蜂鳴', icon: '🐝', desc: '訪花蜂在花圃之間嗡嗡飛著。', unlock: { kind: 'species', id: 'bee' } },
+  { id: 'stream', name: '溪流潺潺', icon: '💧', desc: '淺淺的溪水流過石頭。', unlock: { kind: 'project', id: 'st_entrance' } },
+  { id: 'birds', name: '水邊鳥鳴', icon: '🐦', desc: '岸邊的小鳥偶爾輕聲啼叫。', unlock: { kind: 'species', id: 'waterside_bird' } },
+  { id: 'frogs', name: '蛙鳴', icon: '🐸', desc: '青蛙在岸邊此起彼落地叫著。', unlock: { kind: 'species', id: 'frog' } },
+  { id: 'night', name: '夏夜蟲鳴', icon: '🌙', desc: '螢火蟲亮起的夜晚，草叢裡的蟲鳴。', unlock: { kind: 'petGrown', id: 'pet_firefly' } },
+];
+
+/** 專注完成時偶遇生物：滿 10 分鐘才有機會，每分鐘 +0.4%，最高 25%（25 分鐘約 10%）。 */
+export const CHANCE = { minMinutes: 10, perMinute: 0.004, max: 0.25 };
+
 /** 專注每 5 分鐘 1 份飼料；倒數每撐完 25 分鐘再多 1 份。 */
 export const FEED_PER_MINUTES = 5;
 export const COUNTDOWN_BONUS_PER_MINUTES = 25;

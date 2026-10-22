@@ -1,73 +1,80 @@
 import { useState } from 'react';
 import { useSave } from '../app/store';
-import type { Settings } from '../domain/types';
-import { notifySupported, playChime, useAmbient } from '../sound';
+import { SOUNDS, petDef, projectDef, speciesDef, type SoundUnlock } from '../content/config';
+import { soundUnlocked } from '../domain/game';
+import { useAmbient } from '../sound';
 
-/** 大自然交響樂：環境音開關、音量與試聽。聲音由瀏覽器即時合成，預設關閉。 */
-export function Sounds() {
+function unlockText(u: SoundUnlock) {
+  if (u.kind === 'project') return `完成「${projectDef(u.id)?.title}」後收集`;
+  if (u.kind === 'species') return `遇見${speciesDef(u.id)?.name}後收集`;
+  if (u.kind === 'petGrown') return `把${petDef(u.id)?.name}養大後收集`;
+  return '';
+}
+
+/** 大自然交響樂：收集小島上的環境音，可試聽、可選作專注背景音。 */
+export function Sounds({ onSettings }: { onSettings: () => void }) {
   const { save, update } = useSave();
   const st = save.settings;
-  const set = (patch: Partial<Settings>) => update((s) => ({ ...s, settings: { ...s.settings, ...patch } }));
-  const [preview, setPreview] = useState<'breeze' | 'water' | null>(null);
-  const [notifyMsg, setNotifyMsg] = useState<string | null>(null);
-
-  const toggleNotify = async (on: boolean) => {
-    setNotifyMsg(null);
-    if (!on) return set({ endNotify: false });
-    if (!notifySupported()) return setNotifyMsg('這個瀏覽器不支援系統通知。');
-    const p = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission;
-    if (p === 'granted') set({ endNotify: true });
-    else setNotifyMsg('瀏覽器封鎖了通知。請到瀏覽器的網站設定允許「通知」後再開啟。');
-  };
-  useAmbient(preview !== null, st.soundVolume, preview === 'water');
+  const [playing, setPlaying] = useState<string | null>(null);
+  useAmbient(playing !== null, st.soundVolume || 0.5, playing ?? 'breeze');
+  const got = SOUNDS.filter((s) => soundUnlocked(save, s.unlock));
+  const choose = (id: string) => update((s) => ({ ...s, settings: { ...s.settings, focusSound: id } }));
+  const current = got.some((s) => s.id === st.focusSound) ? st.focusSound : 'auto';
 
   return (
     <div className="page">
       <h1>大自然交響樂</h1>
-      <section className="card">
-        <label className="toggle">
-          <input type="checkbox" checked={st.soundEnabled} onChange={(e) => set({ soundEnabled: e.target.checked })} />
-          專注與棲地中播放環境音
-        </label>
-        <p className="small muted">開啟後，專注畫面與棲地會依場景播放：溫室噴泉修好前是微風，有水的地方是水聲。</p>
-        <label>
-          音量
-          <input type="range" min={0} max={1} step={0.05} value={st.soundVolume} onChange={(e) => set({ soundVolume: Number(e.target.value) })} />
-        </label>
-      </section>
-      <section className="card">
-        <h2>倒數結束提醒</h2>
-        <label className="toggle">
-          <input type="checkbox" checked={st.endChime} onChange={(e) => set({ endChime: e.target.checked })} />
-          提示音（柔和鐘聲，音量同上）
-        </label>
-        <button onClick={() => playChime(st.soundVolume)} disabled={st.soundVolume <= 0}>
-          🔔 試聽鐘聲
-        </button>
-        <label className="toggle">
-          <input type="checkbox" checked={st.endNotify} onChange={(e) => void toggleNotify(e.target.checked)} />
-          系統通知（切到其他視窗也看得到）
-        </label>
-        {notifyMsg && <p className="error">{notifyMsg}</p>}
-        <p className="small muted">提醒只在倒數剛歸零時出現；關掉頁面後很久才回來，不會補響。</p>
-      </section>
+      <p>
+        已收集 <strong>{got.length}</strong> / {SOUNDS.length} 種聲音。修復棲地、遇見生物、養大寵物，小島的聲音會越來越豐富。
+      </p>
+      {!st.soundEnabled && (
+        <div className="notice">
+          專注時的環境音目前是關閉的，這裡的試聽不受影響。
+          <button className="link" onClick={onSettings}>
+            到設定開啟
+          </button>
+        </div>
+      )}
 
       <section className="card">
-        <h2>試聽環境音</h2>
-        <div className="row wrap">
-          {(
-            [
-              ['breeze', '🍃 溫室微風'],
-              ['water', '💧 流水'],
-            ] as const
-          ).map(([k, l]) => (
-            <button key={k} className={preview === k ? 'primary' : ''} aria-pressed={preview === k} onClick={() => setPreview(preview === k ? null : k)}>
-              {preview === k ? `停止 ${l}` : l}
-            </button>
-          ))}
-        </div>
-        <p className="small muted">聲音是即時合成的柔和環境音，不使用外部音樂或音檔。</p>
+        <h2>專注背景音</h2>
+        <label className="toggle">
+          <input type="radio" name="focus-sound" checked={current === 'auto'} onChange={() => choose('auto')} />
+          跟著棲地（溫室是風聲或噴泉，溪流是流水）
+        </label>
+        {got.map((s) => (
+          <label key={s.id} className="toggle">
+            <input type="radio" name="focus-sound" checked={current === s.id} onChange={() => choose(s.id)} />
+            {s.icon} {s.name}
+          </label>
+        ))}
       </section>
+
+      <div className="codex-grid">
+        {SOUNDS.map((s) => {
+          const ok = soundUnlocked(save, s.unlock);
+          const on = playing === s.id;
+          return (
+            <div key={s.id} className={ok ? 'codex-card shop-card' : 'codex-card shop-card locked'}>
+              <span className={ok ? 'sound-icon' : 'sound-icon silhouette'} aria-hidden="true">
+                {s.icon}
+              </span>
+              <strong>{s.name}</strong>
+              {ok ? (
+                <>
+                  <span className="small muted">{s.desc}</span>
+                  <button className={on ? 'primary' : ''} aria-pressed={on} onClick={() => setPlaying(on ? null : s.id)}>
+                    {on ? '■ 停止' : '▶ 試聽'}
+                  </button>
+                </>
+              ) : (
+                <span className="small muted">{unlockText(s.unlock)}</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <p className="small muted">所有聲音都是即時合成的柔和環境音，不使用外部音樂或音檔。</p>
     </div>
   );
 }

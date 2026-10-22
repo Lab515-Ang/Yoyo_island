@@ -5,7 +5,7 @@ import { Creature } from '../components/Creature';
 import { Progress, SpeciesCard } from '../components/ui';
 import { PetArt } from '../components/PetArt';
 import { PetCard } from '../components/PetCard';
-import { activeProject, adoptedPets, balance, canAdopt, contribute, discoveryOf, feed, habitatOpen, isDone, petMaxFeed, projectRow, remainingFor, speciesPresent, visitHabitat } from '../domain/game';
+import { activeProject, adoptedPets, balance, canAdopt, contribute, discoveryOf, feed, habitatOpen, habitatSound, isDone, petMaxFeed, projectRow, remainingFor, speciesPresent, visitHabitat } from '../domain/game';
 import type { HabitatId } from '../domain/types';
 import { HabitatScene, prefersReducedMotion } from '../scenes/HabitatScene';
 import { IslandMap } from '../scenes/IslandMap';
@@ -199,8 +199,7 @@ function HabitatView({ id, onBack }: { id: HabitatId; onBack: () => void }) {
   const [card, setCard] = useState<string | null>(null);
   const present = speciesPresent(save, id);
   const pets = adoptedPets(save, id);
-  const water = id === 'stream' || isDone(save, 'gh_fountain');
-  useAmbient(save.settings.soundEnabled, save.settings.soundVolume, water);
+  useAmbient(save.settings.soundEnabled, save.settings.soundVolume, habitatSound(save, id));
 
   // 進入棲地時首次發現（同一物種只記錄一次）
   useEffect(() => {

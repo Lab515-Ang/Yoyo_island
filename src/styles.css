@@ -839,7 +839,7 @@ legend {
 
 .summary .stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 0.5rem;
   margin: 1rem 0 0;
 }
@@ -1024,4 +1024,12 @@ legend {
     padding: 0.3em 0.6em;
     font-size: 0.9rem;
   }
+}
+.card.chance {
+  background: #fff4dc;
+  border-color: #eed9a6;
+}
+.sound-icon {
+  font-size: 2.6rem;
+  line-height: 1.2;
 }

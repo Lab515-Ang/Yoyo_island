@@ -11,6 +11,7 @@ export const defaultSettings = (): Settings => ({
   soundVolume: 0.5,
   endChime: false, // 音效預設關閉，玩家開啟後才播放
   endNotify: false,
+  focusSound: 'auto',
   reducedMotion: false,
   sceneMode: 'auto',
   preferredHabitatId: 'greenhouse',
@@ -182,5 +183,8 @@ export function validateSave(raw: unknown): Validation {
   }
   const disc = new Set(save.discoveries.map((d) => `${d.islandId}:${d.speciesId}`));
   if (disc.size !== save.discoveries.length) return fail('圖鑑紀錄重複。');
+  for (const d of save.discoveries) {
+    if (d.sessionId && sessions.get(d.sessionId)?.status !== 'completed') return fail('偶遇紀錄與專注紀錄不符。');
+  }
   return { ok: true, save };
 }

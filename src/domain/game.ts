@@ -1,5 +1,5 @@
 // 經濟、工程、生物發現與統計：全部是對 SaveFile 的純函式
-import { PROJECTS, SPECIES, HABITATS, PETS, FEED_PER_MINUTES, COUNTDOWN_BONUS_PER_MINUTES, projectDef, type PetDef, type ProjectDef, type SpeciesDef } from '../content/config';
+import { PROJECTS, SPECIES, HABITATS, PETS, SOUNDS, FEED_PER_MINUTES, COUNTDOWN_BONUS_PER_MINUTES, CHANCE, projectDef, type PetDef, type ProjectDef, type SoundUnlock, type SpeciesDef } from '../content/config';
 import { addSegmentsByDay, createSession, isOpen, settle } from './focus';
 import type { FocusSession, HabitatId, ID, SaveFile, TimerMode } from './types';
 
@@ -73,8 +73,41 @@ export function earnedFor(save: SaveFile, sessionId: ID) {
 
 /** 收尾 session 並結算（完成時發點），一次提交。 */
 export function closeSession(save: SaveFile, s: FocusSession, now: number): SaveFile {
-  return grantReward(putSession(save, s), s.id, now);
+  return rollChance(grantReward(putSession(save, s), s.id, now), s, now);
 }
+
+/** FNV-1a 雜湊成 0～1：同一段專注永遠得到同一個結果，可以重算、不能重骰。 */
+function hash01(str: string) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 0x01000193) >>> 0;
+  return h / 2 ** 32;
+}
+
+/** 這段專注的偶遇骰值（0～1，小於機率才算偶遇）。 */
+export const sessionRoll = (sessionId: ID) => hash01(`${sessionId}:roll`);
+
+/** 這段專注偶遇生物的機率。 */
+export function chanceFor(s: FocusSession) {
+  if (s.status !== 'completed') return 0;
+  const min = Math.floor(s.accumulatedMs / POINT_MS);
+  return min < CHANCE.minMinutes ? 0 : Math.min(CHANCE.max, min * CHANCE.perMinute);
+}
+
+/** 專注完成時的偶遇：從還沒發現的生物中挑一種，直接收進圖鑑並視為已入住（不用金幣）。 */
+export function rollChance(save: SaveFile, s: FocusSession, now: number): SaveFile {
+  if (save.discoveries.some((d) => d.sessionId === s.id)) return save;
+  if (sessionRoll(s.id) >= chanceFor(s)) return save;
+  const pool = SPECIES.filter((sp) => !discoveryOf(save, sp.id));
+  if (!pool.length) return save;
+  const sp = pool[Math.floor(hash01(`${s.id}:pick`) * pool.length)];
+  return {
+    ...save,
+    discoveries: [...save.discoveries, { islandId: s.islandId, speciesId: sp.id, discoveredAt: iso(now), triggeredByProjectId: sp.requiredProjectId, sessionId: s.id }],
+  };
+}
+
+/** 這段專注偶遇到的生物（結算畫面用）。 */
+export const chanceFind = (save: SaveFile, sessionId: ID) => save.discoveries.find((d) => d.sessionId === sessionId) ?? null;
 
 /** 載入或每次 tick 時呼叫：處理在背景已歸零的倒數。 */
 export function settleOpenSessions(save: SaveFile, now: number): { save: SaveFile; completed: FocusSession | null } {
@@ -267,4 +300,23 @@ export function feedPet(save: SaveFile, userId: ID, petTypeId: string, input: nu
     transactions: [...save.transactions, { id: newId(), userId, islandId: islandId(save), kind: 'feed_spend', amount: -spent, petTypeId: p.id, idempotencyKey: `feedspend:${newId()}`, createdAt: iso(now) }],
   };
   return { ok: true, save: next, spent, from: petStage(p, fed), to: petStage(p, fed + spent) };
+}
+
+// ---------- 環境音收集 ----------
+
+export function soundUnlocked(save: SaveFile, u: SoundUnlock) {
+  if (u.kind === 'start') return true;
+  if (u.kind === 'project') return isDone(save, u.id);
+  if (u.kind === 'species') return !!discoveryOf(save, u.id);
+  const p = PETS.find((x) => x.id === u.id);
+  return !!p && isAdopted(save, p.id) && petStage(p, petFed(save, p.id)) === 3;
+}
+
+/** 棲地預設的環境音。 */
+export const habitatSound = (save: SaveFile, habitatId: HabitatId) => (habitatId === 'stream' ? 'stream' : isDone(save, 'gh_fountain') ? 'fountain' : 'breeze');
+
+/** 專注時播放的環境音：玩家選的（且已收集），否則跟著棲地。 */
+export function focusSoundFor(save: SaveFile, habitatId: HabitatId) {
+  const pick = SOUNDS.find((x) => x.id === save.settings.focusSound);
+  return pick && soundUnlocked(save, pick.unlock) ? pick.id : habitatSound(save, habitatId);
 }

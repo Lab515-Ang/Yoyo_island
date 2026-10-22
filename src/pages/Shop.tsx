@@ -94,17 +94,18 @@ export function Shop({ onEnter }: { onEnter: (h: HabitatId) => void }) {
         {SPECIES.map((s) => {
           const owned = isOwned(save, s.id);
           const ready = isDone(save, s.requiredProjectId);
+          const known = ready || owned; // 偶遇到的生物就算棲地還沒修好，也已經認識牠
           return (
-            <div key={s.id} className={ready ? 'codex-card shop-card' : 'codex-card shop-card locked'}>
-              <Creature id={s.id} size={64} hidden={!ready} />
-              <strong>{ready ? s.name : '尚未開放'}</strong>
+            <div key={s.id} className={known ? 'codex-card shop-card' : 'codex-card shop-card locked'}>
+              <Creature id={s.id} size={64} hidden={!known} />
+              <strong>{known ? s.name : '尚未開放'}</strong>
               <span className="small muted">
                 {CATEGORY_LABEL[s.category]} · {habitatName(s.habitatId)}
               </span>
               {owned ? (
                 <>
-                  <span className="small cond">已入住</span>
-                  {habitatOpen(save, s.habitatId) && (
+                  <span className="small cond">{ready ? '已入住' : `已偶遇，完成「${projectDef(s.requiredProjectId)?.title}」後出現`}</span>
+                  {ready && habitatOpen(save, s.habitatId) && (
                     <button className="ghost" onClick={() => onEnter(s.habitatId)}>
                       去看看
                     </button>

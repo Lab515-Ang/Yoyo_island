@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, weekStartKey } from './focus';
-import { balance, closeSession, coins, contribute, grantReward, inviteSpecies, settleOpenSessions, visitHabitat, minutesByDay, activeProject, habitatOpen, putSession, speciesPresent, feed, feedFor, adoptPet, feedPet, petFed, adoptedPets, fedByUser } from './game';
+import { balance, closeSession, coins, contribute, grantReward, inviteSpecies, settleOpenSessions, visitHabitat, minutesByDay, activeProject, habitatOpen, putSession, speciesPresent, feed, feedFor, adoptPet, feedPet, petFed, adoptedPets, fedByUser, sessionRoll, chanceFor, chanceFind, soundUnlocked, focusSoundFor } from './game';
+import { SOUNDS } from '../content/config';
 import { newSave, newDemoSave, validateSave, demoGrant } from './save';
 import type { SaveFile } from './types';
 
@@ -10,8 +11,15 @@ const MIN = 60_000;
 function fresh(): SaveFile {
   return newSave('personal', { nickname: '測試', islandName: '測試島', avatarId: 'leaf', timezone: 'Asia/Taipei' }, T0);
 }
-function session(save: SaveFile, mode: 'countdown' | 'stopwatch', targetMin: number | null, now = T0) {
-  return createSession({ id: crypto.randomUUID(), userId: save.profile.id, islandId: save.profile.activeIslandId, taskTitle: '', tag: '讀書', habitatId: 'greenhouse', mode, targetSeconds: targetMin && targetMin * 60 }, now);
+/** 一般測試用不會觸發偶遇的 session id，結果才穩定 */
+function quietId() {
+  for (;;) {
+    const id = crypto.randomUUID();
+    if (sessionRoll(id) >= 0.3) return id;
+  }
+}
+function session(save: SaveFile, mode: 'countdown' | 'stopwatch', targetMin: number | null, now = T0, id = quietId()) {
+  return createSession({ id, userId: save.profile.id, islandId: save.profile.activeIslandId, taskTitle: '', tag: '讀書', habitatId: 'greenhouse', mode, targetSeconds: targetMin && targetMin * 60 }, now);
 }
 /** 用一段 n 分鐘完成的專注給玩家點數 */
 function focus(save: SaveFile, minutes: number, at = T0) {
@@ -295,5 +303,51 @@ describe('寵物', () => {
     expect(validateSave(save).ok).toBe(true);
     const overfed = { ...save, transactions: save.transactions.map((t) => (t.kind === 'feed_spend' ? { ...t, amount: t.amount * 3 } : t)) };
     expect(validateSave(overfed).ok).toBe(false);
+  });
+});
+
+describe('偶遇生物', () => {
+  const lucky = () => {
+    for (;;) {
+      const id = crypto.randomUUID();
+      if (sessionRoll(id) < 0.05) return id;
+    }
+  };
+
+  it('機率：未滿 10 分鐘與放棄都是 0，25 分鐘 10%，上限 25%', () => {
+    const save = fresh();
+    const at = (min: number, status: 'completed' | 'abandoned' = 'completed') => chanceFor(finish(session(save, 'stopwatch', null), T0 + min * MIN, status));
+    expect(at(9)).toBe(0);
+    expect(at(25)).toBeCloseTo(0.1);
+    expect(at(120)).toBe(0.25);
+    expect(at(60, 'abandoned')).toBe(0);
+  });
+
+  it('骰中時收進圖鑑並視為入住，同一段專注重複結算不會再抽', () => {
+    let save = fresh();
+    const s = finish(session(save, 'stopwatch', null, T0, lucky()), T0 + 30 * MIN, 'completed');
+    save = closeSession(save, s, T0 + 30 * MIN);
+    const found = chanceFind(save, s.id);
+    expect(found).not.toBeNull();
+    expect(save.discoveries).toHaveLength(1);
+    expect(closeSession(save, s, T0 + 31 * MIN).discoveries).toHaveLength(1);
+    expect(validateSave(save).ok).toBe(true);
+  });
+
+  it('太短的專注就算骰值很小也不會偶遇', () => {
+    const save = fresh();
+    const s = finish(session(save, 'stopwatch', null, T0, lucky()), T0 + 5 * MIN, 'completed');
+    expect(closeSession(save, s, T0 + 5 * MIN).discoveries).toHaveLength(0);
+  });
+});
+
+describe('環境音收集', () => {
+  it('開局只有溫室微風；選了沒收集的聲音時改回跟著棲地', () => {
+    const save = fresh();
+    expect(SOUNDS.filter((x) => soundUnlocked(save, x.unlock)).map((x) => x.id)).toEqual(['breeze']);
+    const picked = { ...save, settings: { ...save.settings, focusSound: 'frogs' } };
+    expect(focusSoundFor(picked, 'greenhouse')).toBe('breeze');
+    const breeze = { ...save, settings: { ...save.settings, focusSound: 'breeze' } };
+    expect(focusSoundFor(breeze, 'greenhouse')).toBe('breeze');
   });
 });
