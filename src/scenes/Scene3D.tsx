@@ -11,7 +11,7 @@ export interface SceneProps {
   reducedMotion: boolean;
   onSelect?: (speciesId: string) => void;
   onSlow?: () => void;
-  closeUp?: boolean; // 專注畫面的圓形泡泡：鏡頭拉近
+  backdrop?: boolean; // 專注畫面的全螢幕背景：場景往上移，留出下方放倒數泡泡
 }
 
 const C = {
@@ -46,13 +46,17 @@ function spread(n: number, r: number) {
 
 // ---------- 共用：鏡頭、效能、可點生物 ----------
 
-function FitCamera({ dist }: { dist: number }) {
+/** raise：把畫面內容往上推（佔畫面高度的比例）。 */
+function FitCamera({ dist, raise = 0 }: { dist: number; raise?: number }) {
   const { camera, size } = useThree();
   useEffect(() => {
     const k = Math.min(1.9, Math.max(1, 1.25 / (size.width / size.height)));
     camera.position.set(0, 6.2 * k * (dist / 10), 9.4 * k * (dist / 10));
     camera.lookAt(0, 0.7, 0);
-  }, [camera, size, dist]);
+    const cam = camera as THREE.PerspectiveCamera;
+    if (raise) cam.setViewOffset(size.width, size.height, 0, size.height * raise, size.width, size.height);
+    else cam.clearViewOffset();
+  }, [camera, size, dist, raise]);
   return null;
 }
 
@@ -754,7 +758,7 @@ function Stream({ done, present, still, onSelect }: { done: (id: string) => bool
   );
 }
 
-export default function Scene3D({ habitatId, done, present, reducedMotion, onSelect, onSlow, closeUp }: SceneProps) {
+export default function Scene3D({ habitatId, done, present, reducedMotion, onSelect, onSlow, backdrop }: SceneProps) {
   const [hidden, setHidden] = useState(document.hidden);
   useEffect(() => {
     const on = () => setHidden(document.hidden);
@@ -775,7 +779,7 @@ export default function Scene3D({ habitatId, done, present, reducedMotion, onSel
       <color attach="background" args={[habitatId === 'stream' ? '#cfe5df' : '#d9ead9']} />
       <hemisphereLight args={['#fff4dc', '#9fbf9a', 1.6]} />
       <directionalLight position={[5, 9, 5]} intensity={1.5} color="#fff0d2" />
-      <FitCamera dist={(habitatId === 'stream' ? 10.5 : 10) * (closeUp ? 0.78 : 1)} />
+      <FitCamera dist={habitatId === 'stream' ? 10.5 : 10} raise={backdrop ? 0.2 : 0} />
       {!reducedMotion && <PerfWatch onSlow={onSlow} />}
       {habitatId === 'stream' ? <Stream {...props} /> : <Greenhouse {...props} />}
     </Canvas>

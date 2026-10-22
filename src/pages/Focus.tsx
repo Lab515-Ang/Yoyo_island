@@ -5,7 +5,7 @@ import { Modal } from '../components/ui';
 import { elapsedMs, finish, pause, remainingMs, resume } from '../domain/focus';
 import { closeSession, isDone, putSession } from '../domain/game';
 import type { FocusSession, SaveFile } from '../domain/types';
-import { HabitatScene } from '../scenes/HabitatScene';
+import { HabitatScene, prefersReducedMotion } from '../scenes/HabitatScene';
 import { useAmbient } from '../sound';
 
 const clock = (ms: number) => {
@@ -41,6 +41,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   const cur = (s: SaveFile) => s.sessions.find((x) => x.id === session.id)!;
 
   const elapsedMin = Math.floor(elapsedMs(session, now) / 60000);
+  const reduced = save.settings.reducedMotion || prefersReducedMotion();
 
   // 控制鈕平常隱藏，輕觸畫面才出現；進行中 4 秒後自動收起，暫停時常駐
   const [showControls, setShowControls] = useState(false);
@@ -57,15 +58,9 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   return (
     <>
     <div className={showControls || paused ? 'focus show-controls' : 'focus'} onClick={() => setShowControls((v) => !v)}>
-      <div className="focus-bubble" aria-hidden="true">
+      <div className="focus-bg" aria-hidden="true">
         <HabitatScene habitatId={session.habitatId} calm />
       </div>
-      <div className="focus-time" role="timer" aria-live="off" aria-label={countdown ? '剩餘時間' : '已專注時間'}>
-        {clock(shown)}
-      </div>
-      <p className="focus-status" aria-live="polite">
-        {paused ? '已暫停' : ''}
-      </p>
       <div className="focus-controls">
         {paused ? (
           <button className="pill" onClick={act(() => update((s) => putSession(s, resume(cur(s), Date.now()))))}>
@@ -84,6 +79,16 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
           <button className="pill ghost-light" onClick={act(end)}>
             完成這段專注
           </button>
+        )}
+      </div>
+      <div className={reduced ? 'focus-bubble still' : 'focus-bubble'}>
+        <div className="focus-time" role="timer" aria-live="off" aria-label={countdown ? '剩餘時間' : '已專注時間'}>
+          {clock(shown)}
+        </div>
+        {paused && (
+          <p className="focus-status" aria-live="polite">
+            已暫停
+          </p>
         )}
       </div>
     </div>

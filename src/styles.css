@@ -729,49 +729,84 @@ legend {
   background: #e5efdc;
 }
 
-/* ---------- 專注：只有棲地泡泡與倒數 ---------- */
+/* ---------- 專注：整個畫面是棲地，倒數在下方漂浮的泡泡裡 ---------- */
 .focus {
+  position: relative;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: clamp(1rem, 4vh, 2.5rem);
-  padding: calc(1rem + env(safe-area-inset-top)) 1rem calc(1.5rem + env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, #6fb08c 0%, #4f9474 55%, #3a7d62 100%);
-  color: #fff;
+  justify-content: flex-end;
+  gap: 1.2rem;
+  padding: 1rem 1rem calc(9vh + env(safe-area-inset-bottom));
+  overflow: hidden;
   cursor: default;
   user-select: none;
 }
-.focus-bubble {
-  width: min(78vw, 52vh, 460px);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 6px solid rgba(255, 255, 255, 0.45);
-  box-shadow:
-    0 0 0 10px rgba(220, 245, 225, 0.18),
-    0 0 60px rgba(230, 255, 210, 0.45);
+.focus-bg {
+  position: absolute;
+  inset: 0;
 }
-.focus-bubble .scene {
+.focus-bg .scene {
   height: 100%;
   max-height: none;
   aspect-ratio: auto;
 }
+.focus-bubble {
+  position: relative;
+  width: min(38.4vw, 180px); /* 原 min(64vw, 300px) 縮小 40% */
+  aspect-ratio: 1;
+  border-radius: 50%;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  color: #2f4a36;
+  background: radial-gradient(circle at 50% 60%, rgba(236, 250, 240, 0.72), rgba(200, 236, 214, 0.5) 70%, rgba(170, 220, 195, 0.55));
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    inset 0 -8px 18px rgba(120, 180, 150, 0.35),
+    inset 0 6px 14px rgba(255, 255, 255, 0.6),
+    0 8px 24px rgba(40, 70, 50, 0.25);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: bubble-float 6s ease-in-out infinite;
+}
+/* 泡泡左上角的高光 */
+.focus-bubble::before {
+  content: '';
+  position: absolute;
+  top: 12%;
+  left: 20%;
+  width: 26%;
+  height: 14%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.75);
+  transform: rotate(-30deg);
+  filter: blur(1px);
+}
+.focus-bubble.still {
+  animation: none;
+}
+@keyframes bubble-float {
+  50% {
+    transform: translateY(-6px);
+  }
+}
 .focus-time {
-  font-size: clamp(4rem, 20vw, 7rem);
+  position: relative;
+  font-size: clamp(1.8rem, 9vw, 2.76rem); /* 原 clamp(3rem, 15vw, 4.6rem) 縮小 40% */
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
   line-height: 1;
-  text-shadow: 0 2px 12px rgba(20, 60, 40, 0.25);
 }
 .focus-status {
-  min-height: 1.5em;
-  margin: -0.5rem 0 0;
-  opacity: 0.9;
+  position: relative;
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
 }
 .focus-controls {
+  position: relative;
   display: flex;
   gap: 0.8rem;
   flex-wrap: wrap;
@@ -793,8 +828,11 @@ legend {
   color: var(--sage-deep);
   font-size: 1.05rem;
 }
+.pill {
+  box-shadow: 0 4px 16px rgba(40, 70, 50, 0.2);
+}
 .pill.ghost-light {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(47, 74, 54, 0.72);
   color: #fff;
   border: 1.5px solid rgba(255, 255, 255, 0.6);
 }
