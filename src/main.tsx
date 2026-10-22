@@ -11,3 +11,8 @@ createRoot(document.getElementById('root')!).render(
     </GameProvider>
   </StrictMode>,
 );
+
+// 正式建置才註冊 service worker（開發模式避免快取干擾熱更新）
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => void navigator.serviceWorker.register('/sw.js'));
+}
