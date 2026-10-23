@@ -63,7 +63,22 @@ npm test         # 核心規則測試（vitest）
 npm run build    # 型別檢查 + 產出 dist/
 ```
 
-## 安裝成 App（PWA）與離線使用
+## 手機 App（正式產品）
+
+最終只發佈手機 App；網頁版（Netlify）只當內部測試管道。App 用 Capacitor 包裝同一套程式（方案 A），之後要換 React Native、Unity 或原生開發時，規則（`src/domain/`）、測試、存檔與美術都能沿用。
+
+```bash
+npm run app:sync      # 建置並同步到 android/ 與 ios/
+npm run app:android   # 用 Android Studio 開啟（需先安裝 Android Studio）
+npm run app:ios       # 用 Xcode 開啟（需要 Mac）
+```
+
+- **App ID**：`capacitor.config.ts` 的 `appId` 目前是暫定的 `tw.qiguang.island`，第一次送審後就不能改。
+- **原生功能都集中在 `src/platform.ts`**：倒數結束的本機通知（鎖屏、關掉 App 也會準時提醒）、回到前景時立刻結算、震動。網頁版自動退回瀏覽器做法。
+- **Android**：通知與精準鬧鐘權限由外掛自動加入。Android 14 起精準鬧鐘預設不給新 App，沒有權限時系統可能晚幾分鐘才跳通知。
+- **iOS**：需要 Mac 與 Xcode 打包，或使用雲端建置服務；上架需要 Apple 開發者帳號。
+
+## 網頁測試版（PWA）與離線使用
 
 ```bash
 npm run build

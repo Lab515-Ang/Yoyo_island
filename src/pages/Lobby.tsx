@@ -5,6 +5,7 @@ import { Modal } from '../components/ui';
 import { habitatOpen, startFocus } from '../domain/game';
 import type { HabitatId, TimerMode } from '../domain/types';
 import { HabitatScene } from '../scenes/HabitatScene';
+import { isNative } from '../platform';
 
 type Sheet = 'tag' | 'title' | 'time' | 'habitat' | null;
 
@@ -232,7 +233,7 @@ const standalone = () => matchMedia('(display-mode: standalone)').matches || (na
 function InstallHint() {
   const [hidden, setHidden] = useState(() => {
     try {
-      return standalone() || localStorage.getItem(HINT_KEY) === '1';
+      return isNative || standalone() || localStorage.getItem(HINT_KEY) === '1';
     } catch {
       return true;
     }

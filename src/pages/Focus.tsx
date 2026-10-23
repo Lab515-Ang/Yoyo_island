@@ -7,6 +7,7 @@ import { applyFocusRewards, cancelSession, closeSession, focusSoundFor, graceLef
 import type { FocusSession, SaveFile } from '../domain/types';
 import { HabitatScene, prefersReducedMotion } from '../scenes/HabitatScene';
 import { useAmbient } from '../sound';
+import { cancelFocusEnd, scheduleFocusEnd } from '../platform';
 
 const clock = (ms: number) => {
   const s = Math.floor(ms / 1000);
@@ -64,6 +65,15 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   }, [save.settings.keepAwake, paused]);
 
   const endAt = countdown && !paused ? new Date(now + remainingMs(session, now)).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) : null;
+
+  // 倒數進行中：排定系統通知（App 版鎖屏也會準時跳出）；暫停、取消、放棄、結束時撤銷
+  const notifyAt = countdown && session.status === 'running' && session.runningSince ? Date.parse(session.runningSince) + (session.targetSeconds ?? 0) * 1000 - session.accumulatedMs : null;
+  useEffect(() => {
+    if (!notifyAt || !save.settings.endNotify) return;
+    const min = Math.round((session.targetSeconds ?? 0) / 60);
+    void scheduleFocusEnd(notifyAt, `${APP_NAME}・專注完成`, `「${session.taskTitle}」完成了 ${min} 分鐘，回來看看小島吧。`);
+    return () => void cancelFocusEnd();
+  }, [notifyAt, save.settings.endNotify, session.taskTitle, session.targetSeconds]);
 
   const cancel = () => {
     if (update((s) => cancelSession(s, session.id, Date.now()))) notify('已取消，這次不算數。');

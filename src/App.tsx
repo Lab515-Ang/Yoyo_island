@@ -5,6 +5,7 @@ import { applyFocusRewards, coins, grantStarter, openSession, settleOpenSessions
 import * as storage from './data/storage';
 import { remainingMs } from './domain/focus';
 import { notifyEnd, playChime } from './sound';
+import { buzz, isNative, onResume } from './platform';
 import type { HabitatId } from './domain/types';
 import { Onboarding } from './pages/Onboarding';
 import { Lobby } from './pages/Lobby';
@@ -98,12 +99,12 @@ function Main() {
     // 點數自動投入工程、飼料自動餵陪伴寵物
     if (!update(() => applyFocusRewards(r.save, id, Date.now()))) return;
     setSummaryId(id);
-    // 鎖屏時網頁會暫停：30 分鐘內回到 App 時立刻提醒（太久之後就不補響）
-    if (Date.now() - Date.parse(r.completed.endedAt!) < 30 * 60_000) {
+    // App 版鎖屏時系統通知已經提醒過，回來只在剛結束時響鈴；網頁版 30 分鐘內回來都補提醒
+    if (Date.now() - Date.parse(r.completed.endedAt!) < (isNative ? 60_000 : 30 * 60_000)) {
       const st = save.settings;
       if (st.endChime) playChime(st.soundVolume);
-      navigator.vibrate?.([200, 100, 200]);
-      if (st.endNotify) void notifyEnd(`${APP_NAME}・專注完成`, `「${r.completed.taskTitle}」完成了 ${Math.floor(r.completed.accumulatedMs / 60000)} 分鐘，回來看看小島吧。`);
+      buzz();
+      if (st.endNotify && !isNative) void notifyEnd(`${APP_NAME}・專注完成`, `「${r.completed.taskTitle}」完成了 ${Math.floor(r.completed.accumulatedMs / 60000)} 分鐘，回來看看小島吧。`);
     }
   }, [now, wake, save, update]);
 
@@ -113,6 +114,9 @@ function Main() {
     const r = grantStarter(save, Date.now());
     if (r.ok && update(() => r.save)) notify('完成第一個工程的禮物：一顆黃蝶的卵！到「我的小島」用飼料把牠養大吧。');
   }, [save, update, notify]);
+
+  // 回到前景（解鎖、從其他 App 切回來）時立刻結算
+  useEffect(() => onResume(() => setWake((w) => w + 1)), []);
 
   // 背景分頁的 interval 會被節流，另排一個剛好在歸零時觸發的 timeout
   useEffect(() => {

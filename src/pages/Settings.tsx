@@ -4,6 +4,7 @@ import { AVATARS } from '../content/config';
 import { validateSave } from '../domain/save';
 import { openSession } from '../domain/game';
 import { notifySupported, playChime } from '../sound';
+import { isNative, requestNotifyPermission } from '../platform';
 import { Modal } from '../components/ui';
 import { Tour } from '../components/Tour';
 import type { SaveFile } from '../domain/types';
@@ -23,10 +24,9 @@ export function SettingsPage() {
   const toggleNotify = async (on: boolean) => {
     setNotifyMsg(null);
     if (!on) return set({ endNotify: false });
-    if (!notifySupported()) return setNotifyMsg('這個瀏覽器不支援系統通知。');
-    const p = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission;
-    if (p === 'granted') set({ endNotify: true });
-    else setNotifyMsg('瀏覽器封鎖了通知。請到瀏覽器的網站設定允許「通知」後再開啟。');
+    if (!isNative && !notifySupported()) return setNotifyMsg('這個瀏覽器不支援系統通知。');
+    if (await requestNotifyPermission()) set({ endNotify: true });
+    else setNotifyMsg(isNative ? '通知被關閉了。請到手機的「設定 → 通知 → 棲光小島」允許通知後再開啟。' : '瀏覽器封鎖了通知。請到瀏覽器的網站設定允許「通知」後再開啟。');
   };
   const st = save.settings;
   const set = (patch: Partial<SaveFile['settings']>) => update((s) => ({ ...s, settings: { ...s.settings, ...patch } }));
@@ -126,16 +126,18 @@ export function SettingsPage() {
         </button>
         <label className="toggle">
           <input type="checkbox" checked={st.endNotify} onChange={(e) => void toggleNotify(e.target.checked)} />
-          倒數結束系統通知（切到其他視窗也看得到）
+          倒數結束系統通知（鎖定螢幕時也會提醒）
         </label>
         {notifyMsg && <p className="error">{notifyMsg}</p>}
         <label className="toggle">
           <input type="checkbox" checked={st.keepAwake} onChange={(e) => set({ keepAwake: e.target.checked })} />
           專注時保持螢幕開啟（比較耗電）
         </label>
-        <p className="small muted">
-          iPhone 鎖定螢幕時網頁會暫停，倒數結束要等回到 App 才會響鈴。想準時聽到提醒，可以開啟「保持螢幕開啟」，並把 App 加到主畫面。
-        </p>
+        {!isNative && (
+          <p className="small muted">
+            網頁版在 iPhone 鎖定螢幕時會暫停，倒數結束要等回到頁面才會響鈴；App 版會用系統通知準時提醒。
+          </p>
+        )}
         <p className="small muted">要聽哪一種環境音，可以在「大自然交響樂」挑選已收集的聲音。</p>
       </section>
 

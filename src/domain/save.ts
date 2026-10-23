@@ -11,7 +11,7 @@ export const defaultSettings = (): Settings => ({
   soundEnabled: false,
   soundVolume: 0.5,
   endChime: false, // 音效預設關閉，玩家開啟後才播放
-  endNotify: false,
+  endNotify: true, // App 版：倒數結束時跳出系統通知
   focusSound: 'auto',
   reducedMotion: false,
   sceneMode: 'auto',
