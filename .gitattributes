@@ -1,0 +1,3 @@
+# 讓 Android 的 gradlew 腳本在 Mac／Linux 也能執行
+android/gradlew text eol=lf
+*.sh text eol=lf
