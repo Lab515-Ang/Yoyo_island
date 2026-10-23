@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSave } from '../app/store';
-import { COPY, habitatName, HABITATS, MAX_PETS_PER_HABITAT, PROJECTS } from '../content/config';
+import { COPY, habitatName, HABITATS, MAX_PETS_PER_HABITAT, PLANTS, PROJECTS } from '../content/config';
 import { Progress } from '../components/ui';
 import { PetImage } from '../components/PetArt';
 import { PetCard } from '../components/PetCard';
@@ -117,7 +117,10 @@ function ProjectPanel({ onEnter }: { onEnter: (h: HabitatId) => void }) {
     <section className="card">
       <p className="eyebrow">目前工程 · {habitatName(project.habitatId)}</p>
       <h2>{project.title}</h2>
-      <p className="muted">完成後：{project.description}</p>
+      <p className="muted">
+        完成後：{project.description}
+        {PLANTS.filter((p) => p.unlockProjectId === project.id).map((p) => `，解鎖植物「${p.name}」`)}
+      </p>
       <Progress value={got / project.requiredPoints} label="工程進度" />
       <p className="small">
         {got} / {project.requiredPoints} 點 · {COPY.projectNeed(remaining, project.promise)}

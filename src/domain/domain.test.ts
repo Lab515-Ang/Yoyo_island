@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, weekStartKey } from './focus';
-import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, feed, feedFor, adoptPet, feedPet, adoptedPets, fedByUser, buyEgg, buyFacility, eggOdds, grantStarter, habitatSlots, naturalFace, setFace, starterGiftDue, sessionRoll, chanceFor, chanceFind, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote, isDone, projectQuarter, remainingFor, applyFocusRewards, focusOutcome, companionPet } from './game';
-import { CHANCE, EGG_PRICE, PACING_VERSION, SOUNDS, petDef, projectDef } from '../content/config';
+import { completeNow, createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, weekStartKey } from './focus';
+import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, feed, feedFor, adoptPet, feedPet, adoptedPets, fedByUser, buyEgg, buyFacility, eggOdds, grantStarter, habitatSlots, naturalFace, setFace, starterGiftDue, sessionRoll, chanceFor, chanceFind, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote, isDone, projectQuarter, remainingFor, applyFocusRewards, focusOutcome, companionPet, chosenPlant, plantUnlocked, plantedSessions } from './game';
+import { CHANCE, EGG_PRICE, PACING_VERSION, PLANTS, SOUNDS, petDef, plantTier, projectDef } from '../content/config';
 import { newSave, newDemoSave, validateSave, demoGrant } from './save';
 import type { SaveFile } from './types';
 
@@ -483,5 +483,35 @@ describe('專注完成後自動投入', () => {
     expect(companionPet(save)?.pet.id).toBe(gift);
     save = { ...save, settings: { ...save.settings, companionPetId: 'nope' } };
     expect(companionPet(save)?.pet.id).toBe(gift); // 選的不存在就自動挑
+  });
+});
+
+describe('今日花圃', () => {
+  it('開始時記下植物；工程完成才解鎖；測試用立即完成照常結算且存檔有效', () => {
+    let save = fresh();
+    const tulip = PLANTS.find((p) => p.id === 'tulip')!;
+    expect(plantUnlocked(save, tulip)).toBe(false);
+    save = { ...save, settings: { ...save.settings, plantId: 'tulip' } };
+    expect(chosenPlant(save).id).toBe('daisy'); // 還沒解鎖的設定退回第一種
+
+    save = startFocus(save, { taskTitle: '', tag: '讀書', habitatId: 'greenhouse', mode: 'countdown', targetSeconds: 25 * 60, plantId: 'clover' }, T0);
+    const open = save.sessions[0];
+    expect(open.plantId).toBe('clover');
+    expect(save.settings.plantId).toBe('clover');
+
+    const now = T0 + 2 * MIN;
+    const done = completeNow(open, now, 25);
+    save = applyFocusRewards(closeSession(save, done, now), done.id, now);
+    expect(done.accumulatedMs).toBe(25 * MIN);
+    expect(Date.parse(done.startedAt)).toBe(now - 25 * MIN);
+    expect(coins(save)).toBe(25);
+    expect(isDone(save, 'gh_entrance')).toBe(true);
+    expect(plantUnlocked(save, tulip)).toBe(true);
+    expect(plantedSessions(save)).toHaveLength(1);
+    expect(validateSave(JSON.parse(JSON.stringify(save))).ok).toBe(true);
+    expect(plantTier(10)).toBe(0);
+    expect(plantTier(25)).toBe(1);
+    expect(plantTier(60)).toBe(2);
+    expect(plantTier(180)).toBe(3);
   });
 });

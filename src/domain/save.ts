@@ -21,6 +21,7 @@ export const defaultSettings = (): Settings => ({
   customTags: [],
   companionPetId: null,
   keepAwake: false,
+  plantId: 'daisy',
 });
 
 export const deviceTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -161,6 +162,7 @@ export function validateSave(raw: unknown): Validation {
   for (const s of save.sessions) {
     if (!isObj(s) || !isStr(s.id) || !['running', 'paused', 'completed', 'abandoned'].includes(s.status) || !Array.isArray(s.segments)) return fail('專注紀錄格式不正確。');
     if (typeof s.accumulatedMs !== 'number' || s.accumulatedMs < 0 || !HABITAT_IDS.includes(s.habitatId)) return fail('專注紀錄數值不正確。');
+    if (s.plantId !== undefined && !isStr(s.plantId)) return fail('專注紀錄的植物不正確。');
     if (s.status === 'running' || s.status === 'paused') open++;
   }
   if (open > 1) return fail('存檔中有多個未結算的專注。');

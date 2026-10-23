@@ -29,6 +29,7 @@ export interface Settings {
   customTags: string[];
   companionPetId: string | null; // 陪伴寵物：專注得到的飼料自動餵牠；null = 自動挑最接近長大的
   keepAwake: boolean; // 專注時保持螢幕開啟（讓倒數結束能準時提醒）
+  plantId: string; // 上次選的植物（今日花圃）
 }
 
 export interface Island {
@@ -70,6 +71,7 @@ export interface FocusSession {
   startedAt: ISODate;
   endedAt: ISODate | null;
   outcome: Outcome | null;
+  plantId?: string; // 這段專注種下的植物；舊紀錄沒有時當作第一種
   note?: string; // 專注筆記（只存在自己的裝置，不分享）
   applied?: boolean; // 已經把這段的點數、飼料自動投入（避免重複）
 }

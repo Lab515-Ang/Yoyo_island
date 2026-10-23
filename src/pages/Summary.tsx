@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useSave } from '../app/store';
-import { COPY, EGG_PRICE, FACILITIES, HABITATS, speciesDef, tagColor, TAGS } from '../content/config';
+import { COPY, EGG_PRICE, FACILITIES, HABITATS, PLANTS, plantDef, speciesDef, tagColor, TAGS } from '../content/config';
+import { GardenPlot, PlantArt } from '../components/Garden';
 import { Coin, Modal } from '../components/ui';
 import { Creature } from '../components/Creature';
 import { localDateKey } from '../domain/focus';
-import { activeProject, balance, chanceFind, coins, earnedFor, editSessionNote, eggOdds, facilityOwned, focusOutcome, habitatFree, habitatOpen, minutesByDay, NOTE_MAX, remainingFor } from '../domain/game';
+import { activeProject, balance, chanceFind, coins, earnedFor, editSessionNote, eggOdds, facilityOwned, focusOutcome, habitatFree, habitatOpen, minutesByDay, NOTE_MAX, plantedSessions, remainingFor } from '../domain/game';
 import { HabitatScene } from '../scenes/HabitatScene';
 
 const clock = (ms: number) => `${String(Math.floor(ms / 60000)).padStart(2, '0')}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
@@ -50,12 +51,24 @@ export function Summary({
         FACILITIES.some((f) => f.habitatId === h.id && !facilityOwned(save, f.id) && wallet >= f.price)),
   );
   const hasTitle = s.taskTitle && s.taskTitle !== '一段專注';
+  // 今天的花圃：這段專注是今天的第幾株
+  const tz = save.profile.timezone;
+  const dayOf = (iso: string) => localDateKey(Date.parse(iso), tz);
+  const todays = s.endedAt ? plantedSessions(save).filter((x) => dayOf(x.endedAt!) === dayOf(s.endedAt!)).sort((a, b) => a.endedAt!.localeCompare(b.endedAt!)) : [];
+  const nth = todays.findIndex((x) => x.id === s.id) + 1;
+  const visitors = new Map(save.discoveries.filter((d) => d.sessionId).map((d) => [d.sessionId!, d.speciesId]));
+  const plantName = plantDef(s.plantId).name;
+  // 這段專注修好的工程解鎖了哪些植物
+  const newPlants = out.projects.filter((p) => p.completed).flatMap((p) => PLANTS.filter((pl) => pl.unlockProjectId === p.def.id));
 
   if (!done && !comforted)
     return (
       <div className="result comfort">
         <div className="result-scene" aria-hidden="true">
           <HabitatScene habitatId={s.habitatId} bubble />
+        </div>
+        <div className="comfort-plant">
+          <PlantArt id={s.plantId} tier={0} color={tagColor(s.tag)} withered size={130} />
         </div>
         <p className="result-title">沒關係，下次會更好</p>
         <p className="result-time">{clock(s.accumulatedMs)}</p>
@@ -102,6 +115,13 @@ export function Summary({
         )}
       </div>
 
+      {nth > 0 && (
+        <div className="today-garden">
+          <p className="small">{done ? `今天的第 ${nth} 株：${plantName}` : `${plantName}枯萎了，留在今天的花圃裡`}</p>
+          <GardenPlot sessions={todays} visitors={visitors} cols={Math.min(6, Math.max(4, todays.length))} minCells={4} freshId={s.id} />
+        </div>
+      )}
+
       {done && min > 0 && (
         <ul className="reward-list" aria-label="這段專注的成果">
           {out.projects.map((p) => (
@@ -116,6 +136,12 @@ export function Summary({
               <strong>+{earned.points}</strong>
             </li>
           )}
+          {newPlants.map((p) => (
+            <li key={p.id}>
+              <span>🌱 解鎖新植物</span>
+              <strong>{p.name}，下次專注可以種</strong>
+            </li>
+          ))}
           {gift && (
             <li>
               <span>🎁 新手禮物</span>

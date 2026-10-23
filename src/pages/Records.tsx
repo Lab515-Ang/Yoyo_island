@@ -2,13 +2,96 @@ import { useState } from 'react';
 import { useSave } from '../app/store';
 import { HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, QUICK_MINUTES, TAGS, habitatName } from '../content/config';
 import { fmtDateTime, fmtMinutes } from '../components/ui';
-import { localDateKey, shiftDateKey } from '../domain/focus';
-import { feedFor, habitatOpen, minutesByDay, rewardFor } from '../domain/game';
+import { GardenPlot } from '../components/Garden';
+import { localDateKey, shiftDateKey, weekStartKey } from '../domain/focus';
+import { feedFor, habitatOpen, minutesByDay, plantedSessions, rewardFor } from '../domain/game';
 import type { FocusSession, Settings } from '../domain/types';
 
 export function sessionLine(s: FocusSession) {
   const min = Math.floor(s.accumulatedMs / 60000);
   return `${s.taskTitle} · ${s.tag} · ${min} 分鐘${s.status === 'abandoned' ? '（提前結束，無獎勵）' : ` · +${rewardFor(s)} 點 +${rewardFor(s)} 金幣 +${feedFor(s)} 飼料`}`;
+}
+
+type Range = 'day' | 'week' | 'month' | 'year';
+const RANGES: [Range, string][] = [
+  ['day', '天'],
+  ['week', '週'],
+  ['month', '月'],
+  ['year', '年'],
+];
+// 每種範圍的花圃：幾欄、至少幾格
+const PLOT: Record<Range, { cols: number; min: number }> = { day: { cols: 4, min: 8 }, week: { cols: 6, min: 12 }, month: { cols: 8, min: 24 }, year: { cols: 12, min: 48 } };
+
+const shiftMonth = (key: string, n: number) => {
+  const [y, m] = key.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + n, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-01`;
+};
+const md = (key: string) => `${Number(key.slice(5, 7))}/${Number(key.slice(8))}`;
+
+/** 花圃：每段專注一株（天／週／月／年）。每天都從空的花圃開始。 */
+function GardenView() {
+  const { save } = useSave();
+  const tz = save.profile.timezone;
+  const today = localDateKey(Date.now(), tz);
+  const [range, setRange] = useState<Range>('day');
+  const [cursor, setCursor] = useState(today);
+
+  const inRange = (key: string) =>
+    range === 'day' ? key === cursor : range === 'week' ? weekStartKey(key) === weekStartKey(cursor) : range === 'month' ? key.slice(0, 7) === cursor.slice(0, 7) : key.slice(0, 4) === cursor.slice(0, 4);
+  const shown = plantedSessions(save)
+    .filter((s) => inRange(localDateKey(Date.parse(s.endedAt!), tz)))
+    .sort((a, b) => a.endedAt!.localeCompare(b.endedAt!));
+  const visitors = new Map(save.discoveries.filter((d) => d.sessionId).map((d) => [d.sessionId!, d.speciesId]));
+  const grown = shown.filter((s) => s.status === 'completed');
+  const totalMs = grown.reduce((a, s) => a + s.accumulatedMs, 0);
+
+  const move = (n: number) => setCursor(range === 'day' ? shiftDateKey(cursor, n) : range === 'week' ? shiftDateKey(cursor, 7 * n) : range === 'month' ? shiftMonth(cursor, n) : shiftMonth(cursor, 12 * n));
+  const isNow = inRange(today);
+  const label =
+    range === 'day'
+      ? cursor === today
+        ? '今天'
+        : `${Number(cursor.slice(0, 4)) === Number(today.slice(0, 4)) ? '' : `${cursor.slice(0, 4)}/`}${md(cursor)}`
+      : range === 'week'
+        ? `${md(weekStartKey(cursor))} – ${md(shiftDateKey(weekStartKey(cursor), 6))}`
+        : range === 'month'
+          ? `${cursor.slice(0, 4)} 年 ${Number(cursor.slice(5, 7))} 月`
+          : `${cursor.slice(0, 4)} 年`;
+
+  return (
+    <section className="card garden-card">
+      <div className="segmented" role="radiogroup" aria-label="花圃範圍">
+        {RANGES.map(([k, l]) => (
+          <button key={k} role="radio" aria-checked={range === k} className={range === k ? 'on' : ''} onClick={() => (setRange(k), setCursor(today))}>
+            {l}
+          </button>
+        ))}
+      </div>
+      <div className="garden-nav">
+        <button className="time-step" onClick={() => move(-1)} aria-label="上一段">
+          ‹
+        </button>
+        <strong>{label}</strong>
+        <button className="time-step" onClick={() => move(1)} disabled={isNow} aria-label="下一段">
+          ›
+        </button>
+      </div>
+      <GardenPlot sessions={shown} visitors={visitors} cols={PLOT[range].cols} minCells={PLOT[range].min} />
+      <p className="small center-text">
+        {shown.length ? (
+          <>
+            種了 <strong>{grown.length}</strong> 株 · 專注 {fmtMinutes(totalMs)}
+            {shown.length > grown.length && ` · 枯萎 ${shown.length - grown.length} 株`}
+          </>
+        ) : isNow ? (
+          '還是空的花圃。完成一段專注，就會種下第一株。'
+        ) : (
+          '這段時間沒有種下植物。'
+        )}
+      </p>
+    </section>
+  );
 }
 
 /** 專注紀錄與專注計畫設置：大廳開始專注時的預設值，以及完整紀錄。 */
@@ -39,6 +122,8 @@ export function Records({ initialTag = null }: { initialTag?: string | null }) {
   return (
     <div className="page">
       <h1>專注紀錄與專注計畫設置</h1>
+
+      <GardenView />
 
       <section className="card">
         <h2>專注計畫設置</h2>

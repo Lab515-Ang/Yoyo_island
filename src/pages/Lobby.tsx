@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useSave } from '../app/store';
-import { HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, QUICK_MINUTES, TAGS, clampMinutes, habitatName, tagColor } from '../content/config';
+import { HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, PLANTS, QUICK_MINUTES, TAGS, clampMinutes, habitatName, plantDef, plantTier, projectDef, tagColor } from '../content/config';
 import { Modal } from '../components/ui';
-import { habitatOpen, startFocus } from '../domain/game';
+import { PlantArt } from '../components/Garden';
+import { chosenPlant, habitatOpen, plantUnlocked, startFocus } from '../domain/game';
 import type { HabitatId, TimerMode } from '../domain/types';
 import { HabitatScene } from '../scenes/HabitatScene';
 import { isNative } from '../platform';
 
-type Sheet = 'tag' | 'title' | 'time' | 'habitat' | null;
+type Sheet = 'tag' | 'title' | 'time' | 'habitat' | 'plant' | null;
 
 /** 首頁大廳（參考 Forest 構圖）：左上標籤與標題、中央棲地泡泡、大字時間、開始按鈕；細項點了才展開。 */
 export function Lobby({ onStarted }: { onStarted: () => void }) {
@@ -19,6 +20,7 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
   // 舊存檔可能記著 5 分鐘：收進 10～180 分鐘（示範的 10 秒例外）
   const [seconds, setSeconds] = useState(mode === 'demo' && st.lastTargetSeconds === 10 ? 10 : clampMinutes(st.lastTargetSeconds / 60) * 60);
   const [habitat, setHabitat] = useState<HabitatId>(habitatOpen(save, st.preferredHabitatId) ? st.preferredHabitatId : 'greenhouse');
+  const [plant, setPlant] = useState(() => chosenPlant(save).id);
   const [sheet, setSheet] = useState<Sheet>(null);
   const [draft, setDraft] = useState('');
   const [custom, setCustom] = useState('');
@@ -38,7 +40,7 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
   };
 
   const start = () => {
-    const next = update((s) => startFocus(s, { taskTitle: task, tag, habitatId: habitat, mode: timerMode, targetSeconds: timerMode === 'countdown' ? seconds : null }, Date.now()));
+    const next = update((s) => startFocus(s, { taskTitle: task, tag, habitatId: habitat, mode: timerMode, targetSeconds: timerMode === 'countdown' ? seconds : null, plantId: plant }, Date.now()));
     if (next) onStarted();
   };
 
@@ -70,10 +72,19 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
 
       <div className="lobby-bubble">
         <HabitatScene habitatId={habitat} bubble />
+        {/* 準備種下的植物：時間選越長，結束時長得越大 */}
+        <button className="bubble-plant" onClick={() => setSheet('plant')} aria-label={`植物：${plantDef(plant).name}，點一下更換`}>
+          <PlantArt id={plant} tier={timerMode === 'countdown' ? plantTier(seconds / 60) : 1} color={tagColor(tag)} size="100%" />
+        </button>
       </div>
-      <button className="habitat-chip" onClick={() => setSheet('habitat')}>
-        {habitatName(habitat)} ›
-      </button>
+      <div className="row center">
+        <button className="habitat-chip" onClick={() => setSheet('plant')}>
+          🌱 {plantDef(plant).name} ›
+        </button>
+        <button className="habitat-chip" onClick={() => setSheet('habitat')}>
+          {habitatName(habitat)} ›
+        </button>
+      </div>
 
       <div className="lobby-time-row">
         {timerMode === 'countdown' && (
@@ -198,6 +209,34 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
               完成
             </button>
           )}
+        </Modal>
+      )}
+
+      {sheet === 'plant' && (
+        <Modal title="要種什麼？" onClose={() => setSheet(null)}>
+          <p className="small muted">專注時看它長大，結束後種進今天的花圃。花色跟著標籤，專注越久長得越大。</p>
+          <div className="plant-pick" role="radiogroup" aria-label="植物">
+            {PLANTS.map((p) => {
+              const ok = plantUnlocked(save, p);
+              return (
+                <button
+                  key={p.id}
+                  role="radio"
+                  aria-checked={plant === p.id}
+                  disabled={!ok}
+                  className={plant === p.id ? 'plant-option on' : 'plant-option'}
+                  onClick={() => {
+                    setPlant(p.id);
+                    setSheet(null);
+                  }}
+                >
+                  <PlantArt id={p.id} tier={ok ? 2 : 0} color={ok ? tagColor(tag) : '#c9c2b2'} size={56} />
+                  <span>{p.name}</span>
+                  {!ok && <span className="small muted">修好「{projectDef(p.unlockProjectId!)?.title}」</span>}
+                </button>
+              );
+            })}
+          </div>
         </Modal>
       )}
 

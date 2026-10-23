@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNow, useSave } from '../app/store';
-import { APP_NAME, MIN_FOCUS_MINUTES, SOUNDS } from '../content/config';
+import { APP_NAME, MIN_FOCUS_MINUTES, SOUNDS, TEST_TOOLS, plantTier, tagColor } from '../content/config';
 import { Modal } from '../components/ui';
-import { elapsedMs, finish, pause, remainingMs, resume } from '../domain/focus';
+import { PlantArt } from '../components/Garden';
+import { completeNow, elapsedMs, finish, pause, remainingMs, resume } from '../domain/focus';
 import { applyFocusRewards, cancelSession, closeSession, focusSoundFor, graceLeftMs, putSession } from '../domain/game';
 import type { FocusSession, SaveFile } from '../domain/types';
 import { HabitatScene, prefersReducedMotion } from '../scenes/HabitatScene';
@@ -22,6 +23,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   const { save, update, notify } = useSave();
   const now = useNow(250);
   const [ending, setEnding] = useState(false);
+  const [testing, setTesting] = useState(false);
   const countdown = session.mode === 'countdown';
   const shown = countdown ? remainingMs(session, now) : elapsedMs(session, now);
   const paused = session.status === 'paused';
@@ -75,6 +77,17 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
     return () => void cancelFocusEnd();
   }, [notifyAt, save.settings.endNotify, session.taskTitle, session.targetSeconds]);
 
+  // 測試工具：立刻以指定分鐘完成，正常結算
+  const finishNow = (minutes: number) => {
+    const t = Date.now();
+    if (update((s) => applyFocusRewards(closeSession(s, completeNow(cur(s), t, minutes), t), session.id, t))) onFinished(session.id);
+  };
+
+  // 植物跟著專注長大：倒數依進度長到目標時間的大小；正向計時依已專注的分鐘
+  const finalTier = plantTier(countdown ? (session.targetSeconds ?? 0) / 60 : elapsedMin);
+  const progress = countdown && session.targetSeconds ? elapsedMs(session, now) / (session.targetSeconds * 1000) : 0;
+  const growTier = countdown ? (progress < 0.15 ? -1 : Math.min(finalTier, Math.floor(progress * (finalTier + 1)))) : elapsedMin < MIN_FOCUS_MINUTES ? -1 : finalTier;
+
   const cancel = () => {
     if (update((s) => cancelSession(s, session.id, Date.now()))) notify('已取消，這次不算數。');
   };
@@ -87,10 +100,18 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
           <HabitatScene habitatId={session.habitatId} calm />
         </div>
         <div className="focus-top">
+          {TEST_TOOLS && (
+            <button className="test-btn" onClick={() => setTesting(true)}>
+              ⚡ 測試：立即完成
+            </button>
+          )}
           {soundOn && <span className="small">正在播放：{soundName}</span>}
           <button className="icon-round" onClick={toggleSound} aria-pressed={soundOn} aria-label={soundOn ? '關閉環境音' : '開啟環境音'}>
             {soundOn ? '🔊' : '🔇'}
           </button>
+        </div>
+        <div className="focus-plant">
+          <PlantArt id={session.plantId} tier={growTier} color={tagColor(session.tag)} size="100%" />
         </div>
         <div className={reduced ? 'focus-bubble still' : 'focus-bubble'}>
           <div className="focus-time" role="timer" aria-live="off" aria-label={countdown ? '剩餘時間' : '已專注時間'}>
@@ -127,6 +148,23 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
           )}
         </div>
       </div>
+      {testing && (
+        <Modal title="測試：立即完成" onClose={() => setTesting(false)}>
+          <p className="small muted">測試階段用：把這段專注當作已專注指定的分鐘並正常結算（點數、金幣、飼料、工程、植物都照算）。上線前會移除。</p>
+          <div className="chips">
+            {countdown && session.targetSeconds && session.targetSeconds >= 60 && (
+              <button className="chip on" onClick={() => finishNow(Math.round(session.targetSeconds! / 60))}>
+                目標 {Math.round(session.targetSeconds / 60)} 分
+              </button>
+            )}
+            {[10, 25, 60, 120, 180].map((m) => (
+              <button key={m} className="chip" onClick={() => finishNow(m)}>
+                {m} 分
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
       {ending && (
         <Modal title="要放棄這次專注嗎？" onClose={() => setEnding(false)}>
           <p>

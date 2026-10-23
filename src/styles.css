@@ -1605,3 +1605,125 @@ button.wallet {
 .modal .center {
   text-align: center;
 }
+
+/* 今日花圃 */
+.plant-art {
+  display: block;
+  overflow: visible;
+}
+.garden-card .segmented {
+  margin-bottom: 0.6rem;
+}
+.garden-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.6rem;
+}
+.garden-plot {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border-radius: var(--radius);
+  background: linear-gradient(#a7c98a, #8fb874);
+  box-shadow: inset 0 -6px 0 #7a9d5f;
+}
+.garden-cell {
+  position: relative;
+  aspect-ratio: 1;
+  background: radial-gradient(ellipse 36% 11% at 50% 90%, #8d6e4c 0 92%, transparent 100%);
+  opacity: 0.5;
+}
+.garden-cell.planted {
+  opacity: 1;
+}
+.garden-cell.fresh .plant-art {
+  animation: plant-grow 0.9s ease-out;
+  transform-origin: 50% 92%;
+}
+@keyframes plant-grow {
+  from {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+}
+.garden-visitor {
+  position: absolute;
+  right: -2px;
+  top: -2px;
+}
+.center-text {
+  text-align: center;
+}
+.today-garden {
+  width: min(360px, 100%);
+  text-align: center;
+}
+.today-garden .garden-plot {
+  margin-top: 0.4rem;
+}
+.comfort-plant {
+  margin: -0.5rem 0 0.2rem;
+  filter: grayscale(0.3);
+}
+.lobby-bubble {
+  position: relative;
+}
+.lobby .bubble-plant {
+  position: absolute;
+  left: 50%;
+  bottom: 4%;
+  width: 46%;
+  aspect-ratio: 1;
+  transform: translateX(-50%);
+  background: none;
+  border: 0;
+  padding: 0;
+  min-height: 0;
+  cursor: pointer;
+}
+.plant-pick {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 0.5rem;
+}
+.lobby .plant-pick .plant-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.5rem 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.lobby .plant-pick .plant-option.on {
+  border-color: var(--sage-deep);
+  background: #e5efdc;
+  font-weight: 600;
+}
+.lobby .plant-pick .plant-option:disabled {
+  opacity: 0.6;
+}
+.focus-plant {
+  position: relative;
+  width: min(36vw, 160px);
+  aspect-ratio: 1;
+  margin-bottom: -18px;
+  filter: drop-shadow(0 4px 10px rgba(30, 60, 40, 0.25));
+  transition: all 0.6s ease;
+}
+.test-btn {
+  position: fixed;
+  top: calc(0.8rem + env(safe-area-inset-top));
+  left: 1rem;
+  z-index: 5;
+  min-height: 32px;
+  padding: 0.2em 0.8em;
+  font-size: 0.8rem;
+  border-radius: 999px;
+  background: rgba(255, 240, 200, 0.9);
+  border: 1px dashed #c9a23c;
+}
+.mode-demo .test-btn {
+  top: 56px;
+}

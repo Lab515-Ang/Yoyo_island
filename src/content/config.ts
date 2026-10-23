@@ -183,6 +183,35 @@ export const SOUNDS: SoundDef[] = [
   { id: 'night', name: '夏夜蟲鳴', icon: '🌙', desc: '螢火蟲亮起的夜晚，草叢裡的蟲鳴。', unlock: { kind: 'petGrown', id: 'pet_firefly' } },
 ];
 
+// ---------- 今日花圃：每段專注種下一株植物 ----------
+
+/** 開始前選植物，專注時看它長大，結束後種進當天的花圃（放棄會枯萎）。新手 2 種，每修好一個工程解鎖 1 種。花色跟著標籤。 */
+export type PlantBloom = 'petals' | 'star' | 'cup' | 'cluster' | 'bells' | 'spike' | 'lotus';
+export interface PlantDef {
+  id: string;
+  name: string;
+  unlockProjectId: string | null; // null = 一開始就有
+  bloom: PlantBloom;
+}
+export const PLANTS: PlantDef[] = [
+  { id: 'daisy', name: '雛菊', unlockProjectId: null, bloom: 'petals' },
+  { id: 'clover', name: '白三葉草', unlockProjectId: null, bloom: 'cluster' },
+  { id: 'tulip', name: '鬱金香', unlockProjectId: 'gh_entrance', bloom: 'cup' },
+  { id: 'cosmos', name: '波斯菊', unlockProjectId: 'gh_flowers', bloom: 'star' },
+  { id: 'waterlily', name: '睡蓮', unlockProjectId: 'gh_fountain', bloom: 'lotus' },
+  { id: 'lily_valley', name: '鈴蘭', unlockProjectId: 'gh_plants', bloom: 'bells' },
+  { id: 'ginger', name: '野薑花', unlockProjectId: 'st_entrance', bloom: 'star' },
+  { id: 'reed', name: '蘆葦', unlockProjectId: 'st_bank', bloom: 'spike' },
+  { id: 'iris', name: '鳶尾花', unlockProjectId: 'st_water', bloom: 'cup' },
+  { id: 'hydrangea', name: '繡球花', unlockProjectId: 'st_bridge', bloom: 'cluster' },
+];
+export const plantDef = (id: string | undefined) => PLANTS.find((p) => p.id === id) ?? PLANTS[0];
+/** 植物大小（0～3）依專注分鐘：10～24、25～59、60～119、120 以上。 */
+export const plantTier = (min: number) => (min < 25 ? 0 : min < 60 ? 1 : min < 120 ? 2 : 3);
+
+/** 測試工具（專注畫面的「立即完成」）。上線前改成 false。 */
+export const TEST_TOOLS = true;
+
 /** 專注完成時偶遇生物：滿 10 分鐘才有機會，每分鐘 +0.13%，最高 12%（60 分鐘約 8%，平均 1～2 週遇到一次）。 */
 export const CHANCE = { minMinutes: 10, perMinute: 0.0013, max: 0.12 };
 

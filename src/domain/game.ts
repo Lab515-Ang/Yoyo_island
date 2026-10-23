@@ -1,5 +1,5 @@
 // 經濟、工程、生物發現與統計：全部是對 SaveFile 的純函式
-import { PROJECTS, SPECIES, HABITATS, PETS, SOUNDS, MIN_FOCUS_MINUTES, MAX_FOCUS_MINUTES, FACES, FACILITIES, EGG_PRICE, RARITY_WEIGHT, MAX_PETS_PER_HABITAT, STARTER, FEED_PER_MINUTES, COUNTDOWN_BONUS_PER_MINUTES, CHANCE, facilityDef, petDef, projectDef, type PetDef, type ProjectDef, type SoundUnlock } from '../content/config';
+import { PROJECTS, SPECIES, HABITATS, PETS, SOUNDS, MIN_FOCUS_MINUTES, MAX_FOCUS_MINUTES, FACES, FACILITIES, EGG_PRICE, RARITY_WEIGHT, MAX_PETS_PER_HABITAT, STARTER, FEED_PER_MINUTES, COUNTDOWN_BONUS_PER_MINUTES, CHANCE, PLANTS, facilityDef, petDef, plantDef, projectDef, type PetDef, type PlantDef, type ProjectDef, type SoundUnlock } from '../content/config';
 import { addSegmentsByDay, createSession, isOpen, settle } from './focus';
 import type { FocusSession, HabitatId, ID, PetInstance, SaveFile, TimerMode } from './types';
 
@@ -44,7 +44,7 @@ export function putSession(save: SaveFile, s: FocusSession): SaveFile {
 }
 
 /** 開始專注：同時最多一個未結算 session；只能選可進入的棲地。 */
-export function startFocus(save: SaveFile, p: { taskTitle: string; tag: string; habitatId: HabitatId; mode: TimerMode; targetSeconds: number | null }, now: number): SaveFile {
+export function startFocus(save: SaveFile, p: { taskTitle: string; tag: string; habitatId: HabitatId; mode: TimerMode; targetSeconds: number | null; plantId?: string }, now: number): SaveFile {
   if (openSession(save) || !habitatOpen(save, p.habitatId)) return save;
   // 倒數 10～180 分鐘；示範存檔允許 10 秒快轉
   const t = p.targetSeconds ?? 0;
@@ -53,9 +53,20 @@ export function startFocus(save: SaveFile, p: { taskTitle: string; tag: string; 
   const s = createSession({ ...p, id: newId(), userId: save.profile.id, islandId: islandId(save) }, now);
   return {
     ...putSession(save, s),
-    settings: { ...save.settings, lastTimerMode: p.mode, lastTargetSeconds: p.targetSeconds ?? save.settings.lastTargetSeconds, preferredHabitatId: p.habitatId },
+    settings: { ...save.settings, lastTimerMode: p.mode, lastTargetSeconds: p.targetSeconds ?? save.settings.lastTargetSeconds, preferredHabitatId: p.habitatId, plantId: p.plantId ?? save.settings.plantId },
   };
 }
+
+// ---------- 今日花圃 ----------
+
+export const plantUnlocked = (save: SaveFile, p: PlantDef) => isDone(save, p.unlockProjectId);
+/** 大廳預設的植物：上次選的；還沒解鎖（例如舊設定）就用第一種。 */
+export const chosenPlant = (save: SaveFile) => {
+  const p = plantDef(save.settings.plantId);
+  return plantUnlocked(save, p) ? p : PLANTS[0];
+};
+/** 自己的專注中，有結果（完成或放棄）的才算種下。 */
+export const plantedSessions = (save: SaveFile) => save.sessions.filter((s) => s.userId === save.profile.id && s.endedAt && (s.status === 'completed' || s.status === 'abandoned'));
 
 export const NOTE_MAX = 500;
 

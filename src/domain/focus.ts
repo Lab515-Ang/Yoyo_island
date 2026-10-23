@@ -12,7 +12,7 @@ const iso = (t: number) => new Date(t).toISOString();
 export const isOpen = (s: FocusSession) => s.status === 'running' || s.status === 'paused';
 
 export function createSession(
-  input: { id: ID; userId: ID; islandId: ID; taskTitle: string; tag: string; habitatId: HabitatId; mode: TimerMode; targetSeconds: number | null },
+  input: { id: ID; userId: ID; islandId: ID; taskTitle: string; tag: string; habitatId: HabitatId; mode: TimerMode; targetSeconds: number | null; plantId?: string },
   now: number,
 ): FocusSession {
   return {
@@ -80,6 +80,14 @@ export function finish(s: FocusSession, now: number, status: 'completed' | 'aban
   s = settle(s, now);
   if (!isOpen(s)) return s;
   return { ...closeRunning(s, now), status, endedAt: iso(now) };
+}
+
+/** 測試工具：立刻以 minutes 分鐘完成。整段時間往前推，讓紀錄、每日分鐘數與獎勵都一致。 */
+export function completeNow(s: FocusSession, now: number, minutes: number): FocusSession {
+  if (!isOpen(s)) return s;
+  const len = minutes * 60_000;
+  const start = iso(now - len);
+  return { ...s, status: 'completed', accumulatedMs: len, runningSince: null, segments: [{ startedAt: start, endedAt: iso(now) }], startedAt: start, endedAt: iso(now) };
 }
 
 // ---------- 本地時區日期 ----------
