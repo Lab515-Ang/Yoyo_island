@@ -215,7 +215,7 @@ function Main() {
           {view === 'journey' && <Journey onEnter={enter} />}
           {view === 'friends' && <Together />}
           {view === 'achievements' && <NotYet title="成就" />}
-          {view === 'shop' && <Shop />}
+          {view === 'shop' && <Shop onIsland={() => go('island')} />}
           {view === 'news' && <NotYet title="活動消息" />}
           {view === 'settings' && <SettingsPage />}
         </main>
