@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, weekStartKey } from './focus';
-import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, feed, feedFor, adoptPet, feedPet, adoptedPets, fedByUser, buyEgg, buyFacility, eggOdds, grantStarter, habitatSlots, naturalFace, setFace, starterGiftDue, sessionRoll, chanceFor, chanceFind, soundUnlocked, focusSoundFor, cancelSession, startFocus } from './game';
+import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, feed, feedFor, adoptPet, feedPet, adoptedPets, fedByUser, buyEgg, buyFacility, eggOdds, grantStarter, habitatSlots, naturalFace, setFace, starterGiftDue, sessionRoll, chanceFor, chanceFind, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote } from './game';
 import { SOUNDS } from '../content/config';
 import { newSave, newDemoSave, validateSave, demoGrant } from './save';
 import type { SaveFile } from './types';
@@ -384,5 +384,18 @@ describe('開始後 10 秒內取消', () => {
     const id = save.sessions[0].id;
     expect(cancelSession(save, id, T0 + 9_000).sessions).toHaveLength(0);
     expect(cancelSession(save, id, T0 + 11_000).sessions).toHaveLength(1);
+  });
+});
+
+describe('專注筆記', () => {
+  it('結束後可以寫筆記、改標籤與標題；進行中不能改', () => {
+    const p = { taskTitle: '', tag: '讀書', habitatId: 'greenhouse' as const, mode: 'stopwatch' as const, targetSeconds: null };
+    let save = startFocus(fresh(), p, T0);
+    const id = save.sessions[0].id;
+    expect(editSessionNote(save, id, { note: 'x', tag: '工作', taskTitle: '' })).toBe(save);
+    save = closeSession(save, finish(save.sessions[0], T0 + 30 * MIN, 'completed'), T0 + 30 * MIN);
+    save = editSessionNote(save, id, { note: '  完成爬山  ', tag: '工作', taskTitle: '' });
+    expect([save.sessions[0].note, save.sessions[0].tag, save.sessions[0].taskTitle]).toEqual(['完成爬山', '工作', '一段專注']);
+    expect(validateSave(save).ok).toBe(true);
   });
 });

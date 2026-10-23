@@ -53,6 +53,16 @@ export function startFocus(save: SaveFile, p: { taskTitle: string; tag: string; 
   };
 }
 
+export const NOTE_MAX = 500;
+
+/** 結束後補寫筆記、修改標籤與標題（進行中的專注不能改）。 */
+export function editSessionNote(save: SaveFile, sessionId: ID, patch: { note: string; tag: string; taskTitle: string }): SaveFile {
+  const s = save.sessions.find((x) => x.id === sessionId);
+  if (!s || isOpen(s)) return save;
+  const next = { ...s, note: patch.note.trim().slice(0, NOTE_MAX), tag: patch.tag.trim() || s.tag, taskTitle: patch.taskTitle.trim() || '一段專注' };
+  return putSession(save, next);
+}
+
 /** 開始後 10 秒內可以直接取消：不算放棄、不留紀錄（避免誤觸開始被懲罰）。 */
 export const CANCEL_GRACE_MS = 10_000;
 export const graceLeftMs = (s: FocusSession, now: number) => Math.max(0, CANCEL_GRACE_MS - (now - Date.parse(s.startedAt)));

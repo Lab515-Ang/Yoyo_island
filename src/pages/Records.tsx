@@ -12,7 +12,8 @@ export function sessionLine(s: FocusSession) {
 }
 
 /** 專注紀錄與專注計畫設置：大廳開始專注時的預設值，以及完整紀錄。 */
-export function Records() {
+export function Records({ initialTag = null }: { initialTag?: string | null }) {
+  const [tagFilter, setTagFilter] = useState<string | null>(initialTag);
   const { save, update } = useSave();
   const st = save.settings;
   const set = (patch: Partial<Settings>) => update((s) => ({ ...s, settings: { ...s.settings, ...patch } }));
@@ -25,7 +26,7 @@ export function Records() {
   const days = Array.from({ length: 7 }, (_, i) => shiftDateKey(today, -i));
   const maxMs = Math.max(1, ...days.map((d) => byDay.get(d) ?? 0));
   const weekMs = days.reduce((a, d) => a + (byDay.get(d) ?? 0), 0);
-  const sessions = [...save.sessions].reverse().filter((s) => s.endedAt && s.userId === save.profile.id);
+  const sessions = [...save.sessions].reverse().filter((s) => s.endedAt && s.userId === save.profile.id && (!tagFilter || s.tag === tagFilter));
   const customMin = Number(custom);
   const customValid = Number.isInteger(customMin) && customMin >= 1 && customMin <= MAX_CUSTOM_MINUTES;
 
@@ -125,7 +126,14 @@ export function Records() {
       </section>
 
       <section className="card">
-        <h2>全部專注紀錄</h2>
+        <div className="row between">
+          <h2>{tagFilter ? `專注紀錄：「${tagFilter}」` : '全部專注紀錄'}</h2>
+          {tagFilter && (
+            <button className="link" onClick={() => setTagFilter(null)}>
+              顯示全部
+            </button>
+          )}
+        </div>
         <ul className="list">
           {sessions.map((s) => (
             <li key={s.id}>
@@ -133,6 +141,7 @@ export function Records() {
                 {fmtDateTime(s.endedAt!)} · {habitatName(s.habitatId)}
               </span>
               <div>{sessionLine(s)}</div>
+              {s.note && <div className="small note-line">✎ {s.note}</div>}
             </li>
           ))}
           {!sessions.length && <li className="muted">還沒有專注紀錄。回到大廳開始第一段吧。</li>}

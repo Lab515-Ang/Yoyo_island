@@ -10,6 +10,7 @@ import { Onboarding } from './pages/Onboarding';
 import { Lobby } from './pages/Lobby';
 import { Focus } from './pages/Focus';
 import { Summary } from './pages/Summary';
+import { Break } from './pages/Break';
 import { IslandPage } from './pages/Island';
 import { Quests } from './pages/Quests';
 import { Records } from './pages/Records';
@@ -70,6 +71,8 @@ function Main() {
   const [view, setView] = useState<View>('lobby');
   const [habitat, setHabitat] = useState<HabitatId | null>(null);
   const [summaryId, setSummaryId] = useState<string | null>(null);
+  const [resting, setResting] = useState(false);
+  const [recordsTag, setRecordsTag] = useState<string | null>(null);
   const [navOpen, setNavOpen] = useState(false); // 手機：抽屜
   const [collapsed, setCollapsedState] = useState(readCollapsed); // 桌面：收合成圖示列
   const setCollapsed = (fn: (c: boolean) => boolean) =>
@@ -126,6 +129,7 @@ function Main() {
 
   const go = (v: View, h: HabitatId | null = null) => {
     setSummaryId(null);
+    setRecordsTag(null);
     setView(v);
     setHabitat(h);
     setNavOpen(false);
@@ -135,7 +139,23 @@ function Main() {
 
   let body;
   if (open) body = <Focus session={open} onFinished={setSummaryId} />;
-  else if (summaryId) body = <Summary sessionId={summaryId} onDone={() => go('lobby')} onProject={() => go('island')} />;
+  else if (resting) body = <Break onDone={() => (setResting(false), go('lobby'))} />;
+  else if (summaryId)
+    body = (
+      <Summary
+        sessionId={summaryId}
+        onDone={() => go('lobby')}
+        onProject={() => go('island')}
+        onRecords={(tag) => {
+          go('records');
+          setRecordsTag(tag);
+        }}
+        onBreak={() => {
+          setSummaryId(null);
+          setResting(true);
+        }}
+      />
+    );
   else
     body = (
       <div className={collapsed ? 'shell nav-collapsed' : 'shell'}>
@@ -182,7 +202,7 @@ function Main() {
           {view === 'lobby' && <Lobby onStarted={() => setSummaryId(null)} />}
           {view === 'island' && <IslandPage habitat={habitat} setHabitat={setHabitat} onShop={() => go('shop')} />}
           {view === 'quests' && <Quests onIsland={() => go('island')} onShop={() => go('shop')} />}
-          {view === 'records' && <Records />}
+          {view === 'records' && <Records key={recordsTag ?? 'all'} initialTag={recordsTag} />}
           {view === 'sounds' && <Sounds onSettings={() => go('settings')} />}
           {view === 'journey' && <Journey onEnter={enter} />}
           {view === 'friends' && <Together />}

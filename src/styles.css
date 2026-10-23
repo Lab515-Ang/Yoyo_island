@@ -1242,3 +1242,174 @@ button.danger-fill {
 .result .pill {
   min-width: 14rem;
 }
+
+/* ---------- 結果卡片、專注筆記、休息（參考 Forest 構圖） ---------- */
+.result-card {
+  width: min(100%, 360px);
+  border-radius: 28px;
+  padding: 1rem 1rem 1.1rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid rgba(255, 255, 255, 0.22);
+  text-align: left;
+  display: grid;
+  gap: 0.5rem;
+}
+.result-card-scene {
+  height: 190px;
+  border-radius: 20px;
+  overflow: hidden;
+}
+.result-card-scene .scene,
+.note-scene .scene {
+  height: 100%;
+  max-height: none;
+  aspect-ratio: auto;
+}
+.result-card.faded .result-card-scene {
+  filter: grayscale(0.6) brightness(0.85);
+}
+.minute-pill {
+  justify-self: start;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 999px;
+  padding: 0.1em 0.8em;
+  font-size: 0.9rem;
+}
+.result-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  font-size: 1.05rem;
+}
+.result-task {
+  opacity: 0.85;
+}
+.result .note-btn {
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #f3e3a3;
+  border-radius: 999px;
+}
+.result .result-note {
+  border: none;
+  background: none;
+  color: rgba(255, 253, 246, 0.85);
+  text-align: left;
+  align-items: flex-start;
+  padding: 0.2rem 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.reward-chips {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+}
+.reward-chips span {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 0.15em 0.7em;
+}
+.result-saved {
+  color: #f3e3a3;
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin: 0;
+  max-width: 360px;
+}
+.result-actions {
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+  width: min(100%, 360px);
+  margin-top: 0.4rem;
+}
+.result .text-light {
+  border: none;
+  background: none;
+  color: #fffdf6;
+  font-size: 1.05rem;
+}
+.note-editor {
+  justify-content: flex-start;
+  text-align: left;
+  align-items: stretch;
+}
+.note-top {
+  display: flex;
+  justify-content: space-between;
+}
+.note-scene {
+  width: 180px;
+  height: 140px;
+  margin: 0 auto;
+  border-radius: 20px;
+  overflow: hidden;
+}
+.note-meta {
+  display: grid;
+  gap: 0.2rem;
+}
+.note-editor .tag-line {
+  border: none;
+  background: none;
+  color: #fffdf6;
+  justify-content: flex-start;
+  flex-direction: row;
+  gap: 0.45rem;
+  font-size: 1.05rem;
+}
+.note-editor .note-title {
+  background: transparent;
+  border: none;
+  color: #fffdf6;
+  font-size: 1.05rem;
+  padding-left: 1.6rem;
+}
+.note-editor .note-title::placeholder {
+  color: rgba(255, 253, 246, 0.6);
+}
+.note-prompt {
+  color: #f3e3a3;
+  font-weight: 600;
+  line-height: 1.6;
+  margin: 0.4rem 0;
+}
+.note-input {
+  font: inherit;
+  min-height: 140px;
+  border-radius: 22px;
+  border: 1.5px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fffdf6;
+  padding: 0.9rem 1rem;
+  resize: vertical;
+}
+.note-input::placeholder {
+  color: rgba(255, 253, 246, 0.5);
+}
+.note-count {
+  opacity: 0.7;
+  margin: 0;
+}
+.note-line {
+  color: var(--muted);
+  white-space: pre-wrap;
+  margin-top: 0.2rem;
+}
+.break-time {
+  font-size: clamp(3.6rem, 16vw, 5rem);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin: 0.4rem 0;
+}
+.result.break .chip {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fffdf6;
+}
+.pill.wide {
+  width: 100%;
+}

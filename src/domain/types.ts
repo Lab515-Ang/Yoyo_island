@@ -68,6 +68,7 @@ export interface FocusSession {
   startedAt: ISODate;
   endedAt: ISODate | null;
   outcome: Outcome | null;
+  note?: string; // 專注筆記（只存在自己的裝置，不分享）
 }
 
 export interface PointTransaction {
