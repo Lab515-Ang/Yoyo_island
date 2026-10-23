@@ -130,6 +130,7 @@ export interface PetInstance {
   adoptedAt: ISODate;
   source: 'gift' | 'buy' | 'egg';
   faceOverride: number | null; // 長大後在表情相簿選的表情；null = 孵化時隨機的表情
+  bonusFed?: number; // 舊節奏換算來的成長量（讓舊存檔的寵物不倒退）
 }
 
 export interface SaveFile {
@@ -146,5 +147,6 @@ export interface SaveFile {
   discoveries: Discovery[];
   weeklyGoals: WeeklyGoal[];
   pets: PetInstance[];
+  pacing?: number; // 節奏版本（PACING_VERSION）
   savedAt: ISODate;
 }

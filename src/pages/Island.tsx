@@ -55,7 +55,9 @@ export function IslandPage({ habitat, setHabitat, onShop }: { habitat: HabitatId
             );
           })}
         </ol>
-        <p className="muted small">首版路線共 580 點，大約是 580 分鐘的專注。</p>
+        <p className="muted small">
+          整條路線共 {PROJECTS.reduce((a, p) => a + p.requiredPoints, 0).toLocaleString()} 點，大約 {Math.round(PROJECTS.reduce((a, p) => a + p.requiredPoints, 0) / 60)} 小時的專注。每投入 25%，場景就會先有一點變化。
+        </p>
       </section>
     </div>
   );
@@ -90,7 +92,7 @@ function ProjectPanel({ onEnter }: { onEnter: (h: HabitatId) => void }) {
       notify(`「${r.completed.title}」完成了！`); // 最後一個工程完成時面板會換成「全部修復」，靠提示告知
     } else {
       const left = remainingFor(saved, project);
-      notify(COPY.projectNeed(left, project.promise));
+      notify(r.quarter ? `「${project.title}」完成 ${r.quarter}%，小島有了一點變化！${COPY.projectNeed(left, project.promise)}` : COPY.projectNeed(left, project.promise));
     }
   };
 

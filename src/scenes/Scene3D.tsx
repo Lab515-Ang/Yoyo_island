@@ -9,6 +9,7 @@ import type { HabitatId } from '../domain/types';
 export interface SceneProps {
   habitatId: HabitatId;
   done: (projectId: string) => boolean;
+  prog?: (projectId: string) => number; // 工程進度，切成 0／0.25／0.5／0.75／1，中途就讓場景有一點變化
   reducedMotion: boolean;
   onSelect?: (speciesId: string) => void;
   onSlow?: () => void;
@@ -115,6 +116,7 @@ export interface ScenePet {
   art?: boolean;
   stage: number;
   face: number;
+  grow?: number; // 0～1：目前階段裡長大了多少
 }
 
 /** 每個場景最多 5 隻，依領養順序放在固定位置。 */
@@ -165,7 +167,7 @@ function PetSprite({ pet, spot, still, onSelect }: { pet: ScenePet; spot: [numbe
     g.position.y = Math.abs(Math.sin(t * 1.4 + phase)) * 0.05; // 輕輕彈跳
     g.scale.y = 1 + Math.sin(t * 2.2 + phase) * 0.02; // 呼吸
   });
-  const s = [0.6, 0.85, 1, 1.15][pet.stage] * 1.5;
+  const s = [0.6, 0.85, 1, 1.15][pet.stage] * 1.5 * (1 + 0.15 * (pet.grow ?? 0));
   return (
     <Pick id={`pet:${pet.id}`} onSelect={onSelect}>
       <group position={spot}>
@@ -377,7 +379,9 @@ function Water({ y, still, color, opacity, children }: { y: number; still: boole
   );
 }
 
-function Greenhouse({ done, still }: { done: (id: string) => boolean; still: boolean }) {
+type Progress = { done: (id: string) => boolean; prog: (id: string) => number; still: boolean };
+
+function Greenhouse({ done, prog, still }: Progress) {
   const R = 4.8;
   const pillars = [0, 1, 2, 3, 4, 5].map((i) => (i / 5) * Math.PI);
   const flowers = useMemo(() => spread(14, 0.8), []);
@@ -386,6 +390,9 @@ function Greenhouse({ done, still }: { done: (id: string) => boolean; still: boo
     g.scale.y = 1 + Math.sin(t * 3) * 0.06;
   });
   const fountainOn = done('gh_fountain');
+  const fq = prog('gh_fountain');
+  const flowerCount = done('gh_flowers') ? flowers.length : Math.floor(flowers.length * prog('gh_flowers'));
+  const leafCount = done('gh_plants') ? leafs.length : Math.floor(leafs.length * prog('gh_plants'));
   return (
     <group>
       {/* 戶外草地與遠景樹 */}
@@ -469,10 +476,18 @@ function Greenhouse({ done, still }: { done: (id: string) => boolean; still: boo
             <cylinderGeometry args={[1.22, 1.22, 0.47, 32]} />
           </Water>
         ) : (
-          <mesh position={[0, 0.33, 0]}>
-            <cylinderGeometry args={[1.22, 1.22, 0.46, 32]} />
-            <Mat color="#cdbfa3" />
-          </mesh>
+          <>
+            <mesh position={[0, 0.33, 0]}>
+              <cylinderGeometry args={[1.22, 1.22, 0.46, 32]} />
+              <Mat color={fq >= 0.25 ? '#ddd2bc' : '#cdbfa3'} />
+            </mesh>
+            {fq >= 0.5 && (
+              <mesh position={[0, 0.57, 0]} raycast={noHit}>
+                <cylinderGeometry args={[1.2 * fq, 1.2 * fq, 0.02, 32]} />
+                <Mat color={C.water} opacity={0.8} />
+              </mesh>
+            )}
+          </>
         )}
         <mesh position={[0, 0.95, 0]}>
           <cylinderGeometry args={[0.18, 0.28, 1.1, 14]} />
@@ -510,8 +525,8 @@ function Greenhouse({ done, still }: { done: (id: string) => boolean; still: boo
           <cylinderGeometry args={[1, 1, 0.02, 24]} />
           <Mat color={C.soil} />
         </mesh>
-        {done('gh_flowers')
-          ? flowers.map(([x, z], i) => <Flower key={i} p={[x, 0.43, z]} color={FLOWER[i % FLOWER.length]} h={0.25 + (i % 3) * 0.07} />)
+        {flowerCount > 0
+          ? flowers.slice(0, flowerCount).map(([x, z], i) => <Flower key={i} p={[x, 0.43, z]} color={FLOWER[i % FLOWER.length]} h={0.25 + (i % 3) * 0.07} />)
           : [[-0.3, 0.2], [0.35, -0.2], [0.1, 0.45]].map(([x, z]) => (
               <mesh key={x} position={[x, 0.55, z]} rotation={[0.3, 0, x]}>
                 <cylinderGeometry args={[0.015, 0.02, 0.25, 4]} />
@@ -530,15 +545,15 @@ function Greenhouse({ done, still }: { done: (id: string) => boolean; still: boo
           <cylinderGeometry args={[1, 1, 0.02, 24]} />
           <Mat color={C.soil} />
         </mesh>
-        {done('gh_plants') ? (
+        {leafCount > 0 ? (
           <>
-            {leafs.map(([x, z], i) => (
+            {leafs.slice(0, leafCount).map(([x, z], i) => (
               <mesh key={i} position={[x, 0.6, z]} rotation={[0.5, i, 0]} scale={[1, 0.25, 0.6]}>
                 <sphereGeometry args={[0.35, 10, 8]} />
                 <Mat color={i % 2 ? C.sage : C.sageDark} />
               </mesh>
             ))}
-            <Flower p={[0.2, 0.43, -0.4]} color={FLOWER[4]} h={0.45} />
+            {done('gh_plants') && <Flower p={[0.2, 0.43, -0.4]} color={FLOWER[4]} h={0.45} />}
           </>
         ) : (
           <Flower p={[0, 0.43, 0]} color={C.sage} h={0.12} />
@@ -569,8 +584,11 @@ function Greenhouse({ done, still }: { done: (id: string) => boolean; still: boo
   );
 }
 
-function Stream({ done, still }: { done: (id: string) => boolean; still: boolean }) {
+function Stream({ done, prog, still }: Progress) {
   const clear = done('st_water');
+  const wq = prog('st_water'); // 淺水區：越整理越清澈、漂流物越少
+  const reedCount = done('st_bank') ? Infinity : Math.floor(16 * prog('st_bank'));
+  const planks = done('st_bridge') ? 9 : Math.floor(9 * prog('st_bridge'));
   const reeds = useMemo(() => [...spread(9, 1).map(([x, z]) => [x * 2 - 3, z * 0.4 + 1.35] as const), ...spread(7, 1).map(([x, z]) => [x * 2 + 1, z * 0.3 - 1.35] as const)], []);
   return (
     <group>
@@ -587,10 +605,10 @@ function Stream({ done, still }: { done: (id: string) => boolean; still: boolean
         <boxGeometry args={[16, 0.6, 7]} />
         <Mat color={C.grass} />
       </mesh>
-      <Water y={0.08} still={still} color={clear ? C.water : C.murky} opacity={clear ? 0.72 : 0.92}>
+      <Water y={0.08} still={still} color={clear ? C.water : wq >= 0.5 ? '#97c2bd' : C.murky} opacity={clear ? 0.72 : wq >= 0.5 ? 0.85 : 0.92}>
         <boxGeometry args={[16, 0.02, 2.2]} />
       </Water>
-      {!clear && [[-2, 0.3], [1.5, -0.4], [4, 0.2]].map(([x, z]) => (
+      {!clear && [[-2, 0.3], [1.5, -0.4], [4, 0.2]].slice(0, 3 - Math.floor(wq * 4)).map(([x, z]) => (
         <mesh key={x} position={[x, 0.08, z]} rotation={[0, x, 0]}>
           <boxGeometry args={[0.5, 0.06, 0.18]} />
           <Mat color={C.woodDark} />
@@ -622,9 +640,9 @@ function Stream({ done, still }: { done: (id: string) => boolean; still: boolean
       </group>
 
       {/* st_bank：蘆葦與水邊植物 */}
-      {done('st_bank') ? (
+      {reedCount > 0 && (
         <group>
-          {reeds.map(([x, z], i) => (
+          {reeds.slice(0, reedCount).map(([x, z], i) => (
             <group key={i} position={[x, 0.3, z]}>
               <mesh position={[0, 0.45, 0]} rotation={[0, 0, (i % 3 - 1) * 0.08]}>
                 <cylinderGeometry args={[0.02, 0.03, 0.9, 5]} />
@@ -638,12 +656,17 @@ function Stream({ done, still }: { done: (id: string) => boolean; still: boolean
               )}
             </group>
           ))}
-          <Bush p={[-5, 0.3, 1.8]} s={0.9} />
-          <Bush p={[5.2, 0.3, 1.9]} s={0.8} color={C.sageDark} />
-          <Bush p={[-3.5, 0.3, -1.9]} s={0.85} />
-          <Bush p={[3.6, 0.3, -2]} s={1} />
+          {done('st_bank') && (
+            <>
+              <Bush p={[-5, 0.3, 1.8]} s={0.9} />
+              <Bush p={[5.2, 0.3, 1.9]} s={0.8} color={C.sageDark} />
+              <Bush p={[-3.5, 0.3, -1.9]} s={0.85} />
+              <Bush p={[3.6, 0.3, -2]} s={1} />
+            </>
+          )}
         </group>
-      ) : (
+      )}
+      {!done('st_bank') && prog('st_bank') < 0.5 && (
         <group>
           {[[-3, 1.6], [2, 1.8], [-1, -1.7]].map(([x, z]) => (
             <mesh key={x} position={[x, 0.31, z]}>
@@ -665,20 +688,20 @@ function Stream({ done, still }: { done: (id: string) => boolean; still: boolean
         {[-1.5, 1.5].flatMap((z) =>
           [-0.55, 0.55].map((x) => (
             <mesh key={`${x}${z}`} position={[x, 0.45, z]}>
-              <cylinderGeometry args={[0.07, 0.08, done('st_bridge') ? 0.9 : 0.5, 8]} />
+              <cylinderGeometry args={[0.07, 0.08, done('st_bridge') || prog('st_bridge') >= 0.25 ? 0.9 : 0.5, 8]} />
               <Mat color={C.woodDark} />
             </mesh>
           )),
         )}
-        {done('st_bridge') ? (
+        {planks > 0 ? (
           <group>
-            {Array.from({ length: 9 }, (_, i) => (
+            {Array.from({ length: planks }, (_, i) => (
               <mesh key={i} position={[0, 0.42 + Math.sin((i / 8) * Math.PI) * 0.18, -1.6 + i * 0.4]} rotation={[Math.cos((i / 8) * Math.PI) * -0.4, 0, 0]}>
                 <boxGeometry args={[1.25, 0.07, 0.36]} />
                 <Mat color={i % 2 ? C.wood : '#d4b48a'} />
               </mesh>
             ))}
-            {[-0.58, 0.58].map((x) => (
+            {done('st_bridge') && [-0.58, 0.58].map((x) => (
               <mesh key={x} position={[x, 0.95, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[1, 1, 1]}>
                 <cylinderGeometry args={[0.035, 0.035, 3.1, 6]} />
                 <Mat color={C.woodDark} />
@@ -697,14 +720,14 @@ function Stream({ done, still }: { done: (id: string) => boolean; still: boolean
   );
 }
 
-export default function Scene3D({ habitatId, done, reducedMotion, onSelect, onSlow, backdrop, bubble, pets = [], facilities = [] }: SceneProps) {
+export default function Scene3D({ habitatId, done, prog, reducedMotion, onSelect, onSlow, backdrop, bubble, pets = [], facilities = [] }: SceneProps) {
   const [hidden, setHidden] = useState(document.hidden);
   useEffect(() => {
     const on = () => setHidden(document.hidden);
     document.addEventListener('visibilitychange', on);
     return () => document.removeEventListener('visibilitychange', on);
   }, []);
-  const props = { done, still: reducedMotion };
+  const props = { done, prog: prog ?? ((id: string) => (done(id) ? 1 : 0)), still: reducedMotion };
   return (
     <Canvas
       // 背景分頁停止渲染；低動態模式只在變化時重繪

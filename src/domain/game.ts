@@ -148,11 +148,22 @@ export const projectRow = (save: SaveFile, id: string) => save.projects.find((p)
 export const isDone = (save: SaveFile, id: string | null) => id === null || !!projectRow(save, id)?.completedAt;
 export const remainingFor = (save: SaveFile, def: ProjectDef) => def.requiredPoints - (projectRow(save, def.id)?.contributedPoints ?? 0);
 
+/** 工程進度 0～1（已完成＝1，舊存檔用舊數值完成的也算完成）。 */
+export function projectProgress(save: SaveFile, id: string) {
+  const row = projectRow(save, id);
+  const def = projectDef(id);
+  if (!row || !def) return 0;
+  return row.completedAt ? 1 : row.contributedPoints / def.requiredPoints;
+}
+
+/** 進度切成四段：0、25%、50%、75%、100%；每跨一段場景就有一點變化。 */
+export const projectQuarter = (save: SaveFile, id: string) => Math.floor(projectProgress(save, id) * 4) / 4;
+
 /** 固定順序：第一個尚未完成的工程。 */
 export const activeProject = (save: SaveFile): ProjectDef | null => PROJECTS.find((p) => !isDone(save, p.id)) ?? null;
 
 export type ContributeResult =
-  | { ok: true; save: SaveFile; spent: number; completed: ProjectDef | null; unlocked: PetDef[] }
+  | { ok: true; save: SaveFile; spent: number; completed: ProjectDef | null; unlocked: PetDef[]; quarter: number | null }
   | { ok: false; error: string };
 
 /** 實際扣點 = min(輸入值, 錢包餘額, 工程剩餘需求)；交易、貢獻、工程進度一起提交。 */
@@ -181,7 +192,11 @@ export function contribute(save: SaveFile, userId: ID, projectId: string, input:
     const active = activeProject(next);
     next = { ...next, islands: next.islands.map((i) => (i.id === isl ? { ...i, activeProjectId: active?.id ?? null } : i)) };
   }
-  return { ok: true, save: next, spent, completed: completed ? def : null, unlocked: completed ? PETS.filter((p) => p.requiredProjectId === def.id) : [] }; // 工程完成後可領養的寵物
+  // 跨過 25%／50%／75% 時回報，讓介面提示「小島有了一點變化」
+  const before = Math.floor((row.contributedPoints / def.requiredPoints) * 4);
+  const after = Math.floor((total / def.requiredPoints) * 4);
+  const quarter = !completed && after > before ? after * 25 : null;
+  return { ok: true, save: next, spent, completed: completed ? def : null, unlocked: completed ? PETS.filter((p) => p.requiredProjectId === def.id) : [], quarter }; // 工程完成後可領養的寵物
 }
 
 // ---------- 棲地與生物 ----------
@@ -197,7 +212,7 @@ export const discoveryOf = (save: SaveFile, speciesId: string) => save.discoveri
 export function habitatProgress(save: SaveFile, habitatId: HabitatId) {
   const defs = PROJECTS.filter((p) => p.habitatId === habitatId);
   const need = defs.reduce((a, p) => a + p.requiredPoints, 0);
-  const got = defs.reduce((a, p) => a + (projectRow(save, p.id)?.contributedPoints ?? 0), 0);
+  const got = defs.reduce((a, p) => a + projectProgress(save, p.id) * p.requiredPoints, 0);
   return need ? got / need : 0;
 }
 
@@ -226,14 +241,15 @@ export interface PetView {
   fed: number;
   stage: number;
   face: number;
+  grow: number; // 0～1：在目前階段裡長大了多少（場景中會慢慢變大）
 }
 
 export const islandPets = (save: SaveFile) => save.pets.filter((p) => p.islandId === islandId(save));
 export const petById = (save: SaveFile, petId: string) => save.pets.find((p) => p.id === petId);
 
-/** 這隻寵物累計吃了多少飼料（全體成員合計）。 */
+/** 這隻寵物累計吃了多少飼料（全體成員合計，含舊節奏換算的成長量）。 */
 export const petFed = (save: SaveFile, petId: string) =>
-  -save.transactions.reduce((sum, t) => (t.kind === 'feed_spend' && t.petId === petId ? sum + t.amount : sum), 0);
+  (petById(save, petId)?.bonusFed ?? 0) - save.transactions.reduce((sum, t) => (t.kind === 'feed_spend' && t.petId === petId ? sum + t.amount : sum), 0);
 
 /** 0～3：由累計飼料推導，不另存。 */
 export const petStage = (p: PetDef, fed: number) => p.thresholds.filter((n) => fed >= n).length;
@@ -245,7 +261,10 @@ export const naturalFace = (petId: string) => Math.floor(hash01(`${petId}:face`)
 export function petView(save: SaveFile, pet: PetInstance): PetView {
   const def = petDef(pet.typeId)!;
   const fed = petFed(save, pet.id);
-  return { pet, def, fed, stage: petStage(def, fed), face: pet.faceOverride ?? naturalFace(pet.id) };
+  const stage = petStage(def, fed);
+  const prev = stage === 0 ? 0 : def.thresholds[stage - 1];
+  const grow = stage === 3 ? 1 : (fed - prev) / (def.thresholds[stage] - prev);
+  return { pet, def, fed, stage, face: pet.faceOverride ?? naturalFace(pet.id), grow };
 }
 
 export const adoptedPets = (save: SaveFile, habitatId?: HabitatId) =>

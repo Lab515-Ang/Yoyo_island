@@ -1,5 +1,5 @@
 // 存檔建立、驗證與示範資料
-import { PROJECTS, HABITATS, SPECIES, EGG_PRICE, FACES, facilityDef, petDef } from '../content/config';
+import { PROJECTS, HABITATS, SPECIES, EGG_PRICE, FACES, PACING_VERSION, facilityDef, petDef, type Rarity } from '../content/config';
 import { contribute, balance, coins, feed, feedFor, petMaxFeed } from './game';
 import type { PetInstance, PointTransaction } from './types';
 import type { AppMode, SaveFile, Settings } from './types';
@@ -40,6 +40,7 @@ export function newSave(mode: AppMode, who: { nickname: string; islandName: stri
     discoveries: [],
     weeklyGoals: [],
     pets: [],
+    pacing: PACING_VERSION,
     savedAt: iso(now),
   };
 }
@@ -79,14 +80,14 @@ export function newDemoSave(from: SaveFile | null, now: number): SaveFile {
       ...DEMO_MEMBERS.map((m, i) => ({ islandId: s.profile.activeIslandId, userId: ids[i], role: 'member' as const, joinedAt: iso(now - (i + 1) * 86400000), demoNickname: m.nickname, demoAvatarId: m.avatarId })),
     ],
   };
-  // 範例貢獻：小林完成入口，兩人一起把花圃推進到 18/20
-  const plan: [number, string, number][] = [[0, 'gh_entrance', 5], [0, 'gh_flowers', 10], [1, 'gh_flowers', 8]];
+  // 範例貢獻：小林完成入口，兩人一起把花圃推進到 270/300
+  const plan: [number, string, number][] = [[0, 'gh_entrance', 10], [0, 'gh_flowers', 150], [1, 'gh_flowers', 120]];
   for (const [who, pid, pts] of plan) {
     s = demoGrant(s, ids[who], pts, now);
     const r = contribute(s, ids[who], pid, pts, now);
     if (r.ok) s = r.save;
   }
-  return demoGrant(demoGrant(demoGrant(s, s.profile.id, 10, now), s.profile.id, 40, now, 'coins'), s.profile.id, 20, now, 'feed');
+  return demoGrant(demoGrant(demoGrant(s, s.profile.id, 40, now), s.profile.id, 500, now, 'coins'), s.profile.id, 60, now, 'feed');
 }
 
 // ---------- 舊存檔轉換 ----------
@@ -104,6 +105,25 @@ export function migratePets(save: SaveFile): SaveFile {
     return { ...t, petId };
   });
   return { ...save, pets, transactions };
+}
+
+/**
+ * v1 節奏（數值很小）→ v2 長期節奏：
+ * - 已完成的工程維持完成（驗證允許舊數值完成的工程）；未完成的工程改用新數值繼續。
+ * - 寵物依「舊門檻的成長比例」換算到新門檻，寫進 bonusFed，已長大的不會倒退。
+ */
+const LEGACY_MAX_FEED: Record<Rarity, number> = { common: 60, rare: 100, special: 150 };
+export function migratePacing(save: SaveFile): SaveFile {
+  if ((save.pacing ?? 1) >= PACING_VERSION) return save;
+  const pets = save.pets.map((p) => {
+    const def = petDef(p.typeId);
+    if (!def) return p;
+    const spent = -save.transactions.reduce((a, t) => (t.kind === 'feed_spend' && t.petId === p.id ? a + t.amount : a), 0);
+    const max = def.thresholds[2];
+    const scaled = Math.min(max, Math.round((spent / LEGACY_MAX_FEED[def.rarity]) * max));
+    return scaled > spent ? { ...p, bonusFed: scaled - spent } : p;
+  });
+  return { ...save, pets, pacing: PACING_VERSION };
 }
 
 // ---------- 驗證 ----------
@@ -124,7 +144,7 @@ export function validateSave(raw: unknown): Validation {
   const p = raw.profile;
   if (!isObj(p) || !isStr(p.id) || !isStr(p.nickname) || !isStr(p.activeIslandId) || !isStr(p.timezone)) return fail('個人資料不完整。');
   for (const k of ARRAYS) if (!Array.isArray(raw[k])) return fail('存檔缺少必要的紀錄。');
-  const save = migratePets({ ...raw, settings: { ...defaultSettings(), ...(isObj(raw.settings) ? raw.settings : {}) } } as unknown as SaveFile);
+  const save = migratePacing(migratePets({ ...raw, settings: { ...defaultSettings(), ...(isObj(raw.settings) ? raw.settings : {}) } } as unknown as SaveFile));
 
   if (!save.islands.some((i) => isObj(i) && i.id === save.profile.activeIslandId)) return fail('找不到目前的島嶼。');
   try {
@@ -153,6 +173,7 @@ export function validateSave(raw: unknown): Validation {
   for (const p of save.pets) {
     if (!isObj(p) || !petDef(p.typeId) || petDef(p.typeId)!.habitatId !== p.habitatId || !['gift', 'buy', 'egg'].includes(p.source)) return fail('寵物紀錄格式不正確。');
     if (p.faceOverride !== null && !(Number.isInteger(p.faceOverride) && p.faceOverride >= 0 && p.faceOverride < FACES.length)) return fail('寵物表情不正確。');
+    if (p.bonusFed !== undefined && !(Number.isInteger(p.bonusFed) && p.bonusFed >= 0)) return fail('寵物成長紀錄不正確。');
   }
   if (save.pets.filter((p) => p.source === 'gift').length > 1) return fail('新手禮物重複。');
   const adopted = new Set<string>();
@@ -210,13 +231,14 @@ export function validateSave(raw: unknown): Validation {
     if (!row) return fail('工程紀錄不完整。');
     const sum = save.contributions.filter((c) => c.projectId === def.id && c.islandId === row.islandId).reduce((a, c) => a + c.points, 0);
     if (sum !== row.contributedPoints || sum > def.requiredPoints) return fail('工程進度與投入紀錄不符。');
-    if (!!row.completedAt !== (sum === def.requiredPoints)) return fail('工程完成狀態不正確。');
+    // 未完成的工程不可達到需求；已完成的可以小於需求（舊節奏用較小的數值完成）
+    if (!row.completedAt && sum >= def.requiredPoints) return fail('工程完成狀態不正確。');
   }
   for (const p of save.pets) {
     if (p.source !== 'gift' && !adopted.has(p.id)) return fail('寵物缺少領養紀錄。');
   }
-  for (const [petId, total] of fedTotal) {
-    if (total > petMaxFeed(petDef(pets.get(petId)!.typeId)!)) return fail('寵物餵食紀錄不符。');
+  for (const p of save.pets) {
+    if ((fedTotal.get(p.id) ?? 0) + (p.bonusFed ?? 0) > petMaxFeed(petDef(p.typeId)!)) return fail('寵物餵食紀錄不符。');
   }
   for (const pid of invited) {
     if (!save.projects.some((r) => r.projectId === pid && r.completedAt)) return fail('生物邀請早於棲地工程完成。');

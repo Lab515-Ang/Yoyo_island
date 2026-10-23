@@ -56,16 +56,16 @@ export interface ProjectDef {
   promise: string; // 「再 12 點，{promise}。」
 }
 
-// 首版工程表：數值可在此集中調整（固定順序）
+// 工程表（固定順序）。節奏目標：每天專注約 2 小時，溫室約 4 週、溪流約 3 個月修完；數值可集中調整，pacing.test.ts 會模擬檢查
 export const PROJECTS: ProjectDef[] = [
-  { id: 'gh_entrance', habitatId: 'greenhouse', title: '整理溫室入口', description: '清出小徑、增加入口花盆', requiredPoints: 5, prerequisiteProjectId: null, sceneChangeKey: 'gh_entrance', promise: '溫室入口就會整理好' },
-  { id: 'gh_flowers', habitatId: 'greenhouse', title: '恢復第一座花圃', description: '花圃開花、第一隻蝴蝶出現', requiredPoints: 20, prerequisiteProjectId: 'gh_entrance', sceneChangeKey: 'gh_flowers', promise: '花圃就會開花' },
-  { id: 'gh_fountain', habitatId: 'greenhouse', title: '修好溫室噴泉', description: '噴泉開始流水、加入水聲', requiredPoints: 35, prerequisiteProjectId: 'gh_flowers', sceneChangeKey: 'gh_fountain', promise: '噴泉就能重新流水' },
-  { id: 'gh_plants', habitatId: 'greenhouse', title: '增加食草與葉叢', description: '植物層次增加、更多昆蟲造訪', requiredPoints: 60, prerequisiteProjectId: 'gh_fountain', sceneChangeKey: 'gh_plants', promise: '溫室就會長出更多葉叢' },
-  { id: 'st_entrance', habitatId: 'stream', title: '打開溪流步道', description: '溪流場景可進入', requiredPoints: 80, prerequisiteProjectId: 'gh_plants', sceneChangeKey: 'st_entrance', promise: '就能走到溪流濕地' },
-  { id: 'st_bank', habitatId: 'stream', title: '恢復溪岸植被', description: '蘆葦、水邊植物、蜻蜓出現', requiredPoints: 100, prerequisiteProjectId: 'st_entrance', sceneChangeKey: 'st_bank', promise: '溪岸就會長回蘆葦' },
-  { id: 'st_water', habitatId: 'stream', title: '整理淺水區', description: '水面更清楚、小魚活動', requiredPoints: 120, prerequisiteProjectId: 'st_bank', sceneChangeKey: 'st_water', promise: '淺水區就會變清澈' },
-  { id: 'st_bridge', habitatId: 'stream', title: '修好溪流木橋', description: '木橋完成、青蛙與水鳥造訪', requiredPoints: 160, prerequisiteProjectId: 'st_water', sceneChangeKey: 'st_bridge', promise: '木橋就能修好' },
+  { id: 'gh_entrance', habitatId: 'greenhouse', title: '整理溫室入口', description: '清出小徑、增加入口花盆', requiredPoints: 10, prerequisiteProjectId: null, sceneChangeKey: 'gh_entrance', promise: '溫室入口就會整理好' },
+  { id: 'gh_flowers', habitatId: 'greenhouse', title: '恢復第一座花圃', description: '花圃開花、第一隻蝴蝶出現', requiredPoints: 300, prerequisiteProjectId: 'gh_entrance', sceneChangeKey: 'gh_flowers', promise: '花圃就會開花' },
+  { id: 'gh_fountain', habitatId: 'greenhouse', title: '修好溫室噴泉', description: '噴泉開始流水、加入水聲', requiredPoints: 900, prerequisiteProjectId: 'gh_flowers', sceneChangeKey: 'gh_fountain', promise: '噴泉就能重新流水' },
+  { id: 'gh_plants', habitatId: 'greenhouse', title: '增加食草與葉叢', description: '植物層次增加、更多昆蟲造訪', requiredPoints: 1700, prerequisiteProjectId: 'gh_fountain', sceneChangeKey: 'gh_plants', promise: '溫室就會長出更多葉叢' },
+  { id: 'st_entrance', habitatId: 'stream', title: '打開溪流步道', description: '溪流場景可進入', requiredPoints: 900, prerequisiteProjectId: 'gh_plants', sceneChangeKey: 'st_entrance', promise: '就能走到溪流濕地' },
+  { id: 'st_bank', habitatId: 'stream', title: '恢復溪岸植被', description: '蘆葦、水邊植物、蜻蜓出現', requiredPoints: 1400, prerequisiteProjectId: 'st_entrance', sceneChangeKey: 'st_bank', promise: '溪岸就會長回蘆葦' },
+  { id: 'st_water', habitatId: 'stream', title: '整理淺水區', description: '水面更清楚、小魚活動', requiredPoints: 1800, prerequisiteProjectId: 'st_bank', sceneChangeKey: 'st_water', promise: '淺水區就會變清澈' },
+  { id: 'st_bridge', habitatId: 'stream', title: '修好溪流木橋', description: '木橋完成、青蛙與水鳥造訪', requiredPoints: 2400, prerequisiteProjectId: 'st_water', sceneChangeKey: 'st_bridge', promise: '木橋就能修好' },
 ];
 export const projectDef = (id: string) => PROJECTS.find((p) => p.id === id);
 
@@ -113,17 +113,19 @@ export interface PetDef {
   art?: boolean; // true = 已有美術圖檔（public/pets/{id}/），否則用程式畫的臨時圖
 }
 
-const COMMON: PetDef['thresholds'] = [12, 30, 60];
-const RARE: PetDef['thresholds'] = [20, 50, 100];
-const SPECIAL: PetDef['thresholds'] = [30, 75, 150];
+// 每小時專注約得 12～14 份飼料：只養一隻時，常見約 20 小時、稀有約 35 小時、特殊約 70 小時長成成體
+// （同時養好幾隻會分散飼料，實際會更久；pacing.test.ts 有模擬）
+export const COMMON: PetDef['thresholds'] = [30, 110, 260];
+export const RARE: PetDef['thresholds'] = [50, 180, 450];
+export const SPECIAL: PetDef['thresholds'] = [100, 350, 900];
 
 // 第一階段只放已開放棲地的 5 隻；林間草地、海岸、海灣開放後再加入其餘 5 隻
 export const PETS: PetDef[] = [
-  { id: 'pet_butterfly', name: '黃蝶', rarity: 'common', habitatId: 'greenhouse', requiredProjectId: 'gh_flowers', adoptPrice: 30, stages: ['卵', '毛毛蟲', '蛹', '黃蝶'], thresholds: COMMON, blurb: '從一顆小小的卵開始，慢慢變成在花間飛舞的蝴蝶。' },
-  { id: 'pet_whiteeye', name: '綠繡眼', rarity: 'common', habitatId: 'greenhouse', requiredProjectId: 'gh_plants', adoptPrice: 40, stages: ['蛋', '雛鳥', '幼鳥', '綠繡眼'], thresholds: COMMON, blurb: '長大後眼睛周圍會出現一圈白色的羽毛。' },
-  { id: 'pet_frog', name: '青蛙', rarity: 'common', habitatId: 'stream', requiredProjectId: 'st_entrance', adoptPrice: 40, stages: ['卵塊', '蝌蚪', '長腳蝌蚪', '青蛙'], thresholds: COMMON, blurb: '從水裡的蝌蚪，一點一點長出腳，最後跳上岸。' },
-  { id: 'pet_firefly', name: '螢火蟲', rarity: 'rare', habitatId: 'stream', requiredProjectId: 'st_water', adoptPrice: 80, stages: ['卵', '水中幼蟲', '蛹', '螢火蟲'], thresholds: RARE, blurb: '幼蟲住在乾淨的水裡，長大後會發出柔和的光。' },
-  { id: 'pet_axolotl', name: '六角恐龍', rarity: 'special', habitatId: 'stream', requiredProjectId: 'st_bridge', adoptPrice: 150, stages: ['卵', '幼體', '長出外鰓', '六角恐龍'], thresholds: SPECIAL, blurb: '長大後仍保留幼體的模樣，頭兩側有像羽毛的外鰓。' },
+  { id: 'pet_butterfly', name: '黃蝶', rarity: 'common', habitatId: 'greenhouse', requiredProjectId: 'gh_flowers', adoptPrice: 300, stages: ['卵', '毛毛蟲', '蛹', '黃蝶'], thresholds: COMMON, blurb: '從一顆小小的卵開始，慢慢變成在花間飛舞的蝴蝶。' },
+  { id: 'pet_whiteeye', name: '綠繡眼', rarity: 'common', habitatId: 'greenhouse', requiredProjectId: 'gh_plants', adoptPrice: 300, stages: ['蛋', '雛鳥', '幼鳥', '綠繡眼'], thresholds: COMMON, blurb: '長大後眼睛周圍會出現一圈白色的羽毛。' },
+  { id: 'pet_frog', name: '青蛙', rarity: 'common', habitatId: 'stream', requiredProjectId: 'st_entrance', adoptPrice: 300, stages: ['卵塊', '蝌蚪', '長腳蝌蚪', '青蛙'], thresholds: COMMON, blurb: '從水裡的蝌蚪，一點一點長出腳，最後跳上岸。' },
+  { id: 'pet_firefly', name: '螢火蟲', rarity: 'rare', habitatId: 'stream', requiredProjectId: 'st_water', adoptPrice: 700, stages: ['卵', '水中幼蟲', '蛹', '螢火蟲'], thresholds: RARE, blurb: '幼蟲住在乾淨的水裡，長大後會發出柔和的光。' },
+  { id: 'pet_axolotl', name: '六角恐龍', rarity: 'special', habitatId: 'stream', requiredProjectId: 'st_bridge', adoptPrice: 1500, stages: ['卵', '幼體', '長出外鰓', '六角恐龍'], thresholds: SPECIAL, blurb: '長大後仍保留幼體的模樣，頭兩側有像羽毛的外鰓。' },
 ];
 export const petDef = (id: string) => PETS.find((p) => p.id === id);
 
@@ -137,7 +139,7 @@ export const MAX_PETS_PER_HABITAT = 5;
 export const STARTER = { projectId: 'gh_entrance', petTypeId: 'pet_butterfly' };
 
 /** 驚喜蛋：每個場景一種價格；孵出的種類依稀有度加權，優先島上還沒養過的種類。 */
-export const EGG_PRICE: Partial<Record<HabitatId, number>> = { greenhouse: 25, stream: 35 };
+export const EGG_PRICE: Partial<Record<HabitatId, number>> = { greenhouse: 150, stream: 250 };
 export const RARITY_WEIGHT: Record<Rarity, number> = { common: 3, rare: 2, special: 1 };
 
 export interface FacilityDef {
@@ -150,14 +152,14 @@ export interface FacilityDef {
 
 /** 看得到的設施：放進場景，每個名額 +1。 */
 export const FACILITIES: FacilityDef[] = [
-  { id: 'gh_trellis', habitatId: 'greenhouse', name: '蝴蝶花架', price: 60, blurb: '爬滿小花的拱形花架。' },
-  { id: 'gh_nestbox', habitatId: 'greenhouse', name: '鳥巢箱', price: 100, blurb: '掛在柱子上的木頭小屋。' },
-  { id: 'gh_basket', habitatId: 'greenhouse', name: '吊盆花籃', price: 150, blurb: '從屋頂垂下來的花籃。' },
-  { id: 'gh_planter', habitatId: 'greenhouse', name: '高腳花台', price: 220, blurb: '種滿香草的木頭花台。' },
-  { id: 'st_pond', habitatId: 'stream', name: '小水池', price: 60, blurb: '岸邊用石頭圍起的淺水池。' },
-  { id: 'st_rocks', habitatId: 'stream', name: '石堆', price: 100, blurb: '可以躲藏、曬太陽的石頭。' },
-  { id: 'st_reeds', habitatId: 'stream', name: '蘆葦叢', price: 150, blurb: '一大叢搖曳的蘆葦。' },
-  { id: 'st_log', habitatId: 'stream', name: '漂流木', price: 220, blurb: '橫躺在岸邊的老木頭。' },
+  { id: 'gh_trellis', habitatId: 'greenhouse', name: '蝴蝶花架', price: 300, blurb: '爬滿小花的拱形花架。' },
+  { id: 'gh_nestbox', habitatId: 'greenhouse', name: '鳥巢箱', price: 600, blurb: '掛在柱子上的木頭小屋。' },
+  { id: 'gh_basket', habitatId: 'greenhouse', name: '吊盆花籃', price: 1000, blurb: '從屋頂垂下來的花籃。' },
+  { id: 'gh_planter', habitatId: 'greenhouse', name: '高腳花台', price: 1500, blurb: '種滿香草的木頭花台。' },
+  { id: 'st_pond', habitatId: 'stream', name: '小水池', price: 500, blurb: '岸邊用石頭圍起的淺水池。' },
+  { id: 'st_rocks', habitatId: 'stream', name: '石堆', price: 900, blurb: '可以躲藏、曬太陽的石頭。' },
+  { id: 'st_reeds', habitatId: 'stream', name: '蘆葦叢', price: 1300, blurb: '一大叢搖曳的蘆葦。' },
+  { id: 'st_log', habitatId: 'stream', name: '漂流木', price: 1800, blurb: '橫躺在岸邊的老木頭。' },
 ];
 export const facilityDef = (id: string) => FACILITIES.find((f) => f.id === id);
 
@@ -181,8 +183,11 @@ export const SOUNDS: SoundDef[] = [
   { id: 'night', name: '夏夜蟲鳴', icon: '🌙', desc: '螢火蟲亮起的夜晚，草叢裡的蟲鳴。', unlock: { kind: 'petGrown', id: 'pet_firefly' } },
 ];
 
-/** 專注完成時偶遇生物：滿 10 分鐘才有機會，每分鐘 +0.4%，最高 25%（25 分鐘約 10%）。 */
-export const CHANCE = { minMinutes: 10, perMinute: 0.004, max: 0.25 };
+/** 專注完成時偶遇生物：滿 10 分鐘才有機會，每分鐘 +0.13%，最高 12%（60 分鐘約 8%，平均 1～2 週遇到一次）。 */
+export const CHANCE = { minMinutes: 10, perMinute: 0.0013, max: 0.12 };
+
+/** 節奏版本：v2 起改為長期節奏；舊存檔載入時會換算寵物成長（見 save.ts migratePacing）。 */
+export const PACING_VERSION = 2;
 
 /** 專注每 5 分鐘 1 份飼料；倒數每撐完 25 分鐘再多 1 份。 */
 export const FEED_PER_MINUTES = 5;
