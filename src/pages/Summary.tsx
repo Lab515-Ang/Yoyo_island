@@ -39,8 +39,8 @@ export function Summary({
   const project = activeProject(save);
   const canBuild = project && balance(save) >= remainingFor(save, project);
   const out = focusOutcome(save, s.id);
-  // 這段專注第一次餵到的新手禮物（卵剛送到）
-  const gift = out.pets.find((p) => p.pet.source === 'gift' && !save.transactions.some((t) => t.kind === 'feed_spend' && t.petId === p.pet.id && t.sessionId !== s.id));
+  // 這段專注結束時才送到的新手禮物（卵在這段開始之後來到島上）
+  const gift = out.pets.find((p) => p.pet.source === 'gift' && Date.parse(p.pet.adoptedAt) >= Date.parse(s.startedAt));
   // 下一步：金幣夠買蛋（有空位）或下一個設施時，提示去商店
   const wallet = coins(save);
   const canShop = HABITATS.some(
