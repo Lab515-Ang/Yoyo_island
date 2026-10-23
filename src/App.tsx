@@ -5,7 +5,7 @@ import { applyFocusRewards, coins, grantStarter, openSession, settleOpenSessions
 import * as storage from './data/storage';
 import { remainingMs } from './domain/focus';
 import { notifyEnd, playChime } from './sound';
-import { buzz, isNative, onResume } from './platform';
+import { buzz, isNative, onGuard, onResume, type GuardApp } from './platform';
 import type { HabitatId } from './domain/types';
 import { Onboarding } from './pages/Onboarding';
 import { Lobby } from './pages/Lobby';
@@ -20,14 +20,16 @@ import { Journey } from './pages/Journey';
 import { Together } from './pages/Together';
 import { SettingsPage } from './pages/Settings';
 import { Shop } from './pages/Shop';
+import { GuardPage, GuardScreen } from './pages/Guard';
 import { Coin } from './components/ui';
 
-type View = 'lobby' | 'island' | 'quests' | 'records' | 'sounds' | 'journey' | 'friends' | 'achievements' | 'shop' | 'news' | 'settings';
+type View = 'lobby' | 'island' | 'quests' | 'records' | 'guard' | 'sounds' | 'journey' | 'friends' | 'achievements' | 'shop' | 'news' | 'settings';
 // 左側選單順序
 const NAV: { id: View; label: string; icon: string; soon?: boolean }[] = [
   { id: 'island', label: '我的小島', icon: '🏝️' },
   { id: 'quests', label: '任務', icon: '📋' },
   { id: 'records', label: '專注紀錄與專注計畫設置', icon: '⏱️' },
+  { id: 'guard', label: '時間守護', icon: '🛡️' },
   { id: 'sounds', label: '大自然交響樂', icon: '🎵' },
   { id: 'journey', label: '我的歷程', icon: '📖' },
   { id: 'friends', label: '好友', icon: '🤝' },
@@ -114,6 +116,10 @@ function Main() {
     const r = grantStarter(save, Date.now());
     if (r.ok && update(() => r.save)) notify('完成第一個工程的禮物：一顆黃蝶的卵！到「我的小島」用飼料把牠養大吧。');
   }, [save, update, notify]);
+
+  // 時間守護：背景服務在玩家打開想減少使用的 App 時把小島叫到前面
+  const [guardApp, setGuardApp] = useState<GuardApp | null>(null);
+  useEffect(() => onGuard(setGuardApp), []);
 
   // 回到前景（解鎖、從其他 App 切回來）時立刻結算
   useEffect(() => onResume(() => setWake((w) => w + 1)), []);
@@ -204,6 +210,7 @@ function Main() {
           {view === 'island' && <IslandPage habitat={habitat} setHabitat={setHabitat} onShop={() => go('shop')} />}
           {view === 'quests' && <Quests onIsland={() => go('island')} onShop={() => go('shop')} />}
           {view === 'records' && <Records key={recordsTag ?? 'all'} initialTag={recordsTag} />}
+          {view === 'guard' && <GuardPage />}
           {view === 'sounds' && <Sounds onSettings={() => go('settings')} />}
           {view === 'journey' && <Journey onEnter={enter} />}
           {view === 'friends' && <Together />}
@@ -229,6 +236,7 @@ function Main() {
       )}
       {writeError && <div className="error-bar" role="alert">{writeError}</div>}
       {body}
+      {guardApp && <GuardScreen key={guardApp.pkg} app={guardApp} onClose={() => setGuardApp(null)} />}
       {toast && (
         <div className="toast" role="status">
           {toast}

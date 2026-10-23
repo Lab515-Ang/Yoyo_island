@@ -1492,3 +1492,49 @@ button.wallet {
   gap: 0.35rem;
   min-height: 40px;
 }
+
+/* 時間守護 */
+.guard-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 1.5rem 16px;
+  text-align: center;
+}
+.guard-pet {
+  font-size: 6rem;
+  line-height: 1;
+  animation: guard-breathe 5s ease-in-out infinite;
+}
+@keyframes guard-breathe {
+  50% {
+    transform: scale(1.06);
+  }
+}
+.guard-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: min(320px, 100%);
+  margin-top: 1rem;
+}
+.app-picker input[type='search'] {
+  width: 100%;
+  margin: 0.6rem 0;
+}
+.app-picker ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.app-picker img {
+  border-radius: 8px;
+}

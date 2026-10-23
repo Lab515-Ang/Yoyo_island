@@ -1,11 +1,12 @@
 // 平台層：所有原生功能（通知、App 狀態、震動）都從這裡呼叫。
 // App 版用 Capacitor 外掛；網頁版（目前只當測試管道）退回瀏覽器做法。之後換技術時只需要換這一層。
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { Haptics } from '@capacitor/haptics';
 import { LocalNotifications } from '@capacitor/local-notifications';
 
 export const isNative = Capacitor.isNativePlatform();
+export const isAndroid = Capacitor.getPlatform() === 'android';
 
 const FOCUS_END_ID = 1;
 
@@ -62,4 +63,58 @@ export function onResume(cb: () => void): () => void {
 export function buzz() {
   if (isNative) void Haptics.vibrate({ duration: 300 }).catch(() => undefined);
   else navigator.vibrate?.([200, 100, 200]);
+}
+
+// ── 時間守護（目前只有 Android 原生版）──────────────────────────────
+
+export interface GuardApp {
+  pkg: string;
+  label: string;
+  icon?: string; // data URL
+}
+
+/** 守護設定：存在手機的原生設定裡，App 關掉後背景服務照樣使用。 */
+export interface GuardConfig {
+  enabled: boolean;
+  apps: GuardApp[]; // 只存 pkg、label
+  always: boolean; // true = 全天候；false = 依下方時段
+  from: number; // 一天中的第幾分鐘
+  to: number; // from > to 表示跨午夜
+  days: boolean[]; // 0 = 週日
+}
+
+export const defaultGuardConfig = (): GuardConfig => ({
+  enabled: false,
+  apps: [],
+  always: true,
+  from: 9 * 60,
+  to: 17 * 60,
+  days: [false, true, true, true, true, true, false],
+});
+
+interface TimeGuardNative {
+  status(): Promise<{ usage: boolean; overlay: boolean }>;
+  openUsageSettings(): Promise<void>;
+  openOverlaySettings(): Promise<void>;
+  listApps(): Promise<{ apps: GuardApp[] }>;
+  getConfig(): Promise<{ config: GuardConfig | null }>;
+  setConfig(o: { config: GuardConfig }): Promise<void>;
+  unlock(o: { pkg: string; minutes: number }): Promise<void>;
+  goHome(): Promise<void>;
+}
+
+export const TimeGuard = registerPlugin<TimeGuardNative>('TimeGuard');
+
+/** 背景服務把小島叫到前面時（qiguang://guard?pkg=…&label=…）呼叫 cb。回傳取消監聽的函式。 */
+export function onGuard(cb: (app: GuardApp) => void): () => void {
+  if (!isAndroid) return () => undefined;
+  const handle = (url?: string) => {
+    if (!url?.startsWith('qiguang://guard')) return;
+    const q = new URL(url).searchParams;
+    const pkg = q.get('pkg');
+    if (pkg) cb({ pkg, label: q.get('label') ?? pkg });
+  };
+  void App.getLaunchUrl().then((r) => handle(r?.url));
+  const listener = App.addListener('appUrlOpen', (e) => handle(e.url));
+  return () => void listener.then((h) => h.remove());
 }
