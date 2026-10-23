@@ -4,7 +4,7 @@ import { APP_NAME, AVATARS, COPY } from '../content/config';
 import { startFocus } from '../domain/game';
 import { newSave } from '../domain/save';
 
-/** 新手：暱稱、島名、頭像 → 第一段專注（5 分鐘剛好完成第一個工程）。不需登入。 */
+/** 新手：暱稱、島名、頭像 → 第一段專注（最低 10 分鐘，完成後足夠修好第一個工程）。不需登入。 */
 export function Onboarding() {
   const { replace, update } = useGame();
   const [step, setStep] = useState<1 | 2>(1);
@@ -55,18 +55,18 @@ export function Onboarding() {
             onSubmit={(e) => {
               e.preventDefault();
               if (!create()) return;
-              update((s) => startFocus(s, { taskTitle: task, tag: '其他', habitatId: 'greenhouse', mode: 'countdown', targetSeconds: 5 * 60 }, Date.now()));
+              update((s) => startFocus(s, { taskTitle: task, tag: '其他', habitatId: 'greenhouse', mode: 'countdown', targetSeconds: 10 * 60 }, Date.now()));
             }}
           >
             <p className="eyebrow">第一段專注</p>
             <h1>{COPY.start}</h1>
-            <p className="muted">先試試 5 分鐘。完成後會得到 5 點成長點數，剛好能整理溫室入口。</p>
+            <p className="muted">先試試 10 分鐘。完成後會得到 10 點成長點數，足夠整理溫室入口，還會收到一顆寵物的卵。</p>
             <label>
               這段時間要做什麼？（可不填）
               <input value={task} onChange={(e) => setTask(e.target.value)} maxLength={40} placeholder="例如：讀完一頁筆記" autoFocus />
             </label>
             <button className="primary wide" type="submit">
-              開始 5 分鐘專注
+              開始 10 分鐘專注
             </button>
             <button type="button" className="ghost wide" onClick={create}>
               先看看小島

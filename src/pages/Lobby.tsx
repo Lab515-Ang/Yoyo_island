@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useSave } from '../app/store';
-import { HABITATS, MAX_CUSTOM_MINUTES, QUICK_MINUTES, TAGS, habitatName, tagColor } from '../content/config';
+import { HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, QUICK_MINUTES, TAGS, clampMinutes, habitatName, tagColor } from '../content/config';
 import { Modal } from '../components/ui';
 import { habitatOpen, startFocus } from '../domain/game';
 import type { HabitatId, TimerMode } from '../domain/types';
@@ -15,7 +15,8 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
   const [task, setTask] = useState('');
   const [tag, setTag] = useState(TAGS[0]);
   const [timerMode, setTimerMode] = useState<TimerMode>(st.lastTimerMode);
-  const [seconds, setSeconds] = useState(st.lastTargetSeconds);
+  // 舊存檔可能記著 5 分鐘：收進 10～180 分鐘（示範的 10 秒例外）
+  const [seconds, setSeconds] = useState(mode === 'demo' && st.lastTargetSeconds === 10 ? 10 : clampMinutes(st.lastTargetSeconds / 60) * 60);
   const [habitat, setHabitat] = useState<HabitatId>(habitatOpen(save, st.preferredHabitatId) ? st.preferredHabitatId : 'greenhouse');
   const [sheet, setSheet] = useState<Sheet>(null);
   const [draft, setDraft] = useState('');
@@ -24,9 +25,8 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
 
   const tags = [...TAGS, ...st.customTags];
   const firstTime = !save.sessions.some((s) => s.userId === save.profile.id && s.endedAt);
-  const minutes = [...(firstTime || seconds === 300 ? [5] : []), ...QUICK_MINUTES];
   const customMin = Number(custom);
-  const customValid = Number.isInteger(customMin) && customMin >= 1 && customMin <= MAX_CUSTOM_MINUTES;
+  const customValid = Number.isInteger(customMin) && customMin >= MIN_FOCUS_MINUTES && customMin <= MAX_FOCUS_MINUTES;
   const shown = timerMode === 'stopwatch' ? '00:00' : seconds < 60 ? `00:${String(seconds).padStart(2, '0')}` : `${Math.round(seconds / 60)}:00`;
 
   const start = () => {
@@ -75,7 +75,7 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
       <button className="pill start" onClick={start}>
         開始專注
       </button>
-      <p className="lobby-hint">{timerMode === 'countdown' ? '開始後 10 秒內可以取消；之後提前結束將一無所獲。' : '結束時依專注分鐘獲得點數、金幣與飼料。'}</p>
+      <p className="lobby-hint">{timerMode === 'countdown' ? '開始後 10 秒內可以取消；之後提前結束將一無所獲。' : `至少 ${MIN_FOCUS_MINUTES} 分鐘才算完成，最多 ${MAX_FOCUS_MINUTES} 分鐘。`}</p>
 
       {sheet === 'tag' && (
         <Modal title="標籤" onClose={() => setSheet(null)}>
@@ -144,9 +144,9 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
                     10 秒（示範）
                   </button>
                 )}
-                {minutes.map((m) => (
+                {QUICK_MINUTES.map((m) => (
                   <button key={m} role="radio" aria-checked={seconds === m * 60} className={seconds === m * 60 ? 'chip on' : 'chip'} onClick={() => (setSeconds(m * 60), setSheet(null))}>
-                    {m} 分{m === 5 && firstTime ? '（新手）' : ''}
+                    {m} 分{m === MIN_FOCUS_MINUTES && firstTime ? '（新手）' : ''}
                   </button>
                 ))}
               </div>
@@ -160,15 +160,15 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
                   setSheet(null);
                 }}
               >
-                <input className="short" inputMode="numeric" value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^\d]/g, ''))} placeholder="自訂" aria-label={`自訂分鐘（1～${MAX_CUSTOM_MINUTES}）`} />
-                <span className="small">分鐘</span>
+                <input className="short" inputMode="numeric" value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^\d]/g, ''))} placeholder="自訂" aria-label={`自訂分鐘（${MIN_FOCUS_MINUTES}～${MAX_FOCUS_MINUTES}）`} />
+                <span className="small">分鐘（{MIN_FOCUS_MINUTES}～{MAX_FOCUS_MINUTES}）</span>
                 <button type="submit" disabled={!customValid}>
                   設定
                 </button>
               </form>
             </>
           ) : (
-            <p className="small muted">正向計時沒有目標時間，按「完成」時依實際分鐘結算。</p>
+            <p className="small muted">正向計時沒有目標時間：至少 {MIN_FOCUS_MINUTES} 分鐘才算完成，滿 {MAX_FOCUS_MINUTES} 分鐘會自動完成。</p>
           )}
           {timerMode === 'stopwatch' && (
             <button className="primary wide" onClick={() => setSheet(null)}>

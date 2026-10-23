@@ -21,10 +21,12 @@ function quietId() {
 function session(save: SaveFile, mode: 'countdown' | 'stopwatch', targetMin: number | null, now = T0, id = quietId()) {
   return createSession({ id, userId: save.profile.id, islandId: save.profile.activeIslandId, taskTitle: '', tag: '讀書', habitatId: 'greenhouse', mode, targetSeconds: targetMin && targetMin * 60 }, now);
 }
-/** 用一段 n 分鐘完成的專注給玩家點數 */
-function focus(save: SaveFile, minutes: number, at = T0) {
-  const s = finish(session(save, 'stopwatch', null, at), at + minutes * MIN, 'completed');
-  return closeSession(save, s, at + minutes * MIN);
+/** 用 n 分鐘完成的專注給玩家點數（超過 180 分鐘就拆成好幾段，因為單段上限 180 分鐘） */
+function focus(save: SaveFile, minutes: number, at = T0): SaveFile {
+  const chunk = Math.min(minutes, 180);
+  const s = finish(session(save, 'stopwatch', null, at), at + chunk * MIN, 'completed');
+  const next = closeSession(save, s, at + chunk * MIN);
+  return minutes > chunk ? focus(next, minutes - chunk, at + (chunk + 1) * MIN) : next;
 }
 
 describe('專注計時', () => {
@@ -397,5 +399,26 @@ describe('專注筆記', () => {
     save = editSessionNote(save, id, { note: '  完成爬山  ', tag: '工作', taskTitle: '' });
     expect([save.sessions[0].note, save.sessions[0].tag, save.sessions[0].taskTitle]).toEqual(['完成爬山', '工作', '一段專注']);
     expect(validateSave(save).ok).toBe(true);
+  });
+});
+
+describe('專注時間 10～180 分鐘', () => {
+  const base = { taskTitle: '', tag: '讀書', habitatId: 'greenhouse' as const };
+  it('倒數只能設 10～180 分鐘（示範存檔可用 10 秒）', () => {
+    const save = fresh();
+    expect(startFocus(save, { ...base, mode: 'countdown', targetSeconds: 5 * 60 }, T0).sessions).toHaveLength(0);
+    expect(startFocus(save, { ...base, mode: 'countdown', targetSeconds: 181 * 60 }, T0).sessions).toHaveLength(0);
+    expect(startFocus(save, { ...base, mode: 'countdown', targetSeconds: 10 * 60 }, T0).sessions).toHaveLength(1);
+    expect(startFocus(save, { ...base, mode: 'countdown', targetSeconds: 180 * 60 }, T0).sessions).toHaveLength(1);
+    expect(startFocus(save, { ...base, mode: 'countdown', targetSeconds: 10 }, T0).sessions).toHaveLength(0);
+    expect(startFocus(newDemoSave(save, T0), { ...base, mode: 'countdown', targetSeconds: 10 }, T0).sessions.filter((x) => x.status === 'running')).toHaveLength(1);
+  });
+
+  it('正向計時滿 180 分鐘自動完成，記錄剛好 180 分鐘', () => {
+    let save = startFocus(fresh(), { ...base, mode: 'stopwatch', targetSeconds: null }, T0);
+    const r = settleOpenSessions(save, T0 + 300 * MIN);
+    expect(r.completed?.accumulatedMs).toBe(180 * MIN);
+    save = r.save;
+    expect(balance(save)).toBe(180);
   });
 });

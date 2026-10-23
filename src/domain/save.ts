@@ -17,7 +17,7 @@ export const defaultSettings = (): Settings => ({
   sceneMode: 'auto',
   preferredHabitatId: 'greenhouse',
   lastTimerMode: 'countdown',
-  lastTargetSeconds: 5 * 60, // 第一段建議 5 分鐘，剛好完成第一個工程
+  lastTargetSeconds: 10 * 60, // 第一段建議 10 分鐘（最低時間），完成後足夠修好第一個工程
   customTags: [],
 });
 

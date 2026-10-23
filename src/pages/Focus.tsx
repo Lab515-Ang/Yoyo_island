@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNow, useSave } from '../app/store';
-import { APP_NAME, SOUNDS } from '../content/config';
+import { APP_NAME, MIN_FOCUS_MINUTES, SOUNDS } from '../content/config';
 import { Modal } from '../components/ui';
 import { elapsedMs, finish, pause, remainingMs, resume } from '../domain/focus';
 import { cancelSession, closeSession, focusSoundFor, graceLeftMs, putSession } from '../domain/game';
@@ -41,6 +41,8 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   const cur = (s: SaveFile) => s.sessions.find((x) => x.id === session.id)!;
 
   const elapsedMin = Math.floor(elapsedMs(session, now) / 60000);
+  // 正向計時未滿 10 分鐘就結束＝放棄；滿了才算完成
+  const tooShort = !countdown && elapsedMin < MIN_FOCUS_MINUTES;
   const reduced = save.settings.reducedMotion || prefersReducedMotion();
   const grace = Math.ceil(graceLeftMs(session, now) / 1000);
   const soundOn = save.settings.soundEnabled;
@@ -81,7 +83,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
             </button>
           ) : (
             <>
-              <button className="icon-round big" onClick={() => (countdown ? setEnding(true) : end('completed'))} aria-label={countdown ? '提前結束' : '完成這段專注'}>
+              <button className="icon-round big" onClick={() => (countdown || tooShort ? setEnding(true) : end('completed'))} aria-label={countdown ? '提前結束' : '完成這段專注'}>
                 ■
               </button>
               {paused ? (
@@ -99,7 +101,9 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
       </div>
       {ending && (
         <Modal title="要放棄這次專注嗎？" onClose={() => setEnding(false)}>
-          <p>已專注的 {elapsedMin} 分鐘不會獲得成長點數、金幣和飼料，只會留下時間紀錄。</p>
+          <p>
+            {tooShort ? `還不到 ${MIN_FOCUS_MINUTES} 分鐘。` : ''}已專注的 {elapsedMin} 分鐘不會獲得成長點數、金幣和飼料，只會留下時間紀錄。
+          </p>
           <div className="row">
             <button className="ghost wide" onClick={() => setEnding(false)}>
               取消

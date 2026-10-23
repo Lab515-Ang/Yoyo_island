@@ -9,8 +9,12 @@ const TAG_COLORS: Record<string, string> = { 讀書: '#6fa8dc', 工作: '#e98a6b
 const CUSTOM_TAG_COLORS = ['#8fb38a', '#f2a7a0', '#8fd0d8', '#d39a77', '#b9c94a'];
 /** 標籤的顏色圓點：內建固定顏色，自訂標籤依名稱挑一個穩定的顏色。 */
 export const tagColor = (tag: string) => TAG_COLORS[tag] ?? CUSTOM_TAG_COLORS[[...tag].reduce((a, c) => a + c.charCodeAt(0), 0) % CUSTOM_TAG_COLORS.length];
-export const QUICK_MINUTES = [15, 25, 45, 60];
-export const MAX_CUSTOM_MINUTES = 180;
+/** 專注時間：最低 10 分鐘、最高 180 分鐘（示範模式另有 10 秒快轉，只用來測試）。 */
+export const MIN_FOCUS_MINUTES = 10;
+export const MAX_FOCUS_MINUTES = 180;
+export const QUICK_MINUTES = [10, 15, 25, 45, 60, 90, 120, 180];
+/** 把舊存檔的時間（例如 5 分鐘）收進範圍內。 */
+export const clampMinutes = (min: number) => Math.min(MAX_FOCUS_MINUTES, Math.max(MIN_FOCUS_MINUTES, Math.round(min)));
 
 export const AVATARS: { id: string; emoji: string; label: string }[] = [
   { id: 'leaf', emoji: '🌿', label: '葉子' },

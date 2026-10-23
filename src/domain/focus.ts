@@ -1,6 +1,10 @@
 // 專注狀態機：idle → running ↔ paused → completed | abandoned
 // 一律以時間戳推算，不依賴 setInterval 累加次數。
+import { MAX_FOCUS_MINUTES } from '../content/config';
 import type { FocusSegment, FocusSession, HabitatId, ID, TimerMode } from './types';
+
+/** 正向計時的上限：滿 180 分鐘自動完成。 */
+const STOPWATCH_CAP_MS = MAX_FOCUS_MINUTES * 60_000;
 
 const ms = (iso: string) => Date.parse(iso);
 const iso = (t: number) => new Date(t).toISOString();
@@ -32,7 +36,7 @@ export function rawElapsedMs(s: FocusSession, now: number) {
 
 export function elapsedMs(s: FocusSession, now: number) {
   const raw = rawElapsedMs(s, now);
-  return s.mode === 'countdown' && s.targetSeconds ? Math.min(raw, s.targetSeconds * 1000) : raw;
+  return Math.min(raw, s.mode === 'countdown' && s.targetSeconds ? s.targetSeconds * 1000 : STOPWATCH_CAP_MS);
 }
 
 export function remainingMs(s: FocusSession, now: number) {
@@ -51,10 +55,11 @@ function closeRunning(s: FocusSession, endMs: number): FocusSession {
   };
 }
 
-/** 倒數若已在背景歸零，於歸零的那一刻結束（記錄時間不超過目標）。 */
+/** 倒數歸零（或正向計時滿 180 分鐘）時，於那一刻結束；就算在背景也只記到上限。 */
 export function settle(s: FocusSession, now: number): FocusSession {
-  if (s.status !== 'running' || s.mode !== 'countdown' || !s.targetSeconds || !s.runningSince) return s;
-  const target = s.targetSeconds * 1000;
+  if (s.status !== 'running' || !s.runningSince) return s;
+  const target = s.mode === 'countdown' ? (s.targetSeconds ?? 0) * 1000 : STOPWATCH_CAP_MS;
+  if (!target) return s;
   if (rawElapsedMs(s, now) < target) return s;
   const end = ms(s.runningSince) + (target - s.accumulatedMs);
   return { ...closeRunning(s, end), status: 'completed', endedAt: iso(end) };

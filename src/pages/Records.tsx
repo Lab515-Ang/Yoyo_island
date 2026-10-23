@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useSave } from '../app/store';
-import { HABITATS, MAX_CUSTOM_MINUTES, QUICK_MINUTES, TAGS, habitatName } from '../content/config';
+import { HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, QUICK_MINUTES, TAGS, habitatName } from '../content/config';
 import { fmtDateTime, fmtMinutes } from '../components/ui';
 import { localDateKey, shiftDateKey } from '../domain/focus';
 import { feedFor, habitatOpen, minutesByDay, rewardFor } from '../domain/game';
@@ -28,7 +28,7 @@ export function Records({ initialTag = null }: { initialTag?: string | null }) {
   const weekMs = days.reduce((a, d) => a + (byDay.get(d) ?? 0), 0);
   const sessions = [...save.sessions].reverse().filter((s) => s.endedAt && s.userId === save.profile.id && (!tagFilter || s.tag === tagFilter));
   const customMin = Number(custom);
-  const customValid = Number.isInteger(customMin) && customMin >= 1 && customMin <= MAX_CUSTOM_MINUTES;
+  const customValid = Number.isInteger(customMin) && customMin >= MIN_FOCUS_MINUTES && customMin <= MAX_FOCUS_MINUTES;
 
   const addTag = () => {
     const t = newTag.trim();
@@ -60,7 +60,7 @@ export function Records({ initialTag = null }: { initialTag?: string | null }) {
 
         <div className="field-label">預設倒數時間</div>
         <div className="chips" role="radiogroup" aria-label="預設倒數時間">
-          {[5, ...QUICK_MINUTES].map((m) => (
+          {QUICK_MINUTES.map((m) => (
             <button key={m} role="radio" aria-checked={st.lastTargetSeconds === m * 60} className={st.lastTargetSeconds === m * 60 ? 'chip on' : 'chip'} onClick={() => set({ lastTargetSeconds: m * 60 })}>
               {m} 分
             </button>
@@ -72,7 +72,7 @@ export function Records({ initialTag = null }: { initialTag?: string | null }) {
               if (customValid) set({ lastTargetSeconds: customMin * 60 }), setCustom('');
             }}
           >
-            <input inputMode="numeric" value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^\d]/g, ''))} placeholder="自訂" aria-label={`自訂分鐘（1～${MAX_CUSTOM_MINUTES}）`} />
+            <input inputMode="numeric" value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^\d]/g, ''))} placeholder="自訂" aria-label={`自訂分鐘（${MIN_FOCUS_MINUTES}～${MAX_FOCUS_MINUTES}）`} />
             <button className="chip" type="submit" disabled={!customValid}>
               設定
             </button>
