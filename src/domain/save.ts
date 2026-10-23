@@ -19,6 +19,8 @@ export const defaultSettings = (): Settings => ({
   lastTimerMode: 'countdown',
   lastTargetSeconds: 10 * 60, // 第一段建議 10 分鐘（最低時間），完成後足夠修好第一個工程
   customTags: [],
+  companionPetId: null,
+  keepAwake: false,
 });
 
 export const deviceTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';

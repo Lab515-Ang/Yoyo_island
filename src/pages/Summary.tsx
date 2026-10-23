@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useSave } from '../app/store';
-import { COPY, TAGS, speciesDef, tagColor } from '../content/config';
+import { COPY, EGG_PRICE, FACILITIES, HABITATS, speciesDef, tagColor, TAGS } from '../content/config';
 import { Coin, Modal } from '../components/ui';
 import { Creature } from '../components/Creature';
 import { localDateKey } from '../domain/focus';
-import { activeProject, balance, chanceFind, earnedFor, editSessionNote, minutesByDay, NOTE_MAX, remainingFor } from '../domain/game';
+import { activeProject, balance, chanceFind, coins, earnedFor, editSessionNote, eggOdds, facilityOwned, focusOutcome, habitatFree, habitatOpen, minutesByDay, NOTE_MAX, remainingFor } from '../domain/game';
 import { HabitatScene } from '../scenes/HabitatScene';
 
 const clock = (ms: number) => `${String(Math.floor(ms / 60000)).padStart(2, '0')}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
@@ -16,12 +16,14 @@ export function Summary({
   onProject,
   onRecords,
   onBreak,
+  onShop,
 }: {
   sessionId: string;
   onDone: () => void;
   onProject: () => void;
   onRecords: (tag: string) => void;
   onBreak: () => void;
+  onShop: () => void;
 }) {
   const { save } = useSave();
   const s = save.sessions.find((x) => x.id === sessionId);
@@ -36,6 +38,17 @@ export function Summary({
   const todayMin = Math.floor((minutesByDay(save).get(localDateKey(Date.now(), save.profile.timezone)) ?? 0) / 60000);
   const project = activeProject(save);
   const canBuild = project && balance(save) >= remainingFor(save, project);
+  const out = focusOutcome(save, s.id);
+  // 這段專注第一次餵到的新手禮物（卵剛送到）
+  const gift = out.pets.find((p) => p.pet.source === 'gift' && !save.transactions.some((t) => t.kind === 'feed_spend' && t.petId === p.pet.id && t.sessionId !== s.id));
+  // 下一步：金幣夠買蛋（有空位）或下一個設施時，提示去商店
+  const wallet = coins(save);
+  const canShop = HABITATS.some(
+    (h) =>
+      habitatOpen(save, h.id) &&
+      ((habitatFree(save, h.id) > 0 && wallet >= (EGG_PRICE[h.id] ?? Infinity) && eggOdds(save, h.id).length > 0) ||
+        FACILITIES.some((f) => f.habitatId === h.id && !facilityOwned(save, f.id) && wallet >= f.price)),
+  );
   const hasTitle = s.taskTitle && s.taskTitle !== '一段專注';
 
   if (!done && !comforted)
@@ -87,14 +100,50 @@ export function Summary({
             ✎ 新增專注筆記
           </button>
         )}
-        <div className="reward-chips" aria-label="這次的獎勵">
-          <span>🌱 +{earned.points}</span>
-          <span>
-            <Coin /> +{earned.coins}
-          </span>
-          <span>🌾 +{earned.feed}</span>
-        </div>
       </div>
+
+      {done && min > 0 && (
+        <ul className="reward-list" aria-label="這段專注的成果">
+          {out.projects.map((p) => (
+            <li key={p.def.id}>
+              <span>🏝️ {p.def.title}</span>
+              <strong>{p.completed ? '完成了！' : `${Math.round(p.to * 100)}%（+${Math.max(1, Math.round((p.to - p.from) * 100))}%）`}</strong>
+            </li>
+          ))}
+          {!out.projects.length && earned.points > 0 && (
+            <li>
+              <span>🌱 成長點數</span>
+              <strong>+{earned.points}</strong>
+            </li>
+          )}
+          {gift && (
+            <li>
+              <span>🎁 新手禮物</span>
+              <strong>{gift.def.name}的{gift.def.stages[0]}來到島上了！</strong>
+            </li>
+          )}
+          {out.pets.map((p) => (
+            <li key={p.pet.id}>
+              <span>🥚 {p.def.name}吃了 {p.amount} 份飼料</span>
+              <strong>{p.to > p.from ? `長成${p.def.stages[p.to]}了！` : p.def.stages[p.to]}</strong>
+            </li>
+          ))}
+          {!out.pets.length && earned.feed > 0 && (
+            <li>
+              <span>🌾 飼料</span>
+              <strong>+{earned.feed}（先存著）</strong>
+            </li>
+          )}
+          <li>
+            <span>
+              <Coin /> 金幣
+            </span>
+            <strong>
+              +{earned.coins}（共 {coins(save)}）
+            </strong>
+          </li>
+        </ul>
+      )}
 
       {saved ? (
         <>
@@ -124,6 +173,11 @@ export function Summary({
         {canBuild && (
           <button className="link-light" onClick={onProject}>
             點數夠了，去修「{project.title}」
+          </button>
+        )}
+        {canShop && (
+          <button className="link-light" onClick={onShop}>
+            金幣夠了，去商店看看
           </button>
         )}
         <button className="text-light" onClick={onBreak}>

@@ -3,7 +3,7 @@ import { useNow, useSave } from '../app/store';
 import { APP_NAME, MIN_FOCUS_MINUTES, SOUNDS } from '../content/config';
 import { Modal } from '../components/ui';
 import { elapsedMs, finish, pause, remainingMs, resume } from '../domain/focus';
-import { cancelSession, closeSession, focusSoundFor, graceLeftMs, putSession } from '../domain/game';
+import { applyFocusRewards, cancelSession, closeSession, focusSoundFor, graceLeftMs, putSession } from '../domain/game';
 import type { FocusSession, SaveFile } from '../domain/types';
 import { HabitatScene, prefersReducedMotion } from '../scenes/HabitatScene';
 import { useAmbient } from '../sound';
@@ -35,7 +35,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   // 正向計時結束＝完成；倒數提前結束＝放棄（沒有點數與金幣）
   const end = (status: 'completed' | 'abandoned') => {
     const t = Date.now();
-    if (update((s) => closeSession(s, finish(cur(s), t, status), t))) onFinished(session.id);
+    if (update((s) => applyFocusRewards(closeSession(s, finish(cur(s), t, status), t), session.id, t))) onFinished(session.id);
   };
   // 一律以存檔中的最新狀態為準，重複點擊不會重複結算
   const cur = (s: SaveFile) => s.sessions.find((x) => x.id === session.id)!;
@@ -47,6 +47,23 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   const grace = Math.ceil(graceLeftMs(session, now) / 1000);
   const soundOn = save.settings.soundEnabled;
   const soundName = SOUNDS.find((x) => x.id === focusSoundFor(save, session.habitatId))?.name;
+
+  // 保持螢幕開啟：鎖屏時網頁會暫停，開著螢幕倒數結束才能準時響鈴
+  useEffect(() => {
+    if (!save.settings.keepAwake || paused || !('wakeLock' in navigator)) return;
+    let lock: WakeLockSentinel | null = null;
+    const acquire = () => {
+      if (document.visibilityState === 'visible') navigator.wakeLock.request('screen').then((l) => (lock = l), () => undefined);
+    };
+    acquire();
+    document.addEventListener('visibilitychange', acquire);
+    return () => {
+      document.removeEventListener('visibilitychange', acquire);
+      void lock?.release();
+    };
+  }, [save.settings.keepAwake, paused]);
+
+  const endAt = countdown && !paused ? new Date(now + remainingMs(session, now)).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) : null;
 
   const cancel = () => {
     if (update((s) => cancelSession(s, session.id, Date.now()))) notify('已取消，這次不算數。');
@@ -75,6 +92,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
             </p>
           )}
         </div>
+        {endAt && <p className="focus-endtime">預計 {endAt} 結束</p>}
         <div className="focus-controls">
           {grace > 0 && !paused ? (
             // 開始後 10 秒內：免費取消，不算放棄

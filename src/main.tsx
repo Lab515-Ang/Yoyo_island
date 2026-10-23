@@ -16,3 +16,6 @@ createRoot(document.getElementById('root')!).render(
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => void navigator.serviceWorker.register('/sw.js'));
 }
+
+// 申請持久儲存：瀏覽器同意後，空間不足時也不會自動清掉小島的資料
+void navigator.storage?.persist?.().catch(() => undefined);

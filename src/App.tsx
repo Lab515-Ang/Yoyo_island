@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGame, useNow, useSave } from './app/store';
 import { APP_NAME, COPY, avatarEmoji } from './content/config';
-import { balance, coins, feed, grantStarter, openSession, settleOpenSessions, starterGiftDue } from './domain/game';
+import { applyFocusRewards, coins, grantStarter, openSession, settleOpenSessions, starterGiftDue } from './domain/game';
 import * as storage from './data/storage';
 import { remainingMs } from './domain/focus';
 import { notifyEnd, playChime } from './sound';
@@ -93,12 +93,16 @@ function Main() {
   const [wake, setWake] = useState(0);
   useEffect(() => {
     const r = settleOpenSessions(save, Date.now());
-    if (!r.completed || !update(() => r.save)) return;
-    setSummaryId(r.completed.id);
-    // 剛歸零才提醒；隔很久重新開啟時不補響
-    if (Date.now() - Date.parse(r.completed.endedAt!) < 60_000) {
+    if (!r.completed) return;
+    const id = r.completed.id;
+    // 點數自動投入工程、飼料自動餵陪伴寵物
+    if (!update(() => applyFocusRewards(r.save, id, Date.now()))) return;
+    setSummaryId(id);
+    // 鎖屏時網頁會暫停：30 分鐘內回到 App 時立刻提醒（太久之後就不補響）
+    if (Date.now() - Date.parse(r.completed.endedAt!) < 30 * 60_000) {
       const st = save.settings;
       if (st.endChime) playChime(st.soundVolume);
+      navigator.vibrate?.([200, 100, 200]);
       if (st.endNotify) void notifyEnd(`${APP_NAME}・專注完成`, `「${r.completed.taskTitle}」完成了 ${Math.floor(r.completed.accumulatedMs / 60000)} 分鐘，回來看看小島吧。`);
     }
   }, [now, wake, save, update]);
@@ -146,6 +150,7 @@ function Main() {
         sessionId={summaryId}
         onDone={() => go('lobby')}
         onProject={() => go('island')}
+        onShop={() => go('shop')}
         onRecords={(tag) => {
           go('records');
           setRecordsTag(tag);
@@ -173,17 +178,9 @@ function Main() {
             <span className="brand-name">🏠 {APP_NAME}</span>
             <span className="muted small">{save.islands[0]?.name}</span>
           </button>
-          <div className="wallet" title="成長點數、金幣與飼料">
-            <span title="成長點數">
-              🌱 <strong>{balance(save)}</strong>
-            </span>
-            <span title="金幣">
-              <Coin /> <strong>{coins(save)}</strong>
-            </span>
-            <span title="飼料">
-              🌾 <strong>{feed(save)}</strong>
-            </span>
-          </div>
+          <button className="wallet" title="金幣：在商店領養寵物、買設施" onClick={() => go('shop')} aria-label={`金幣 ${coins(save)}，前往商店`}>
+            <Coin /> <strong>{coins(save)}</strong>
+          </button>
           <button className="avatar-btn" onClick={() => go('settings')} aria-label="設定">
             {avatarEmoji(save.profile.avatarId)}
           </button>

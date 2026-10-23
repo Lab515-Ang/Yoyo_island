@@ -29,6 +29,13 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
   const customValid = Number.isInteger(customMin) && customMin >= MIN_FOCUS_MINUTES && customMin <= MAX_FOCUS_MINUTES;
   const shown = timerMode === 'stopwatch' ? '00:00' : seconds < 60 ? `00:${String(seconds).padStart(2, '0')}` : `${Math.round(seconds / 60)}:00`;
 
+  // 左右箭頭：在常用時間之間切換
+  const step = (d: 1 | -1) => {
+    const cur = seconds / 60;
+    const next = d > 0 ? QUICK_MINUTES.find((m) => m > cur) : [...QUICK_MINUTES].reverse().find((m) => m < cur);
+    if (next) setSeconds(next * 60);
+  };
+
   const start = () => {
     const next = update((s) => startFocus(s, { taskTitle: task, tag, habitatId: habitat, mode: timerMode, targetSeconds: timerMode === 'countdown' ? seconds : null }, Date.now()));
     if (next) onStarted();
@@ -67,14 +74,29 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
         {habitatName(habitat)} ›
       </button>
 
-      <button className="lobby-time" onClick={() => setSheet('time')} aria-label={`專注時間 ${shown}，點一下調整`}>
-        {shown}
+      <div className="lobby-time-row">
+        {timerMode === 'countdown' && (
+          <button className="time-step" onClick={() => step(-1)} aria-label="減少時間" disabled={seconds <= QUICK_MINUTES[0] * 60}>
+            ‹
+          </button>
+        )}
+        <button className="lobby-time" onClick={() => setSheet('time')} aria-label={`專注時間 ${shown}，點一下調整`}>
+          {shown}
+        </button>
+        {timerMode === 'countdown' && (
+          <button className="time-step" onClick={() => step(1)} aria-label="增加時間" disabled={seconds >= QUICK_MINUTES[QUICK_MINUTES.length - 1] * 60}>
+            ›
+          </button>
+        )}
+      </div>
+      <button className="lobby-mode" onClick={() => setSheet('time')}>
+        {timerMode === 'countdown' ? '倒數' : '正向計時'} · 點時間或左右箭頭調整 ▾
       </button>
-      <p className="lobby-mode">{timerMode === 'countdown' ? '倒數' : '正向計時'} · 點時間可以調整</p>
 
       <button className="pill start" onClick={start}>
         開始專注
       </button>
+      <InstallHint />
       <p className="lobby-hint">{timerMode === 'countdown' ? '開始後 10 秒內可以取消；之後提前結束將一無所獲。' : `至少 ${MIN_FOCUS_MINUTES} 分鐘才算完成，最多 ${MAX_FOCUS_MINUTES} 分鐘。`}</p>
 
       {sheet === 'tag' && (
@@ -199,6 +221,47 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
           <p className="small muted">修好更多棲地，就能選更多地方當專注背景。</p>
         </Modal>
       )}
+    </div>
+  );
+}
+
+const HINT_KEY = 'qiguang-ui:installHintDismissed';
+const standalone = () => matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+
+/** 還沒加到主畫面時提醒：瀏覽器可能清掉網站資料，安裝後比較安全。 */
+function InstallHint() {
+  const [hidden, setHidden] = useState(() => {
+    try {
+      return standalone() || localStorage.getItem(HINT_KEY) === '1';
+    } catch {
+      return true;
+    }
+  });
+  const [how, setHow] = useState(false);
+  if (hidden) return null;
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  return (
+    <div className="install-hint">
+      <p className="small">
+        把棲光小島加到主畫面：可以全螢幕使用，進度也比較不會被瀏覽器清掉。
+        <button className="link" onClick={() => setHow(!how)}>
+          怎麼加？
+        </button>
+      </p>
+      {how && <p className="small">{ios ? 'iPhone：用 Safari 打開 → 下方分享按鈕 □↑ → 「加入主畫面」。' : 'Android：Chrome 右上角 ⋮ → 「安裝應用程式」或「加到主畫面」。'}</p>}
+      <button
+        className="link"
+        onClick={() => {
+          try {
+            localStorage.setItem(HINT_KEY, '1');
+          } catch {
+            // 只影響提示是否再出現
+          }
+          setHidden(true);
+        }}
+      >
+        知道了
+      </button>
     </div>
   );
 }

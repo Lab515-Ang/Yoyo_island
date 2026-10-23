@@ -42,7 +42,7 @@ export function HabitatScene({ habitatId, onSelect, calm = false, bubble = false
   const pets = adoptedPets(save, habitatId).map((v) => ({ id: v.pet.id, typeId: v.def.id, art: v.def.art, stage: v.stage, face: v.face, grow: v.grow }));
   const facilities = FACILITIES.filter((f) => f.habitatId === habitatId && facilityOwned(save, f.id)).map((f) => f.id);
   const reducedMotion = save.settings.reducedMotion || prefersReducedMotion();
-  const props = { habitatId, done, prog, pets, facilities, reducedMotion, onSelect: calm || bubble ? undefined : onSelect, backdrop: calm, bubble };
+  const props = { habitatId, done, prog, pets, facilities, reducedMotion, onSelect: calm || bubble ? undefined : onSelect, backdrop: calm, bubble, lowPower: calm || bubble };
   const flat = <Scene2D {...props} />;
   const degrade = useCallback(() => {
     setDegraded(true);

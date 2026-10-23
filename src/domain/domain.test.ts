@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, weekStartKey } from './focus';
-import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, feed, feedFor, adoptPet, feedPet, adoptedPets, fedByUser, buyEgg, buyFacility, eggOdds, grantStarter, habitatSlots, naturalFace, setFace, starterGiftDue, sessionRoll, chanceFor, chanceFind, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote, isDone, projectQuarter, remainingFor } from './game';
+import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, feed, feedFor, adoptPet, feedPet, adoptedPets, fedByUser, buyEgg, buyFacility, eggOdds, grantStarter, habitatSlots, naturalFace, setFace, starterGiftDue, sessionRoll, chanceFor, chanceFind, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote, isDone, projectQuarter, remainingFor, applyFocusRewards, focusOutcome, companionPet } from './game';
 import { CHANCE, EGG_PRICE, PACING_VERSION, SOUNDS, petDef, projectDef } from '../content/config';
 import { newSave, newDemoSave, validateSave, demoGrant } from './save';
 import type { SaveFile } from './types';
@@ -451,5 +451,37 @@ describe('專注時間 10～180 分鐘', () => {
     expect(r.completed?.accumulatedMs).toBe(180 * MIN);
     save = r.save;
     expect(balance(save)).toBe(180);
+  });
+});
+
+describe('專注完成後自動投入', () => {
+  it('點數自動投入工程（可連續完成）、飼料自動餵陪伴寵物，只執行一次', () => {
+    let save = focus(fresh(), need('gh_entrance'));
+    save = applyFocusRewards(save, save.sessions[0].id, T0);
+    expect(isDone(save, 'gh_entrance')).toBe(true);
+    expect(balance(save)).toBe(0);
+    expect(adoptedPets(save).map((v) => v.pet.source)).toEqual(['gift']); // 修好入口就送卵
+    expect(feed(save)).toBe(0); // 這段的飼料直接餵給剛送到的卵
+    save = focus(save, 120, T0 + 200 * MIN);
+    const id = save.sessions.at(-1)!.id;
+    save = applyFocusRewards(save, id, T0 + 320 * MIN);
+    const out = focusOutcome(save, id);
+    expect(out.projects.map((p) => [p.def.id, p.points])).toEqual([['gh_flowers', 120]]);
+    expect(out.pets).toHaveLength(1);
+    expect(out.pets[0].amount).toBe(feedFor(save.sessions.at(-1)!));
+    expect([out.pets[0].from, out.pets[0].to]).toEqual([0, 0]);
+    expect(feed(save)).toBe(0);
+    const again = applyFocusRewards(save, id, T0 + 321 * MIN);
+    expect(again).toBe(save); // 不會重複
+    expect(validateSave(save).ok).toBe(true);
+  });
+
+  it('陪伴寵物：選了就餵牠，長大後換最接近長大的那隻', () => {
+    let save = focus(fresh(), need('gh_entrance'));
+    save = applyFocusRewards(save, save.sessions[0].id, T0);
+    const gift = adoptedPets(save)[0].pet.id;
+    expect(companionPet(save)?.pet.id).toBe(gift);
+    save = { ...save, settings: { ...save.settings, companionPetId: 'nope' } };
+    expect(companionPet(save)?.pet.id).toBe(gift); // 選的不存在就自動挑
   });
 });

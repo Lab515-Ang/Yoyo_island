@@ -4,7 +4,7 @@ import { COPY, habitatName, HABITATS, MAX_PETS_PER_HABITAT, PROJECTS } from '../
 import { Progress } from '../components/ui';
 import { PetImage } from '../components/PetArt';
 import { PetCard } from '../components/PetCard';
-import { activeProject, adoptedPets, balance, contribute, feed, habitatOpen, habitatSlots, habitatSound, isDone, petMaxFeed, projectRow, remainingFor } from '../domain/game';
+import { activeProject, adoptedPets, balance, companionPet, contribute, feed, habitatOpen, habitatSlots, habitatSound, isDone, petMaxFeed, projectRow, remainingFor } from '../domain/game';
 import type { HabitatId } from '../domain/types';
 import { HabitatScene, prefersReducedMotion } from '../scenes/HabitatScene';
 import { IslandMap } from '../scenes/IslandMap';
@@ -122,30 +122,11 @@ function ProjectPanel({ onEnter }: { onEnter: (h: HabitatId) => void }) {
       <p className="small">
         {got} / {project.requiredPoints} 點 · {COPY.projectNeed(remaining, project.promise)}
       </p>
-      <p>
-        可用點數：<strong>{wallet}</strong>
-      </p>
-      {wallet > 0 ? (
-        <>
-          <div className="row wrap">
-            <button className="primary" onClick={() => give('all')}>
-              投入 {Math.min(wallet, remaining)} 點{wallet >= remaining ? '並完成' : ''}
-            </button>
-            <form
-              className="row"
-              onSubmit={(e) => {
-                e.preventDefault();
-                give(amount.trim() === '' ? NaN : parsed);
-              }}
-            >
-              <input className="short" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="點數" aria-label="自訂投入點數" />
-              <button type="submit">投入</button>
-            </form>
-          </div>
-          <p className="muted small">實際投入會是輸入值、你的點數與工程剩餘需求三者中最小的一個。</p>
-        </>
-      ) : (
-        <p className="muted">目前沒有可投入的點數。完成一段專注，每滿 1 分鐘得到 1 點。</p>
+      <p className="muted small">專注得到的成長點數，會在專注完成時自動投入這個工程。</p>
+      {wallet > 0 && (
+        <button className="primary" onClick={() => give('all')}>
+          投入手上的 {Math.min(wallet, remaining)} 點{wallet >= remaining ? '並完成' : ''}
+        </button>
       )}
       {error && <p className="error" role="alert">{error}</p>}
     </section>
@@ -157,6 +138,7 @@ function MyPets({ onShop }: { onShop: () => void }) {
   const { save } = useSave();
   const [card, setCard] = useState<string | null>(null);
   const habitats = HABITATS.filter((h) => h.playable && habitatOpen(save, h.id));
+  const companion = companionPet(save)?.pet.id;
   return (
     <section className="card">
       <div className="row between">
@@ -178,7 +160,10 @@ function MyPets({ onShop }: { onShop: () => void }) {
                 return (
                   <button key={pet.id} className="pet-chip" onClick={() => setCard(pet.id)}>
                     <PetImage typeId={def.id} art={def.art} stage={stage} face={face} size={56} />
-                    <strong>{def.name}</strong>
+                    <strong>
+                      {companion === pet.id && <span title="陪伴寵物">★ </span>}
+                      {def.name}
+                    </strong>
                     <span className="small muted">{def.stages[stage]}</span>
                     {stage < 3 ? <Progress value={(fed - prev) / (next - prev)} label={`${def.name}成長進度`} /> : <span className="small cond">已長大</span>}
                   </button>
@@ -196,7 +181,7 @@ function MyPets({ onShop }: { onShop: () => void }) {
           </div>
         );
       })}
-      <p className="small muted">每個場景先有 1 個名額，在商店買設施可以增加，最多 {MAX_PETS_PER_HABITAT} 隻。</p>
+      <p className="small muted">★ 是陪伴寵物：專注得到的飼料會自動餵牠。每個場景先有 1 個名額，在商店買設施可以增加，最多 {MAX_PETS_PER_HABITAT} 隻。</p>
       {card && <PetCard petId={card} onClose={() => setCard(null)} />}
     </section>
   );

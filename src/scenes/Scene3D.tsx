@@ -15,6 +15,7 @@ export interface SceneProps {
   onSlow?: () => void;
   backdrop?: boolean; // 專注畫面的全螢幕背景：場景往上移，留出下方放倒數泡泡
   bubble?: boolean; // 大廳的圓形泡泡：鏡頭拉近
+  lowPower?: boolean; // 省電：每秒只畫 12 張、解析度降到 1 倍（專注背景、大廳泡泡用）
   pets?: ScenePet[]; // 住在這個場景的寵物（點擊回傳 pet:{id}）
   facilities?: string[]; // 已購買的設施
 }
@@ -720,7 +721,17 @@ function Stream({ done, prog, still }: Progress) {
   );
 }
 
-export default function Scene3D({ habitatId, done, prog, reducedMotion, onSelect, onSlow, backdrop, bubble, pets = [], facilities = [] }: SceneProps) {
+/** 限制每秒重繪次數（搭配 frameloop="demand"），動畫靠時間推算所以不會變慢。 */
+function FpsCap({ fps }: { fps: number }) {
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => {
+    const id = window.setInterval(() => invalidate(), 1000 / fps);
+    return () => clearInterval(id);
+  }, [invalidate, fps]);
+  return null;
+}
+
+export default function Scene3D({ habitatId, done, prog, reducedMotion, onSelect, onSlow, backdrop, bubble, lowPower, pets = [], facilities = [] }: SceneProps) {
   const [hidden, setHidden] = useState(document.hidden);
   useEffect(() => {
     const on = () => setHidden(document.hidden);
@@ -730,9 +741,9 @@ export default function Scene3D({ habitatId, done, prog, reducedMotion, onSelect
   const props = { done, prog: prog ?? ((id: string) => (done(id) ? 1 : 0)), still: reducedMotion };
   return (
     <Canvas
-      // 背景分頁停止渲染；低動態模式只在變化時重繪
-      frameloop={hidden ? 'never' : reducedMotion ? 'demand' : 'always'}
-      dpr={[1, 1.5]}
+      // 背景分頁停止渲染；低動態只在變化時重繪；省電模式每秒 12 張
+      frameloop={hidden ? 'never' : reducedMotion || lowPower ? 'demand' : 'always'}
+      dpr={lowPower ? 1 : [1, 1.5]}
       camera={{ fov: 40, near: 0.1, far: 80 }}
       gl={{ antialias: true, powerPreference: 'low-power' }}
       aria-label="棲地場景"
@@ -741,7 +752,8 @@ export default function Scene3D({ habitatId, done, prog, reducedMotion, onSelect
       <hemisphereLight args={['#fff4dc', '#9fbf9a', 1.6]} />
       <directionalLight position={[5, 9, 5]} intensity={1.5} color="#fff0d2" />
       <FitCamera dist={(habitatId === 'stream' ? 10.5 : 10) * (bubble ? 0.78 : 1)} raise={backdrop ? 0.2 : 0} />
-      {!reducedMotion && <PerfWatch onSlow={onSlow} />}
+      {!reducedMotion && !lowPower && <PerfWatch onSlow={onSlow} />}
+      {lowPower && !reducedMotion && !hidden && <FpsCap fps={12} />}
       {habitatId === 'stream' ? <Stream {...props} /> : <Greenhouse {...props} />}
       {facilities.map((f) => (
         <Facility key={f} id={f} />

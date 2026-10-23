@@ -167,7 +167,7 @@ export type ContributeResult =
   | { ok: false; error: string };
 
 /** 實際扣點 = min(輸入值, 錢包餘額, 工程剩餘需求)；交易、貢獻、工程進度一起提交。 */
-export function contribute(save: SaveFile, userId: ID, projectId: string, input: number | 'all', now: number): ContributeResult {
+export function contribute(save: SaveFile, userId: ID, projectId: string, input: number | 'all', now: number, sessionId?: ID): ContributeResult {
   const def = projectDef(projectId);
   const row = projectRow(save, projectId);
   if (!def || !row) return { ok: false, error: '找不到這個工程。' };
@@ -184,7 +184,7 @@ export function contribute(save: SaveFile, userId: ID, projectId: string, input:
   const completed = total >= def.requiredPoints;
   let next: SaveFile = {
     ...save,
-    contributions: [...save.contributions, { id: contributionId, userId, islandId: isl, projectId, points: spent, createdAt: iso(now) }],
+    contributions: [...save.contributions, { id: contributionId, userId, islandId: isl, projectId, points: spent, createdAt: iso(now), ...(sessionId ? { sessionId } : {}) }],
     transactions: [...save.transactions, { id: newId(), userId, islandId: isl, kind: 'project_spend', amount: -spent, contributionId, idempotencyKey: `spend:${contributionId}`, createdAt: iso(now) }],
     projects: save.projects.map((p) => (p === row ? { ...p, contributedPoints: total, completedAt: completed ? iso(now) : null } : p)),
   };
@@ -381,7 +381,7 @@ export function setFace(save: SaveFile, petId: string, face: number): ActionResu
 export type FeedResult = { ok: true; save: SaveFile; spent: number; from: number; to: number } | { ok: false; error: string };
 
 /** 餵食：實際用量 = min(輸入, 飼料存量, 長到成體還需要的量)。 */
-export function feedPet(save: SaveFile, userId: ID, petId: string, input: number | 'all', now: number): FeedResult {
+export function feedPet(save: SaveFile, userId: ID, petId: string, input: number | 'all', now: number, sessionId?: ID): FeedResult {
   const pet = petById(save, petId);
   if (!pet || pet.islandId !== islandId(save)) return { ok: false, error: '找不到這隻寵物。' };
   const def = petDef(pet.typeId)!;
@@ -394,7 +394,7 @@ export function feedPet(save: SaveFile, userId: ID, petId: string, input: number
   const spent = Math.min(input === 'all' ? have : input, have, left);
   const next: SaveFile = {
     ...save,
-    transactions: [...save.transactions, { id: newId(), userId, islandId: pet.islandId, kind: 'feed_spend', amount: -spent, petId: pet.id, petTypeId: def.id, idempotencyKey: `feedspend:${newId()}`, createdAt: iso(now) }],
+    transactions: [...save.transactions, { id: newId(), userId, islandId: pet.islandId, kind: 'feed_spend', amount: -spent, petId: pet.id, petTypeId: def.id, idempotencyKey: `feedspend:${newId()}`, createdAt: iso(now), ...(sessionId ? { sessionId } : {}) }],
   };
   return { ok: true, save: next, spent, from: petStage(def, fed), to: petStage(def, fed + spent) };
 }
@@ -415,4 +415,65 @@ export const habitatSound = (save: SaveFile, habitatId: HabitatId) => (habitatId
 export function focusSoundFor(save: SaveFile, habitatId: HabitatId) {
   const pick = SOUNDS.find((x) => x.id === save.settings.focusSound);
   return pick && soundUnlocked(save, pick.unlock) ? pick.id : habitatSound(save, habitatId);
+}
+
+// ---------- 專注完成後的自動流程（不需要再手動投入、餵食） ----------
+
+/** 陪伴寵物：玩家選的那隻（還沒長大時）；沒選就挑最接近下一階段的寵物。 */
+export function companionPet(save: SaveFile) {
+  const growing = adoptedPets(save).filter((v) => v.stage < 3);
+  const chosen = growing.find((v) => v.pet.id === save.settings.companionPetId);
+  if (chosen) return chosen;
+  return [...growing].sort((a, b) => a.def.thresholds[a.stage] - a.fed - (b.def.thresholds[b.stage] - b.fed))[0] ?? null;
+}
+
+/**
+ * 專注完成後：成長點數全部投入目前的工程（可連續完成好幾個）、飼料全部餵給陪伴寵物（長大了就換下一隻）。
+ * 每段專注只執行一次（session.applied）。
+ */
+export function applyFocusRewards(save: SaveFile, sessionId: ID, now: number): SaveFile {
+  const s = save.sessions.find((x) => x.id === sessionId);
+  if (!s || s.status !== 'completed' || s.applied) return save;
+  let next = putSession(save, { ...s, applied: true });
+  const uid = s.userId;
+  for (let p = activeProject(next); p && balance(next, uid) > 0; p = activeProject(next)) {
+    const r = contribute(next, uid, p.id, 'all', now, s.id);
+    if (!r.ok) break;
+    next = r.save;
+    if (!r.completed) break;
+  }
+  // 修好第一個工程時，新手禮物的卵在這裡就送到，這段的飼料可以直接餵牠
+  if (starterGiftDue(next)) {
+    const g = grantStarter(next, now);
+    if (g.ok) next = g.save;
+  }
+  for (let v = companionPet(next); v && feed(next, uid) > 0; v = companionPet(next)) {
+    const r = feedPet(next, uid, v.pet.id, 'all', now, s.id);
+    if (!r.ok) break;
+    next = r.save;
+  }
+  return next;
+}
+
+/** 這段專注自動投入的成果（結算畫面用）。 */
+export function focusOutcome(save: SaveFile, sessionId: ID) {
+  const projects = save.contributions
+    .filter((c) => c.sessionId === sessionId)
+    .map((c) => {
+      const def = projectDef(c.projectId)!;
+      const row = projectRow(save, c.projectId)!;
+      const later = save.contributions.filter((x) => x.projectId === c.projectId && x.createdAt > c.createdAt).reduce((a, x) => a + x.points, 0);
+      const after = row.contributedPoints - later;
+      return { def, points: c.points, from: (after - c.points) / def.requiredPoints, to: after / def.requiredPoints, completed: after >= def.requiredPoints };
+    });
+  const pets = save.transactions
+    .filter((t) => t.kind === 'feed_spend' && t.sessionId === sessionId)
+    .map((t) => {
+      const pet = petById(save, t.petId!)!;
+      const def = petDef(pet.typeId)!;
+      const later = save.transactions.filter((x) => x.kind === 'feed_spend' && x.petId === pet.id && x.createdAt > t.createdAt).reduce((a, x) => a - x.amount, 0);
+      const after = petFed(save, pet.id) - later;
+      return { pet, def, amount: -t.amount, from: petStage(def, after + t.amount), to: petStage(def, after) };
+    });
+  return { projects, pets };
 }

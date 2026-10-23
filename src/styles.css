@@ -1413,3 +1413,82 @@ button.danger-fill {
 .pill.wide {
   width: 100%;
 }
+
+/* ---------- 體驗調整：時間箭頭、導覽、安裝提示、結束時間 ---------- */
+.lobby-time-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.lobby button.time-step {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 1.6rem;
+  justify-content: center;
+}
+.lobby button.time-step:disabled {
+  opacity: 0.3;
+}
+.lobby button.lobby-mode {
+  font-size: 0.8rem;
+  opacity: 0.85;
+  min-height: 28px;
+}
+.install-hint {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  padding: 0.4rem 0.8rem;
+  max-width: 340px;
+  text-align: center;
+}
+.install-hint p {
+  margin: 0.2rem 0;
+}
+.lobby .install-hint button.link {
+  color: #fffdf6;
+  text-decoration: underline;
+  display: inline-flex;
+  min-height: 28px;
+}
+.focus-endtime {
+  position: relative;
+  margin: -0.6rem 0 0;
+  font-size: 0.85rem;
+  color: #2f4a36;
+  text-shadow: 0 1px 6px rgba(255, 255, 255, 0.8);
+}
+.tour {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 0.4rem;
+}
+.tour-icon {
+  font-size: 3rem;
+  line-height: 1.2;
+}
+.tour-icon .coin {
+  width: 3rem;
+  height: 3rem;
+}
+.tour-dots {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0.4rem 0;
+}
+.tour-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--line);
+}
+.tour-dots span.on {
+  background: var(--sage-deep);
+}
+button.wallet {
+  flex-direction: row;
+  gap: 0.35rem;
+  min-height: 40px;
+}

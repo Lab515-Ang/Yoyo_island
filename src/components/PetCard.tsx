@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSave } from '../app/store';
 import { FACES, RARITY_LABEL, habitatName } from '../content/config';
-import { feed, feedPet, fedByUser, petById, petMaxFeed, petView, setFace, type ActionResult, type FeedResult } from '../domain/game';
+import { type ActionResult, companionPet, fedByUser, feed, feedPet, type FeedResult, petById, petMaxFeed, petView, setFace } from '../domain/game';
 import { Modal, Progress, fmtDateTime } from './ui';
 import { PetImage } from './PetArt';
 
@@ -20,6 +20,7 @@ export function PetCard({ petId, onClose }: { petId: string; onClose: () => void
   const have = feed(save);
   const names = new Map(save.memberships.map((m) => [m.userId, m.demoNickname ?? `${save.profile.nickname}（你）`]));
   const feeders = [...fedByUser(save, pet.id)].sort((a, b) => b[1] - a[1]);
+  const companion = companionPet(save)?.pet.id === pet.id;
 
   const give = (input: number | 'all') => {
     let r: FeedResult | null = null;
@@ -93,7 +94,16 @@ export function PetCard({ petId, onClose }: { petId: string; onClose: () => void
               全部餵（{Math.min(have, petMaxFeed(p) - fed)}）
             </button>
           </div>
-          <p className="small muted center-text">你有 🌾 {have} 份飼料。完成專注每 5 分鐘得 1 份。長大後可以在表情相簿自由換表情。</p>
+          <p className="small muted center-text">你有 🌾 {have} 份飼料。專注得到的飼料會自動餵給陪伴寵物；長大後可以在表情相簿換表情。</p>
+          <div className="row center">
+            {companion ? (
+              <span className="small cond">★ 這是你的陪伴寵物</span>
+            ) : (
+              <button className="link" onClick={() => update((s) => ({ ...s, settings: { ...s.settings, companionPetId: pet.id } }))}>
+                ★ 設為陪伴寵物
+              </button>
+            )}
+          </div>
         </>
       )}
       {msg && (

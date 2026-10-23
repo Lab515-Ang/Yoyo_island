@@ -27,6 +27,8 @@ export interface Settings {
   lastTimerMode: TimerMode;
   lastTargetSeconds: number;
   customTags: string[];
+  companionPetId: string | null; // 陪伴寵物：專注得到的飼料自動餵牠；null = 自動挑最接近長大的
+  keepAwake: boolean; // 專注時保持螢幕開啟（讓倒數結束能準時提醒）
 }
 
 export interface Island {
@@ -69,6 +71,7 @@ export interface FocusSession {
   endedAt: ISODate | null;
   outcome: Outcome | null;
   note?: string; // 專注筆記（只存在自己的裝置，不分享）
+  applied?: boolean; // 已經把這段的點數、飼料自動投入（避免重複）
 }
 
 export interface PointTransaction {
@@ -101,6 +104,7 @@ export interface Contribution {
   id: ID;
   userId: ID;
   islandId: ID;
+  sessionId?: ID; // 專注完成後自動投入時，記錄是哪一段專注
   projectId: ID;
   points: number;
   createdAt: ISODate;

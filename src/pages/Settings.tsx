@@ -4,6 +4,8 @@ import { AVATARS } from '../content/config';
 import { validateSave } from '../domain/save';
 import { openSession } from '../domain/game';
 import { notifySupported, playChime } from '../sound';
+import { Modal } from '../components/ui';
+import { Tour } from '../components/Tour';
 import type { SaveFile } from '../domain/types';
 
 const TIMEZONES: string[] = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
@@ -16,6 +18,7 @@ export function SettingsPage() {
   const [importError, setImportError] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [notifyMsg, setNotifyMsg] = useState<string | null>(null);
+  const [touring, setTouring] = useState(false);
 
   const toggleNotify = async (on: boolean) => {
     setNotifyMsg(null);
@@ -95,6 +98,16 @@ export function SettingsPage() {
       </section>
 
       <section className="sheet-section">
+        <h3>導覽</h3>
+        <button onClick={() => setTouring(true)}>再看一次新手導覽</button>
+        {touring && (
+          <Modal title="新手導覽" onClose={() => setTouring(false)}>
+            <Tour onDone={() => setTouring(false)} doneLabel="知道了" />
+          </Modal>
+        )}
+      </section>
+
+      <section className="sheet-section">
         <h3>聲音</h3>
         <label className="toggle">
           <input type="checkbox" checked={st.soundEnabled} onChange={(e) => set({ soundEnabled: e.target.checked })} />
@@ -116,6 +129,13 @@ export function SettingsPage() {
           倒數結束系統通知（切到其他視窗也看得到）
         </label>
         {notifyMsg && <p className="error">{notifyMsg}</p>}
+        <label className="toggle">
+          <input type="checkbox" checked={st.keepAwake} onChange={(e) => set({ keepAwake: e.target.checked })} />
+          專注時保持螢幕開啟（比較耗電）
+        </label>
+        <p className="small muted">
+          iPhone 鎖定螢幕時網頁會暫停，倒數結束要等回到 App 才會響鈴。想準時聽到提醒，可以開啟「保持螢幕開啟」，並把 App 加到主畫面。
+        </p>
         <p className="small muted">要聽哪一種環境音，可以在「大自然交響樂」挑選已收集的聲音。</p>
       </section>
 
