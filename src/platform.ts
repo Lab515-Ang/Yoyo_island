@@ -101,7 +101,14 @@ interface TimeGuardNative {
   setConfig(o: { config: GuardConfig }): Promise<void>;
   unlock(o: { pkg: string; minutes: number }): Promise<void>;
   goHome(): Promise<void>;
+  startFocusWatch(o: { endAt: number; graceMs: number; allow: string[] }): Promise<void>;
+  stopFocusWatch(): Promise<void>;
+  focusWatchStatus(): Promise<{ active: boolean; failedAt: number; callStart: number; calls: [number, number][] }>;
+  clearFocusEvents(): Promise<void>;
 }
+
+/** 深度專注：離開小島超過這麼久，植物就枯萎。 */
+export const DEEP_GRACE_MS = 10_000;
 
 export const TimeGuard = registerPlugin<TimeGuardNative>('TimeGuard');
 

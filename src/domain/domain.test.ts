@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { completeNow, createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, weekStartKey } from './focus';
+import { applyDeepFocus, dueAt, completeNow, createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, weekStartKey } from './focus';
 import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, feed, feedFor, adoptPet, feedPet, adoptedPets, fedByUser, buyEgg, buyFacility, eggOdds, grantStarter, habitatSlots, naturalFace, setFace, starterGiftDue, sessionRoll, chanceFor, chanceFind, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote, isDone, projectQuarter, remainingFor, applyFocusRewards, focusOutcome, companionPet, chosenPlant, plantUnlocked, plantedSessions } from './game';
 import { CHANCE, EGG_PRICE, PACING_VERSION, PLANTS, SOUNDS, petDef, plantTier, projectDef } from '../content/config';
 import { newSave, newDemoSave, validateSave, demoGrant } from './save';
@@ -513,5 +513,38 @@ describe('今日花圃', () => {
     expect(plantTier(25)).toBe(1);
     expect(plantTier(60)).toBe(2);
     expect(plantTier(180)).toBe(3);
+  });
+});
+
+describe('深度專注', () => {
+  it('通話當成暫停；離開太久從離開那一刻放棄；已經完成的照算完成', () => {
+    const s0 = session(fresh(), 'countdown', 25);
+    expect(dueAt(s0)).toBe(T0 + 25 * MIN);
+
+    // 第 5～8 分鐘接電話：不計時，倒數順延 3 分鐘
+    const called = applyDeepFocus(s0, { calls: [[T0 + 5 * MIN, T0 + 8 * MIN]], callStart: null, failedAt: null });
+    expect(called.status).toBe('running');
+    expect(dueAt(called)).toBe(T0 + 28 * MIN);
+    expect(elapsedMs(called, T0 + 20 * MIN)).toBe(17 * MIN);
+
+    // 通話還沒結束：停在暫停
+    const ringing = applyDeepFocus(s0, { calls: [], callStart: T0 + 12 * MIN, failedAt: null });
+    expect(ringing.status).toBe('paused');
+    expect(ringing.accumulatedMs).toBe(12 * MIN);
+
+    // 第 10 分鐘離開沒回來：放棄，只記到第 10 分鐘
+    const left = applyDeepFocus(s0, { calls: [], callStart: null, failedAt: T0 + 10 * MIN });
+    expect(left.status).toBe('abandoned');
+    expect(left.accumulatedMs).toBe(10 * MIN);
+
+    // 倒數已經在第 25 分鐘完成，之後才離開：仍然算完成
+    const late = applyDeepFocus(s0, { calls: [], callStart: null, failedAt: T0 + 30 * MIN });
+    expect(late.status).toBe('completed');
+    expect(late.accumulatedMs).toBe(25 * MIN);
+
+    // 通話後才離開：先順延再放棄
+    const both = applyDeepFocus(s0, { calls: [[T0 + 5 * MIN, T0 + 8 * MIN]], callStart: null, failedAt: T0 + 20 * MIN });
+    expect(both.status).toBe('abandoned');
+    expect(both.accumulatedMs).toBe(17 * MIN);
   });
 });

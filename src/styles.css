@@ -1727,3 +1727,13 @@ button.wallet {
 .mode-demo .test-btn {
   top: 56px;
 }
+.deep-box {
+  margin-top: 0.8rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.deep-box p {
+  margin: 0.2rem 0 0.4rem;
+}

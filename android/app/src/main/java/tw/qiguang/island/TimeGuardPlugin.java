@@ -135,6 +135,57 @@ public class TimeGuardPlugin extends Plugin {
         call.resolve();
     }
 
+    // ---------- 深度專注 ----------
+
+    /** 開始看守這段專注：endAt 之後（加上通話時間）自動結束；allow 是允許使用的 App。重設先前的結果。 */
+    @PluginMethod
+    public void startFocusWatch(PluginCall call) {
+        JSObject w = new JSObject();
+        w.put("endAt", call.getLong("endAt", 0L));
+        w.put("graceMs", call.getLong("graceMs", 10_000L));
+        w.put("allow", call.getArray("allow", new JSArray()));
+        TimeGuardService.prefs(getContext()).edit()
+            .putString("watch", w.toString())
+            .putBoolean("watchActive", true)
+            .putLong("awayAt", 0).putLong("failedAt", 0).putLong("callStart", 0).putString("calls", "[]")
+            .apply();
+        TimeGuardService.cancelAlerts(getContext());
+        TimeGuardService.sync(getContext());
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void stopFocusWatch(PluginCall call) {
+        TimeGuardService.prefs(getContext()).edit().putBoolean("watchActive", false).putLong("awayAt", 0).putLong("failedAt", 0).putLong("callStart", 0).putString("calls", "[]").apply();
+        TimeGuardService.cancelAlerts(getContext());
+        TimeGuardService.sync(getContext());
+        call.resolve();
+    }
+
+    /** 背景期間發生的事：失敗時間（離開的那一刻）、已結束的通話區間、進行中的通話開始時間。 */
+    @PluginMethod
+    public void focusWatchStatus(PluginCall call) {
+        android.content.SharedPreferences p = TimeGuardService.prefs(getContext());
+        try {
+            JSObject r = new JSObject();
+            r.put("active", p.getBoolean("watchActive", false));
+            r.put("failedAt", p.getLong("failedAt", 0));
+            r.put("callStart", p.getLong("callStart", 0));
+            r.put("calls", new JSArray(p.getString("calls", "[]")));
+            call.resolve(r);
+        } catch (Exception e) {
+            call.reject("讀不到深度專注狀態");
+        }
+    }
+
+    /** 網頁端結算過背景事件後清掉，避免重複套用。 */
+    @PluginMethod
+    public void clearFocusEvents(PluginCall call) {
+        TimeGuardService.prefs(getContext()).edit().putLong("failedAt", 0).putLong("callStart", 0).putString("calls", "[]").apply();
+        TimeGuardService.cancelAlerts(getContext());
+        call.resolve();
+    }
+
     /** 回到手機桌面（「其實不需要」）。 */
     @PluginMethod
     public void goHome(PluginCall call) {

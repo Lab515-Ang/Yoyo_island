@@ -30,6 +30,8 @@ export interface Settings {
   companionPetId: string | null; // 陪伴寵物：專注得到的飼料自動餵牠；null = 自動挑最接近長大的
   keepAwake: boolean; // 專注時保持螢幕開啟（讓倒數結束能準時提醒）
   plantId: string; // 上次選的植物（今日花圃）
+  deepFocus: boolean; // 深度專注：專注中離開小島超過 10 秒植物會枯萎（Android）
+  focusAllow: { pkg: string; label: string }[]; // 深度專注時可以使用的 App
 }
 
 export interface Island {
@@ -72,6 +74,7 @@ export interface FocusSession {
   endedAt: ISODate | null;
   outcome: Outcome | null;
   plantId?: string; // 這段專注種下的植物；舊紀錄沒有時當作第一種
+  deep?: boolean; // 深度專注（離開太久會放棄）
   note?: string; // 專注筆記（只存在自己的裝置，不分享）
   applied?: boolean; // 已經把這段的點數、飼料自動投入（避免重複）
 }

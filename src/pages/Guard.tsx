@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSave } from '../app/store';
 import { PetImage } from '../components/PetArt';
 import { localDateKey } from '../domain/focus';
-import { adoptedPets } from '../domain/game';
+import { adoptedPets, openSession } from '../domain/game';
 import type { SaveFile } from '../domain/types';
 import { TimeGuard, defaultGuardConfig, isAndroid, onResume, type GuardApp, type GuardConfig } from '../platform';
 
@@ -54,11 +54,13 @@ export function GuardScreen({ app, onClose }: { app: GuardApp; onClose: () => vo
     return () => clearTimeout(id);
   }, [left]);
   const pet = guardPet(save);
+  // 專注中被攔下：留在小島回到專注（回桌面或解鎖都會被深度專注算成離開）
+  const focusing = !!openSession(save);
 
   const choose = (choice: 'resisted' | 'unlocked') => {
     logChoice(choice, save.profile.timezone);
     onClose();
-    if (!isAndroid) return; // 網頁版只是預覽
+    if (!isAndroid || focusing) return; // 網頁版只是預覽
     if (choice === 'unlocked') void TimeGuard.unlock({ pkg: app.pkg, minutes: UNLOCK_MINUTES });
     else void TimeGuard.goHome();
   };
@@ -70,15 +72,55 @@ export function GuardScreen({ app, onClose }: { app: GuardApp; onClose: () => vo
       <p>
         嘿，{save.profile.nickname}！<strong>{app.label}</strong> 是你想減少使用的 App。
       </p>
-      <p className="muted">{left > 0 ? `${pet ? pet.def.name : '小島'}陪你深呼吸 ${left} 秒，想想現在真的需要打開它嗎？` : '想好了嗎？不管選哪一個，都是你有意識的選擇。'}</p>
-      <div className="guard-actions">
-        <button className="primary" onClick={() => choose('resisted')}>
-          其實不需要
-        </button>
-        <button disabled={left > 0} onClick={() => choose('unlocked')}>
-          {left > 0 ? `想一想…${left}` : `解鎖 ${UNLOCK_MINUTES} 分鐘`}
-        </button>
-      </div>
+      {focusing ? (
+        <>
+          <p className="muted">你正在專注中，先把這段完成，再決定要不要打開它吧。</p>
+          <div className="guard-actions">
+            <button className="primary" onClick={() => choose('resisted')}>
+              回到專注
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="muted">{left > 0 ? `${pet ? pet.def.name : '小島'}陪你深呼吸 ${left} 秒，想想現在真的需要打開它嗎？` : '想好了嗎？不管選哪一個，都是你有意識的選擇。'}</p>
+          <div className="guard-actions">
+            <button className="primary" onClick={() => choose('resisted')}>
+              其實不需要
+            </button>
+            <button disabled={left > 0} onClick={() => choose('unlocked')}>
+              {left > 0 ? `想一想…${left}` : `解鎖 ${UNLOCK_MINUTES} 分鐘`}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** 手機上的 App 清單（可搜尋、勾選）：時間守護與深度專注共用。 */
+export function AppPicker({ selected, onToggle }: { selected: GuardApp[]; onToggle: (a: GuardApp) => void }) {
+  const [apps, setApps] = useState<GuardApp[] | null>(null);
+  const [query, setQuery] = useState('');
+  useEffect(() => {
+    void TimeGuard.listApps().then((r) => setApps(r.apps.sort((a, b) => a.label.localeCompare(b.label, 'zh-Hant'))));
+  }, []);
+  const shown = (apps ?? []).filter((a) => a.label.toLowerCase().includes(query.trim().toLowerCase()));
+  return (
+    <div className="app-picker">
+      <input type="search" placeholder="搜尋 App" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="搜尋 App" />
+      {!apps && <p className="muted small">讀取手機上的 App…</p>}
+      <ul>
+        {shown.map((a) => (
+          <li key={a.pkg}>
+            <label className="toggle">
+              <input type="checkbox" checked={selected.some((x) => x.pkg === a.pkg)} onChange={() => onToggle(a)} />
+              {a.icon && <img src={a.icon} alt="" width={32} height={32} />}
+              {a.label}
+            </label>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -88,9 +130,7 @@ export function GuardPage() {
   const { save } = useSave();
   const [cfg, setCfg] = useState<GuardConfig | null>(null);
   const [perm, setPerm] = useState({ usage: false, overlay: false });
-  const [apps, setApps] = useState<GuardApp[] | null>(null);
   const [picking, setPicking] = useState(false);
-  const [query, setQuery] = useState('');
   const [preview, setPreview] = useState(false);
 
   useEffect(() => {
@@ -100,10 +140,6 @@ export function GuardPage() {
     refresh();
     return onResume(refresh); // 從系統設定開好權限回來
   }, []);
-
-  useEffect(() => {
-    if (picking && !apps) void TimeGuard.listApps().then((r) => setApps(r.apps.sort((a, b) => a.label.localeCompare(b.label, 'zh-Hant'))));
-  }, [picking, apps]);
 
   const change = (patch: Partial<GuardConfig>) => {
     if (!cfg) return;
@@ -135,7 +171,6 @@ export function GuardPage() {
   if (!cfg) return <div className="page muted">讀取中…</div>;
 
   const ready = perm.usage && perm.overlay;
-  const shown = (apps ?? []).filter((a) => a.label.toLowerCase().includes(query.trim().toLowerCase()));
 
   return (
     <div className="page">
@@ -180,23 +215,7 @@ export function GuardPage() {
             {picking ? '完成' : '＋ 選擇 App'}
           </button>
         </div>
-        {picking && (
-          <div className="app-picker">
-            <input type="search" placeholder="搜尋 App" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="搜尋 App" />
-            {!apps && <p className="muted small">讀取手機上的 App…</p>}
-            <ul>
-              {shown.map((a) => (
-                <li key={a.pkg}>
-                  <label className="toggle">
-                    <input type="checkbox" checked={cfg.apps.some((x) => x.pkg === a.pkg)} onChange={() => toggleApp(a)} />
-                    {a.icon && <img src={a.icon} alt="" width={32} height={32} />}
-                    {a.label}
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        {picking && <AppPicker selected={cfg.apps} onToggle={toggleApp} />}
       </section>
 
       <section className="card">

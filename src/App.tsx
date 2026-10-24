@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGame, useNow, useSave } from './app/store';
 import { APP_NAME, COPY, avatarEmoji } from './content/config';
-import { applyFocusRewards, coins, grantStarter, openSession, settleOpenSessions, starterGiftDue } from './domain/game';
+import { applyFocusRewards, closeSession, coins, grantStarter, openSession, putSession, settleOpenSessions, starterGiftDue } from './domain/game';
 import * as storage from './data/storage';
-import { remainingMs } from './domain/focus';
+import { applyDeepFocus, dueAt, remainingMs } from './domain/focus';
 import { notifyEnd, playChime } from './sound';
-import { buzz, isNative, onGuard, onResume, type GuardApp } from './platform';
+import { TimeGuard, buzz, isAndroid, isNative, onGuard, onResume, type GuardApp } from './platform';
 import type { HabitatId } from './domain/types';
 import { Onboarding } from './pages/Onboarding';
 import { Lobby } from './pages/Lobby';
@@ -92,9 +92,49 @@ function Main() {
   const open = openSession(save);
   const now = useNow(500, !!open);
 
+  // 深度專注（Android）：App 在背景時網頁不會執行，離開、接電話都由原生端記下；
+  // 回到前景或快結束時先套用這些事，確認過了才結算，避免離開太久還被算成完成
+  const deepChecked = useRef(0);
+  const deepChecking = useRef(false);
+  const deepWatched = !!open && open.deep === true && open.status === 'running' && isAndroid;
+  const syncDeep = async () => {
+    if (deepChecking.current) return;
+    deepChecking.current = true;
+    const at = Date.now();
+    try {
+      const st = await TimeGuard.focusWatchStatus();
+      if (st.failedAt || st.callStart || st.calls.length) {
+        await TimeGuard.clearFocusEvents();
+        let ended: string | null = null;
+        update((s) => {
+          const o = openSession(s);
+          if (!o?.deep) return s;
+          const n = applyDeepFocus(o, { calls: st.calls, callStart: st.callStart || null, failedAt: st.failedAt || null });
+          if (n.status === 'abandoned') ended = n.id;
+          return n.status === 'abandoned' ? closeSession(s, n, Date.now()) : putSession(s, n);
+        });
+        if (ended) {
+          setSummaryId(ended);
+          notify('離開棲光小島超過 10 秒，植物枯萎了。');
+        }
+      }
+      deepChecked.current = at;
+    } catch {
+      deepChecked.current = at; // 讀不到原生狀態時照一般方式結算
+    } finally {
+      deepChecking.current = false;
+      setWake((w) => w + 1);
+    }
+  };
+
   // 倒數在背景或重新整理時歸零：結算一次並顯示結算畫面
   const [wake, setWake] = useState(0);
   useEffect(() => {
+    if (deepWatched && open) {
+      const due = dueAt(open);
+      // 該結算了但還沒確認過背景期間的事：先確認
+      if (due !== null && Date.now() >= due && deepChecked.current < due) return void syncDeep();
+    }
     const r = settleOpenSessions(save, Date.now());
     if (!r.completed) return;
     const id = r.completed.id;
@@ -121,8 +161,12 @@ function Main() {
   const [guardApp, setGuardApp] = useState<GuardApp | null>(null);
   useEffect(() => onGuard(setGuardApp), []);
 
-  // 回到前景（解鎖、從其他 App 切回來）時立刻結算
-  useEffect(() => onResume(() => setWake((w) => w + 1)), []);
+  // 回到前景（解鎖、從其他 App 切回來）時立刻結算；深度專注先確認有沒有離開太久
+  const syncRef = useRef(syncDeep);
+  syncRef.current = syncDeep;
+  const deepRef = useRef(deepWatched);
+  deepRef.current = deepWatched;
+  useEffect(() => onResume(() => (deepRef.current ? void syncRef.current() : setWake((w) => w + 1))), []);
 
   // 背景分頁的 interval 會被節流，另排一個剛好在歸零時觸發的 timeout
   useEffect(() => {

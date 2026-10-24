@@ -12,7 +12,7 @@ const iso = (t: number) => new Date(t).toISOString();
 export const isOpen = (s: FocusSession) => s.status === 'running' || s.status === 'paused';
 
 export function createSession(
-  input: { id: ID; userId: ID; islandId: ID; taskTitle: string; tag: string; habitatId: HabitatId; mode: TimerMode; targetSeconds: number | null; plantId?: string },
+  input: { id: ID; userId: ID; islandId: ID; taskTitle: string; tag: string; habitatId: HabitatId; mode: TimerMode; targetSeconds: number | null; plantId?: string; deep?: boolean },
   now: number,
 ): FocusSession {
   return {
@@ -80,6 +80,28 @@ export function finish(s: FocusSession, now: number, status: 'completed' | 'aban
   s = settle(s, now);
   if (!isOpen(s)) return s;
   return { ...closeRunning(s, now), status, endedAt: iso(now) };
+}
+
+/** 深度專注要看守到什麼時候：倒數歸零或正向計時滿 180 分鐘（不含之後的通話時間）。 */
+export function dueAt(s: FocusSession) {
+  if (s.status !== 'running' || !s.runningSince) return null;
+  const target = s.mode === 'countdown' ? (s.targetSeconds ?? 0) * 1000 : STOPWATCH_CAP_MS;
+  return ms(s.runningSince) + target - s.accumulatedMs;
+}
+
+/**
+ * 深度專注：套用 App 在背景時原生端記下的事。
+ * 通話區間當成暫停；通話還沒結束就停在暫停；離開太久就在離開的那一刻放棄（之前已經完成的照算完成）。
+ */
+export function applyDeepFocus(s: FocusSession, ev: { calls: [number, number][]; callStart: number | null; failedAt: number | null }): FocusSession {
+  for (const [a, b] of [...ev.calls].sort((x, y) => x[0] - y[0])) {
+    if (s.status !== 'running') break;
+    s = pause(s, a);
+    s = resume(s, b);
+  }
+  if (ev.callStart && s.status === 'running') s = pause(s, ev.callStart);
+  if (ev.failedAt && isOpen(s)) s = finish(s, ev.failedAt, 'abandoned');
+  return s;
 }
 
 /** 測試工具：立刻以 minutes 分鐘完成。整段時間往前推，讓紀錄、每日分鐘數與獎勵都一致。 */

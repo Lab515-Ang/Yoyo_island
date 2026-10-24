@@ -44,7 +44,7 @@ export function putSession(save: SaveFile, s: FocusSession): SaveFile {
 }
 
 /** 開始專注：同時最多一個未結算 session；只能選可進入的棲地。 */
-export function startFocus(save: SaveFile, p: { taskTitle: string; tag: string; habitatId: HabitatId; mode: TimerMode; targetSeconds: number | null; plantId?: string }, now: number): SaveFile {
+export function startFocus(save: SaveFile, p: { taskTitle: string; tag: string; habitatId: HabitatId; mode: TimerMode; targetSeconds: number | null; plantId?: string; deep?: boolean }, now: number): SaveFile {
   if (openSession(save) || !habitatOpen(save, p.habitatId)) return save;
   // 倒數 10～180 分鐘；示範存檔允許 10 秒快轉
   const t = p.targetSeconds ?? 0;

@@ -3,12 +3,12 @@ import { useNow, useSave } from '../app/store';
 import { APP_NAME, MIN_FOCUS_MINUTES, SOUNDS, TEST_TOOLS, plantTier, tagColor } from '../content/config';
 import { Modal } from '../components/ui';
 import { PlantArt } from '../components/Garden';
-import { completeNow, elapsedMs, finish, pause, remainingMs, resume } from '../domain/focus';
+import { completeNow, dueAt, elapsedMs, finish, pause, remainingMs, resume } from '../domain/focus';
 import { applyFocusRewards, cancelSession, closeSession, focusSoundFor, graceLeftMs, putSession } from '../domain/game';
 import type { FocusSession, SaveFile } from '../domain/types';
 import { HabitatScene, prefersReducedMotion } from '../scenes/HabitatScene';
 import { useAmbient } from '../sound';
-import { cancelFocusEnd, scheduleFocusEnd } from '../platform';
+import { DEEP_GRACE_MS, TimeGuard, cancelFocusEnd, isAndroid, scheduleFocusEnd } from '../platform';
 
 const clock = (ms: number) => {
   const s = Math.floor(ms / 1000);
@@ -88,6 +88,15 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   const progress = countdown && session.targetSeconds ? elapsedMs(session, now) / (session.targetSeconds * 1000) : 0;
   const growTier = countdown ? (progress < 0.15 ? -1 : Math.min(finalTier, Math.floor(progress * (finalTier + 1)))) : elapsedMin < MIN_FOCUS_MINUTES ? -1 : finalTier;
 
+  // 深度專注：進行中請原生端看守；暫停或結束就停止（暫停時離開不算）
+  const watchUntil = session.deep && isAndroid ? dueAt(session) : null;
+  const allow = save.settings.focusAllow.map((a) => a.pkg).join(',');
+  useEffect(() => {
+    if (!watchUntil) return;
+    void TimeGuard.startFocusWatch({ endAt: watchUntil, graceMs: DEEP_GRACE_MS, allow: allow ? allow.split(',') : [] });
+    return () => void TimeGuard.stopFocusWatch();
+  }, [watchUntil, allow]);
+
   const cancel = () => {
     if (update((s) => cancelSession(s, session.id, Date.now()))) notify('已取消，這次不算數。');
   };
@@ -105,6 +114,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
               ⚡ 測試：立即完成
             </button>
           )}
+          {session.deep && isAndroid && <span className="small">🔒 深度專注</span>}
           {soundOn && <span className="small">正在播放：{soundName}</span>}
           <button className="icon-round" onClick={toggleSound} aria-pressed={soundOn} aria-label={soundOn ? '關閉環境音' : '開啟環境音'}>
             {soundOn ? '🔊' : '🔇'}

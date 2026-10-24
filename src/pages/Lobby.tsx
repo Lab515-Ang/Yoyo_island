@@ -6,9 +6,10 @@ import { PlantArt } from '../components/Garden';
 import { chosenPlant, habitatOpen, plantUnlocked, startFocus } from '../domain/game';
 import type { HabitatId, TimerMode } from '../domain/types';
 import { HabitatScene } from '../scenes/HabitatScene';
-import { isNative } from '../platform';
+import { DEEP_GRACE_MS, TimeGuard, isAndroid, isNative, type GuardApp } from '../platform';
+import { AppPicker } from './Guard';
 
-type Sheet = 'tag' | 'title' | 'time' | 'habitat' | 'plant' | null;
+type Sheet = 'tag' | 'title' | 'time' | 'habitat' | 'plant' | 'allow' | 'usage' | null;
 
 /** 首頁大廳（參考 Forest 構圖）：左上標籤與標題、中央棲地泡泡、大字時間、開始按鈕；細項點了才展開。 */
 export function Lobby({ onStarted }: { onStarted: () => void }) {
@@ -39,9 +40,24 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
     if (next) setSeconds(next * 60);
   };
 
-  const start = () => {
-    const next = update((s) => startFocus(s, { taskTitle: task, tag, habitatId: habitat, mode: timerMode, targetSeconds: timerMode === 'countdown' ? seconds : null, plantId: plant }, Date.now()));
+  // 深度專注（Android）：預設開；第一段專注先不開，熟悉之後再挑戰
+  const deep = isAndroid && st.deepFocus && !firstTime;
+  const graceSec = DEEP_GRACE_MS / 1000;
+  const toggleAllow = (a: GuardApp) =>
+    update((s) => {
+      const cur = s.settings.focusAllow;
+      return { ...s, settings: { ...s.settings, focusAllow: cur.some((x) => x.pkg === a.pkg) ? cur.filter((x) => x.pkg !== a.pkg) : [...cur, { pkg: a.pkg, label: a.label }] } };
+    });
+
+  const begin = (useDeep: boolean) => {
+    setSheet(null);
+    const next = update((s) => startFocus(s, { taskTitle: task, tag, habitatId: habitat, mode: timerMode, targetSeconds: timerMode === 'countdown' ? seconds : null, plantId: plant, deep: useDeep }, Date.now()));
     if (next) onStarted();
+  };
+  const start = async () => {
+    // 深度專注需要「使用情況存取權」才知道有沒有離開小島
+    if (deep && !(await TimeGuard.status().catch(() => ({ usage: false }))).usage) return setSheet('usage');
+    begin(deep);
   };
 
   const addTag = () => {
@@ -102,10 +118,11 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
         )}
       </div>
       <button className="lobby-mode" onClick={() => setSheet('time')}>
-        {timerMode === 'countdown' ? '倒數' : '正向計時'} · 點時間或左右箭頭調整 ▾
+        {timerMode === 'countdown' ? '倒數' : '正向計時'}
+        {deep ? ' · 深度專注' : ''} · 點時間或左右箭頭調整 ▾
       </button>
 
-      <button className="pill start" onClick={start}>
+      <button className="pill start" onClick={() => void start()}>
         開始專注
       </button>
       <InstallHint />
@@ -204,11 +221,48 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
           ) : (
             <p className="small muted">正向計時沒有目標時間：至少 {MIN_FOCUS_MINUTES} 分鐘才算完成，滿 {MAX_FOCUS_MINUTES} 分鐘會自動完成。</p>
           )}
+          {isAndroid && (
+            <div className="deep-box">
+              <label className="toggle">
+                <input type="checkbox" checked={st.deepFocus} onChange={(e) => update((s) => ({ ...s, settings: { ...s.settings, deepFocus: e.target.checked } }))} />
+                <strong>深度專注</strong>
+              </label>
+              <p className="small muted">
+                專注時離開棲光小島超過 {graceSec} 秒，植物就會枯萎。鎖定螢幕、接電話、使用下面允許的 App 都不算離開。
+                {firstTime && st.deepFocus ? '（第一段專注先不開，下次開始生效）' : ''}
+              </p>
+              <button className="link" onClick={() => setSheet('allow')}>
+                可以使用的 App：{st.focusAllow.length ? st.focusAllow.map((a) => a.label).join('、') : '沒有'} ›
+              </button>
+            </div>
+          )}
           {timerMode === 'stopwatch' && (
             <button className="primary wide" onClick={() => setSheet(null)}>
               完成
             </button>
           )}
+        </Modal>
+      )}
+
+      {sheet === 'allow' && (
+        <Modal title="深度專注時可以使用的 App" onClose={() => setSheet('time')}>
+          <p className="small muted">例如字典、計算機、音樂。打開這些 App 不算離開小島。</p>
+          <AppPicker selected={st.focusAllow} onToggle={toggleAllow} />
+          <button className="primary wide" onClick={() => setSheet('time')}>
+            完成
+          </button>
+        </Modal>
+      )}
+
+      {sheet === 'usage' && (
+        <Modal title="深度專注需要一個權限" onClose={() => setSheet(null)}>
+          <p>需要「使用情況存取權」才知道你有沒有離開棲光小島。只用來判斷前景的 App，不會讀取任何內容，資料也不會離開手機。</p>
+          <div className="row wrap">
+            <button className="primary" onClick={() => (setSheet(null), void TimeGuard.openUsageSettings())}>
+              去開啟
+            </button>
+            <button onClick={() => begin(false)}>這次先不用深度專注</button>
+          </div>
         </Modal>
       )}
 
