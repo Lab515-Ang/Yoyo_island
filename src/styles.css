@@ -1262,6 +1262,7 @@ button.danger-fill {
   gap: 0.5rem;
 }
 .result-card-scene {
+  position: relative;
   height: 190px;
   border-radius: 20px;
   overflow: hidden;
@@ -1662,13 +1663,6 @@ button.wallet {
 .center-text {
   text-align: center;
 }
-.today-garden {
-  width: min(360px, 100%);
-  text-align: center;
-}
-.today-garden .garden-plot {
-  margin-top: 0.4rem;
-}
 .comfort-plant {
   margin: -0.5rem 0 0.2rem;
   filter: grayscale(0.3);
@@ -1769,4 +1763,22 @@ button.wallet {
 /* 捲動到標題時留出頂部工具列的高度 */
 .content h2 {
   scroll-margin-top: 80px;
+}
+.result-plant {
+  position: absolute;
+  left: 50%;
+  bottom: 2%;
+  width: 34%;
+  aspect-ratio: 1;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 4px 8px rgba(20, 50, 30, 0.35));
+}
+.result-plant .plant-art {
+  animation: plant-grow 1s ease-out;
+  transform-origin: 50% 92%;
+}
+.result-plant-line {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.9;
 }

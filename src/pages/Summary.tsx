@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSave } from '../app/store';
-import { COPY, EGG_PRICE, FACILITIES, HABITATS, PLANTS, plantDef, speciesDef, tagColor, TAGS } from '../content/config';
-import { GardenPlot, PlantArt } from '../components/Garden';
+import { COPY, EGG_PRICE, FACILITIES, HABITATS, PLANTS, plantDef, plantTier, speciesDef, tagColor, TAGS } from '../content/config';
+import { PlantArt } from '../components/Garden';
 import { Coin, Modal } from '../components/ui';
 import { Creature } from '../components/Creature';
 import { localDateKey } from '../domain/focus';
@@ -56,7 +56,6 @@ export function Summary({
   const dayOf = (iso: string) => localDateKey(Date.parse(iso), tz);
   const todays = s.endedAt ? plantedSessions(save).filter((x) => dayOf(x.endedAt!) === dayOf(s.endedAt!)).sort((a, b) => a.endedAt!.localeCompare(b.endedAt!)) : [];
   const nth = todays.findIndex((x) => x.id === s.id) + 1;
-  const visitors = new Map(save.discoveries.filter((d) => d.sessionId).map((d) => [d.sessionId!, d.speciesId]));
   const plantName = plantDef(s.plantId).name;
   // 這段專注修好的工程解鎖了哪些植物
   const newPlants = out.projects.filter((p) => p.completed).flatMap((p) => PLANTS.filter((pl) => pl.unlockProjectId === p.def.id));
@@ -97,6 +96,10 @@ export function Summary({
       <div className={done ? 'result-card' : 'result-card faded'}>
         <div className="result-card-scene" aria-hidden="true">
           <HabitatScene habitatId={s.habitatId} bubble />
+          {/* 這次種下的植物直接長在場景裡；完整的花圃在「專注紀錄」 */}
+          <div className="result-plant">
+            <PlantArt id={s.plantId} tier={plantTier(min)} color={tagColor(s.tag)} withered={!done} size="100%" />
+          </div>
         </div>
         <span className="minute-pill">{min} 分</span>
         <p className="result-tag">
@@ -104,6 +107,7 @@ export function Summary({
           {s.tag}
           {hasTitle && <span className="result-task">・{s.taskTitle}</span>}
         </p>
+        {nth > 0 && <p className="result-plant-line">🌱 {done ? `今天的第 ${nth} 株：${plantName}` : `${plantName}枯萎了，留在今天的花圃裡`}</p>}
         {s.note ? (
           <button className="result-note" onClick={() => setEditing(true)} aria-label="編輯專注筆記">
             {s.note}
@@ -114,13 +118,6 @@ export function Summary({
           </button>
         )}
       </div>
-
-      {nth > 0 && (
-        <div className="today-garden">
-          <p className="small">{done ? `今天的第 ${nth} 株：${plantName}` : `${plantName}枯萎了，留在今天的花圃裡`}</p>
-          <GardenPlot sessions={todays} visitors={visitors} cols={Math.min(6, Math.max(4, todays.length))} minCells={4} freshId={s.id} />
-        </div>
-      )}
 
       {done && min > 0 && (
         <ul className="reward-list" aria-label="這段專注的成果">
