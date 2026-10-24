@@ -101,7 +101,7 @@ interface TimeGuardNative {
   setConfig(o: { config: GuardConfig }): Promise<void>;
   unlock(o: { pkg: string; minutes: number }): Promise<void>;
   goHome(): Promise<void>;
-  startFocusWatch(o: { endAt: number; graceMs: number; allow: string[] }): Promise<void>;
+  startFocusWatch(o: { key: string; endAt: number; graceMs: number; allow: string[]; notifyEnd: boolean; doneTitle: string; doneText: string }): Promise<void>;
   stopFocusWatch(): Promise<void>;
   focusWatchStatus(): Promise<{ active: boolean; failedAt: number; callStart: number; calls: [number, number][] }>;
   clearFocusEvents(): Promise<void>;
@@ -112,6 +112,20 @@ export const DEEP_GRACE_MS = 10_000;
 
 export const TimeGuard = registerPlugin<TimeGuardNative>('TimeGuard');
 
+/** App 進到背景時呼叫 cb。回傳取消監聽的函式。 */
+export function onPause(cb: () => void): () => void {
+  if (isNative) {
+    const handle = App.addListener('appStateChange', ({ isActive }) => !isActive && cb());
+    return () => void handle.then((h) => h.remove());
+  }
+  const on = () => document.visibilityState === 'hidden' && cb();
+  document.addEventListener('visibilitychange', on);
+  return () => document.removeEventListener('visibilitychange', on);
+}
+
+// 啟動網址只處理一次：畫面重新掛上時不會再跳出同一個攔截畫面
+let launchHandled = false;
+
 /** 背景服務把小島叫到前面時（qiguang://guard?pkg=…&label=…）呼叫 cb。回傳取消監聽的函式。 */
 export function onGuard(cb: (app: GuardApp) => void): () => void {
   if (!isAndroid) return () => undefined;
@@ -121,7 +135,10 @@ export function onGuard(cb: (app: GuardApp) => void): () => void {
     const pkg = q.get('pkg');
     if (pkg) cb({ pkg, label: q.get('label') ?? pkg });
   };
-  void App.getLaunchUrl().then((r) => handle(r?.url));
+  if (!launchHandled) {
+    launchHandled = true;
+    void App.getLaunchUrl().then((r) => handle(r?.url));
+  }
   const listener = App.addListener('appUrlOpen', (e) => handle(e.url));
   return () => void listener.then((h) => h.remove());
 }

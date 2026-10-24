@@ -148,6 +148,8 @@ label.toggle input {
 input,
 select {
   font: inherit;
+  min-width: 0;
+  max-width: 100%;
   min-height: 44px;
   padding: 0.4em 0.8em;
   border: 1.5px solid var(--line);
@@ -701,16 +703,21 @@ legend {
 /* ---------- 新手 ---------- */
 .onboarding {
   max-width: 460px;
+  width: calc(100% - 32px);
   margin: 2rem auto;
   padding: 1.6rem;
 }
 .onboarding form {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.3rem;
+}
+fieldset {
+  min-width: 0; /* 瀏覽器預設不讓 fieldset 比內容窄，手機上會撐出橫向捲軸 */
 }
 .avatar-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.5rem;
   margin: 0.5rem 0;
 }

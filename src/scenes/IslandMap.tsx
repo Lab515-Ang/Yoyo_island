@@ -25,7 +25,9 @@ export function IslandMap({ save, onEnter }: { save: SaveFile; onEnter: (h: Habi
       {HABITATS.map((h) => {
         const [x, y] = POS[h.id];
         const open = habitatOpen(save, h.id);
-        const pct = Math.round(habitatProgress(save, h.id) * 100);
+        // 有進度就至少顯示 1%（第一個工程很小，四捨五入會變成 0%）
+        const prog = habitatProgress(save, h.id);
+        const pct = prog > 0 ? Math.max(1, Math.round(prog * 100)) : 0;
         const label = h.playable ? (open ? `${h.name} · ${pct}%` : `${h.name} · 未開放`) : `${h.name} · 未來區域`;
         const seen = SPECIES.filter((s) => s.habitatId === h.id && discoveryOf(save, s.id)).slice(0, 2);
         return (

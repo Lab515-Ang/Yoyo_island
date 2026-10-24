@@ -548,3 +548,18 @@ describe('深度專注', () => {
     expect(both.accumulatedMs).toBe(17 * MIN);
   });
 });
+
+describe('存檔設定欄位', () => {
+  it('新設定欄位型別不對時用預設值，不讓畫面當掉', () => {
+    const raw = JSON.parse(JSON.stringify(fresh()));
+    raw.settings.focusAllow = null;
+    raw.settings.deepFocus = 'yes';
+    delete raw.settings.plantId;
+    const r = validateSave(raw);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.save.settings.focusAllow).toEqual([]);
+    expect(r.save.settings.deepFocus).toBe(true);
+    expect(r.save.settings.plantId).toBe('daisy');
+  });
+});

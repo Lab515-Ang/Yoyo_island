@@ -196,6 +196,11 @@ export function Summary({
         <button className="pill wide" onClick={onDone}>
           返回首頁
         </button>
+        {gift && (
+          <button className="link-light" onClick={onProject}>
+            去看看{gift.def.name}的{gift.def.stages[0]}
+          </button>
+        )}
         {canBuild && (
           <button className="link-light" onClick={onProject}>
             點數夠了，去修「{project.title}」

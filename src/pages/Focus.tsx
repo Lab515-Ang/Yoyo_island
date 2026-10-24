@@ -89,13 +89,17 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   const growTier = countdown ? (progress < 0.15 ? -1 : Math.min(finalTier, Math.floor(progress * (finalTier + 1)))) : elapsedMin < MIN_FOCUS_MINUTES ? -1 : finalTier;
 
   // 深度專注：進行中請原生端看守；暫停或結束就停止（暫停時離開不算）
+  // key 相同（同一段、同一次開始計時）時原生端會保留背景期間的紀錄，App 重開也不會洗掉
   const watchUntil = session.deep && isAndroid ? dueAt(session) : null;
+  const watchKey = `${session.id}:${session.runningSince}`;
   const allow = save.settings.focusAllow.map((a) => a.pkg).join(',');
+  const notifyEnd = countdown && save.settings.endNotify;
+  const doneText = `「${session.taskTitle}」完成了 ${Math.round((session.targetSeconds ?? 0) / 60)} 分鐘，回來看看小島吧。`;
   useEffect(() => {
     if (!watchUntil) return;
-    void TimeGuard.startFocusWatch({ endAt: watchUntil, graceMs: DEEP_GRACE_MS, allow: allow ? allow.split(',') : [] });
+    void TimeGuard.startFocusWatch({ key: watchKey, endAt: watchUntil, graceMs: DEEP_GRACE_MS, allow: allow ? allow.split(',') : [], notifyEnd, doneTitle: `${APP_NAME}・專注完成`, doneText });
     return () => void TimeGuard.stopFocusWatch();
-  }, [watchUntil, allow]);
+  }, [watchUntil, watchKey, allow, notifyEnd, doneText]);
 
   const cancel = () => {
     if (update((s) => cancelSession(s, session.id, Date.now()))) notify('已取消，這次不算數。');

@@ -149,7 +149,12 @@ export function validateSave(raw: unknown): Validation {
   const p = raw.profile;
   if (!isObj(p) || !isStr(p.id) || !isStr(p.nickname) || !isStr(p.activeIslandId) || !isStr(p.timezone)) return fail('個人資料不完整。');
   for (const k of ARRAYS) if (!Array.isArray(raw[k])) return fail('存檔缺少必要的紀錄。');
-  const save = migratePacing(migratePets({ ...raw, settings: { ...defaultSettings(), ...(isObj(raw.settings) ? raw.settings : {}) } } as unknown as SaveFile));
+  const settings = { ...defaultSettings(), ...(isObj(raw.settings) ? raw.settings : {}) };
+  // 新加的設定欄位型別不對（匯入的檔案、舊版本）就用預設值，避免畫面當掉
+  if (!Array.isArray(settings.focusAllow) || !settings.focusAllow.every((a: unknown) => isObj(a) && isStr((a as { pkg?: unknown }).pkg))) settings.focusAllow = [];
+  if (typeof settings.deepFocus !== 'boolean') settings.deepFocus = true;
+  if (!isStr(settings.plantId)) settings.plantId = defaultSettings().plantId;
+  const save = migratePacing(migratePets({ ...raw, settings } as unknown as SaveFile));
 
   if (!save.islands.some((i) => isObj(i) && i.id === save.profile.activeIslandId)) return fail('找不到目前的島嶼。');
   try {

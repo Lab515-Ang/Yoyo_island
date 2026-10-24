@@ -6,7 +6,7 @@ import { PlantArt } from '../components/Garden';
 import { chosenPlant, habitatOpen, plantUnlocked, startFocus } from '../domain/game';
 import type { HabitatId, TimerMode } from '../domain/types';
 import { HabitatScene } from '../scenes/HabitatScene';
-import { DEEP_GRACE_MS, TimeGuard, isAndroid, isNative, type GuardApp } from '../platform';
+import { DEEP_GRACE_MS, TimeGuard, isAndroid, isNative, requestNotifyPermission, type GuardApp } from '../platform';
 import { AppPicker } from './Guard';
 
 type Sheet = 'tag' | 'title' | 'time' | 'habitat' | 'plant' | 'allow' | 'usage' | null;
@@ -57,6 +57,8 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
   const start = async () => {
     // 深度專注需要「使用情況存取權」才知道有沒有離開小島
     if (deep && !(await TimeGuard.status().catch(() => ({ usage: false }))).usage) return setSheet('usage');
+    // 「快回到小島」的提醒要通知權限（Android 13 起要問）；不允許也照常進行
+    if (deep) await requestNotifyPermission();
     begin(deep);
   };
 
@@ -261,8 +263,16 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
             <button className="primary" onClick={() => (setSheet(null), void TimeGuard.openUsageSettings())}>
               去開啟
             </button>
-            <button onClick={() => begin(false)}>這次先不用深度專注</button>
+            <button
+              onClick={() => {
+                update((s) => ({ ...s, settings: { ...s.settings, deepFocus: false } }));
+                begin(false);
+              }}
+            >
+              先關閉深度專注
+            </button>
           </div>
+          <p className="small muted">之後可以在時間設定裡再打開。</p>
         </Modal>
       )}
 

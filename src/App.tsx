@@ -5,7 +5,7 @@ import { applyFocusRewards, closeSession, coins, grantStarter, openSession, putS
 import * as storage from './data/storage';
 import { applyDeepFocus, dueAt, remainingMs } from './domain/focus';
 import { notifyEnd, playChime } from './sound';
-import { TimeGuard, buzz, isAndroid, isNative, onGuard, onResume, type GuardApp } from './platform';
+import { TimeGuard, buzz, isAndroid, isNative, onGuard, onPause, onResume, type GuardApp } from './platform';
 import type { HabitatId } from './domain/types';
 import { Onboarding } from './pages/Onboarding';
 import { Lobby } from './pages/Lobby';
@@ -106,16 +106,21 @@ function Main() {
       if (st.failedAt || st.callStart || st.calls.length) {
         await TimeGuard.clearFocusEvents();
         let ended: string | null = null;
+        let withered = false;
         update((s) => {
           const o = openSession(s);
           if (!o?.deep) return s;
           const n = applyDeepFocus(o, { calls: st.calls, callStart: st.callStart || null, failedAt: st.failedAt || null });
-          if (n.status === 'abandoned') ended = n.id;
-          return n.status === 'abandoned' ? closeSession(s, n, Date.now()) : putSession(s, n);
+          if (n.status === 'abandoned' || n.status === 'completed') ended = n.id;
+          withered = n.status === 'abandoned';
+          if (n.status === 'abandoned') return closeSession(s, n, Date.now());
+          // 離開前就已經完成：照常結算
+          if (n.status === 'completed') return applyFocusRewards(closeSession(s, n, Date.now()), n.id, Date.now());
+          return putSession(s, n);
         });
         if (ended) {
           setSummaryId(ended);
-          notify('離開棲光小島超過 10 秒，植物枯萎了。');
+          if (withered) notify('離開棲光小島超過 10 秒，植物枯萎了。');
         }
       }
       deepChecked.current = at;
@@ -158,8 +163,10 @@ function Main() {
   }, [save, update, notify]);
 
   // 時間守護：背景服務在玩家打開想減少使用的 App 時把小島叫到前面
-  const [guardApp, setGuardApp] = useState<GuardApp | null>(null);
-  useEffect(() => onGuard(setGuardApp), []);
+  // 每次攔截都是新的畫面（同一個 App 再被攔也重新倒數）；App 進到背景就收掉，不會留到下次打開
+  const [guardApp, setGuardApp] = useState<(GuardApp & { at: number }) | null>(null);
+  useEffect(() => onGuard((a) => setGuardApp({ ...a, at: Date.now() })), []);
+  useEffect(() => onPause(() => setGuardApp(null)), []);
 
   // 回到前景（解鎖、從其他 App 切回來）時立刻結算；深度專注先確認有沒有離開太久
   const syncRef = useRef(syncDeep);
@@ -167,6 +174,10 @@ function Main() {
   const deepRef = useRef(deepWatched);
   deepRef.current = deepWatched;
   useEffect(() => onResume(() => (deepRef.current ? void syncRef.current() : setWake((w) => w + 1))), []);
+  // App 重開（被系統關掉後再打開）時也先確認背景期間有沒有離開太久
+  useEffect(() => {
+    if (deepRef.current) void syncRef.current();
+  }, []);
 
   // 背景分頁的 interval 會被節流，另排一個剛好在歸零時觸發的 timeout
   useEffect(() => {
@@ -280,7 +291,7 @@ function Main() {
       )}
       {writeError && <div className="error-bar" role="alert">{writeError}</div>}
       {body}
-      {guardApp && <GuardScreen key={guardApp.pkg} app={guardApp} onClose={() => setGuardApp(null)} />}
+      {guardApp && <GuardScreen key={guardApp.at} app={guardApp} onClose={() => setGuardApp(null)} />}
       {toast && (
         <div className="toast" role="status">
           {toast}

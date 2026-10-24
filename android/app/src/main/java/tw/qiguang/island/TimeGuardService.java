@@ -37,8 +37,13 @@ public class TimeGuardService extends Service {
     static final String KEY_CONFIG = "config";
     private static final String CHANNEL = "timeguard";
     private static final String CHANNEL_ALERT = "focuswatch";
+    private static final int ID_SERVICE = 7001; // 不能用 1：倒數結束通知（LocalNotifications）用的是 1
+    private static final int ID_FOCUS_END = 1;
     private static final int ID_AWAY = 2;
     private static final int ID_FAILED = 3;
+    private static final int ID_DONE = 4;
+    /** 背景服務（主執行緒）與外掛（bridge 執行緒）都會讀改寫看守狀態：同一把鎖。 */
+    static final Object LOCK = new Object();
     /** 系統畫面：通知列、權限詢問視窗（不同手機的套件名稱不同）。 */
     private static final java.util.Set<String> SYSTEM_OK = new java.util.HashSet<>(java.util.Arrays.asList(
         "com.android.systemui", "com.google.android.permissioncontroller", "com.android.permissioncontroller"));
@@ -104,8 +109,8 @@ public class TimeGuardService extends Service {
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .build();
-        if (Build.VERSION.SDK_INT >= 34) startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
-        else startForeground(1, n);
+        if (Build.VERSION.SDK_INT >= 34) startForeground(ID_SERVICE, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+        else startForeground(ID_SERVICE, n);
         handler.post(tick);
     }
 
@@ -144,7 +149,9 @@ public class TimeGuardService extends Service {
                 if (e.getEventType() == UsageEvents.Event.MOVE_TO_FOREGROUND) foreground = e.getPackageName();
             }
         }
-        if (watching(this)) watchTick(now, interactive);
+        synchronized (LOCK) {
+            if (watching(this)) watchTick(now, interactive);
+        }
 
         JSONObject c = config(this);
         if (!interactive || c == null || !c.optBoolean("enabled")) return;
@@ -165,6 +172,7 @@ public class TimeGuardService extends Service {
     }
 
     /** 深度專注：專注結束、接電話、離開太久。 */
+    /** 呼叫前要先拿 LOCK。 */
     private void watchTick(long now, boolean interactive) {
         SharedPreferences p = prefs(this);
         JSONObject w;
@@ -182,16 +190,24 @@ public class TimeGuardService extends Service {
             JSONArray c = calls.optJSONArray(i);
             if (c != null) callTotal += c.optLong(1) - c.optLong(0);
         }
+        long endAt = w.optLong("endAt");
+        // 有通話順延：原本時間跳出的「專注完成」（網頁端排的）不準了，收回
+        if (callTotal > 0 && now >= endAt) cancel(ID_FOCUS_END);
         // 專注時間到了（通話時間不算在內）：不用再看
-        if (now >= w.optLong("endAt") + callTotal) {
+        if (now >= endAt + callTotal) {
             p.edit().putBoolean("watchActive", false).apply();
             cancel(ID_AWAY);
+            if (callTotal > 0 && w.optBoolean("notifyEnd")) alert(ID_DONE, w.optString("doneTitle"), w.optString("doneText"));
             return;
         }
-        // 接電話：記成暫停，不算離開
+        // 螢幕關著：手機放下了，什麼都不變（離開的計時也不重來，避免開關螢幕繞過）
+        if (!interactive) return;
+        boolean inIsland = foreground == null || foreground.equals(getPackageName());
+        // 接電話（離開小島去接）：記成暫停，不算離開；在小島裡講電話（例如語音陪讀）照常計時
         AudioManager am = getSystemService(AudioManager.class);
         int mode = am == null ? AudioManager.MODE_NORMAL : am.getMode();
-        if (mode == AudioManager.MODE_IN_CALL || mode == AudioManager.MODE_IN_COMMUNICATION || mode == AudioManager.MODE_RINGTONE) {
+        boolean inCall = mode == AudioManager.MODE_IN_CALL || mode == AudioManager.MODE_IN_COMMUNICATION || mode == AudioManager.MODE_RINGTONE;
+        if (inCall && !inIsland) {
             if (callStart == 0) p.edit().putLong("callStart", now).putLong("awayAt", 0).apply();
             cancel(ID_AWAY);
             return;
@@ -200,9 +216,9 @@ public class TimeGuardService extends Service {
             calls.put(new JSONArray().put(callStart).put(now));
             p.edit().putString("calls", calls.toString()).putLong("callStart", 0).apply();
         }
-        // 螢幕關著、在小島裡、拉下通知列、系統權限詢問視窗、允許名單裡的 App 都不算離開
+        // 在小島裡、拉下通知列、系統權限詢問視窗、允許名單裡的 App 都不算離開
         JSONArray allow = w.optJSONArray("allow");
-        boolean ok = !interactive || foreground == null || foreground.equals(getPackageName()) || SYSTEM_OK.contains(foreground);
+        boolean ok = inIsland || SYSTEM_OK.contains(foreground);
         for (int i = 0; !ok && allow != null && i < allow.length(); i++) ok = foreground.equals(allow.optString(i));
         long awayAt = p.getLong("awayAt", 0);
         if (ok) {
@@ -269,7 +285,7 @@ public class TimeGuardService extends Service {
         int from = c.optInt("from"), to = c.optInt("to");
         int day = now.get(Calendar.DAY_OF_WEEK) - 1; // 0 = 週日
         int min = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE);
-        if (days == null) return false;
+        if (days == null || from == to) return false;
         if (from < to) return days.optBoolean(day) && min >= from && min < to;
         return (days.optBoolean(day) && min >= from) || (days.optBoolean((day + 6) % 7) && min < to);
     }

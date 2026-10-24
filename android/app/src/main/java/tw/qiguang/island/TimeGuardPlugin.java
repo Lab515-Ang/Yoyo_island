@@ -137,26 +137,41 @@ public class TimeGuardPlugin extends Plugin {
 
     // ---------- 深度專注 ----------
 
-    /** 開始看守這段專注：endAt 之後（加上通話時間）自動結束；allow 是允許使用的 App。重設先前的結果。 */
+    /**
+     * 開始看守這段專注：endAt 之後（加上通話時間）自動結束；allow 是允許使用的 App。
+     * key 是同一段專注的識別（id＋開始計時的時間）：App 重開、畫面重新掛上時 key 不變，
+     * 這時保留背景期間記下的離開與通話，讓網頁端讀到後再結算（不然重開 App 就能洗掉失敗）。
+     */
     @PluginMethod
     public void startFocusWatch(PluginCall call) {
+        String key = call.getString("key", "");
         JSObject w = new JSObject();
         w.put("endAt", call.getLong("endAt", 0L));
         w.put("graceMs", call.getLong("graceMs", 10_000L));
         w.put("allow", call.getArray("allow", new JSArray()));
-        TimeGuardService.prefs(getContext()).edit()
-            .putString("watch", w.toString())
-            .putBoolean("watchActive", true)
-            .putLong("awayAt", 0).putLong("failedAt", 0).putLong("callStart", 0).putString("calls", "[]")
-            .apply();
-        TimeGuardService.cancelAlerts(getContext());
+        w.put("notifyEnd", call.getBoolean("notifyEnd", false));
+        w.put("doneTitle", call.getString("doneTitle", ""));
+        w.put("doneText", call.getString("doneText", ""));
+        synchronized (TimeGuardService.LOCK) {
+            android.content.SharedPreferences p = TimeGuardService.prefs(getContext());
+            android.content.SharedPreferences.Editor e = p.edit().putString("watch", w.toString()).putString("watchKey", key);
+            if (key.equals(p.getString("watchKey", null))) {
+                e.putBoolean("watchActive", p.getLong("failedAt", 0) == 0); // 已經失敗就維持停止
+            } else {
+                e.putBoolean("watchActive", true).putLong("awayAt", 0).putLong("failedAt", 0).putLong("callStart", 0).putString("calls", "[]");
+                TimeGuardService.cancelAlerts(getContext());
+            }
+            e.apply();
+        }
         TimeGuardService.sync(getContext());
         call.resolve();
     }
 
     @PluginMethod
     public void stopFocusWatch(PluginCall call) {
-        TimeGuardService.prefs(getContext()).edit().putBoolean("watchActive", false).putLong("awayAt", 0).putLong("failedAt", 0).putLong("callStart", 0).putString("calls", "[]").apply();
+        synchronized (TimeGuardService.LOCK) {
+            TimeGuardService.prefs(getContext()).edit().putBoolean("watchActive", false).remove("watchKey").putLong("awayAt", 0).putLong("failedAt", 0).putLong("callStart", 0).putString("calls", "[]").apply();
+        }
         TimeGuardService.cancelAlerts(getContext());
         TimeGuardService.sync(getContext());
         call.resolve();
@@ -166,6 +181,7 @@ public class TimeGuardPlugin extends Plugin {
     @PluginMethod
     public void focusWatchStatus(PluginCall call) {
         android.content.SharedPreferences p = TimeGuardService.prefs(getContext());
+        synchronized (TimeGuardService.LOCK) {
         try {
             JSObject r = new JSObject();
             r.put("active", p.getBoolean("watchActive", false));
@@ -176,12 +192,15 @@ public class TimeGuardPlugin extends Plugin {
         } catch (Exception e) {
             call.reject("讀不到深度專注狀態");
         }
+        }
     }
 
     /** 網頁端結算過背景事件後清掉，避免重複套用。 */
     @PluginMethod
     public void clearFocusEvents(PluginCall call) {
-        TimeGuardService.prefs(getContext()).edit().putLong("failedAt", 0).putLong("callStart", 0).putString("calls", "[]").apply();
+        synchronized (TimeGuardService.LOCK) {
+            TimeGuardService.prefs(getContext()).edit().putLong("failedAt", 0).putLong("callStart", 0).putString("calls", "[]").apply();
+        }
         TimeGuardService.cancelAlerts(getContext());
         call.resolve();
     }
