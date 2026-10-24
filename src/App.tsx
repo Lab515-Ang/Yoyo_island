@@ -21,7 +21,8 @@ import { Together } from './pages/Together';
 import { SettingsPage } from './pages/Settings';
 import { Shop } from './pages/Shop';
 import { GuardPage, GuardScreen } from './pages/Guard';
-import { Coin } from './components/ui';
+import { Coin, Modal } from './components/ui';
+import { Tour } from './components/Tour';
 
 type View = 'lobby' | 'island' | 'quests' | 'records' | 'guard' | 'sounds' | 'journey' | 'friends' | 'achievements' | 'shop' | 'news' | 'settings';
 // 左側選單順序
@@ -41,6 +42,32 @@ const NAV: { id: View; label: string; icon: string; soon?: boolean }[] = [
 
 // 介面偏好，不屬於存檔：key 不用存檔前綴，避免觸發其他分頁的「存檔已更新」
 const NAV_KEY = 'qiguang-ui:navCollapsed';
+const TOUR_KEY = 'qiguang-ui:tourSeen';
+
+/** 新手導覽：完成第一段專注、第一次回到大廳時看一次（之後在設定可以再看）。 */
+function FirstTour() {
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem(TOUR_KEY) !== '1';
+    } catch {
+      return false;
+    }
+  });
+  if (!open) return null;
+  const done = () => {
+    try {
+      localStorage.setItem(TOUR_KEY, '1');
+    } catch {
+      // 只影響導覽會不會再出現
+    }
+    setOpen(false);
+  };
+  return (
+    <Modal title="歡迎來到棲光小島" onClose={done}>
+      <Tour onDone={done} doneLabel="知道了" />
+    </Modal>
+  );
+}
 function readCollapsed() {
   try {
     return localStorage.getItem(NAV_KEY) === '1';
@@ -262,6 +289,7 @@ function Main() {
         </nav>
         <main className="content">
           {view === 'lobby' && <Lobby onStarted={() => setSummaryId(null)} />}
+          {view === 'lobby' && save.sessions.filter((s) => s.endedAt).length === 1 && <FirstTour />}
           {view === 'island' && <IslandPage habitat={habitat} setHabitat={setHabitat} onShop={() => go('shop')} />}
           {view === 'quests' && <Quests onIsland={() => go('island')} onShop={() => go('shop')} />}
           {view === 'records' && <Records key={recordsTag ?? 'all'} initialTag={recordsTag} />}

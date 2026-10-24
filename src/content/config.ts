@@ -5,7 +5,7 @@ export const APP_NAME = '棲光小島';
 export const STORAGE_PREFIX = 'qiguang-island';
 
 export const TAGS = ['讀書', '工作', '閱讀', '創作', '其他'];
-const TAG_COLORS: Record<string, string> = { 讀書: '#6fa8dc', 工作: '#e98a6b', 閱讀: '#e8b85a', 創作: '#c9a0dc', 其他: '#9aa59a' };
+const TAG_COLORS: Record<string, string> = { 讀書: '#6fa8dc', 工作: '#e98a6b', 閱讀: '#e8b85a', 創作: '#c9a0dc', 其他: '#ee9fb3' };
 const CUSTOM_TAG_COLORS = ['#8fb38a', '#f2a7a0', '#8fd0d8', '#d39a77', '#b9c94a'];
 /** 標籤的顏色圓點：內建固定顏色，自訂標籤依名稱挑一個穩定的顏色。 */
 export const tagColor = (tag: string) => TAG_COLORS[tag] ?? CUSTOM_TAG_COLORS[[...tag].reduce((a, c) => a + c.charCodeAt(0), 0) % CUSTOM_TAG_COLORS.length];

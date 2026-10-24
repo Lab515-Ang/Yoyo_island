@@ -3,7 +3,7 @@ import { useSave } from '../app/store';
 import { HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, PLANTS, QUICK_MINUTES, TAGS, clampMinutes, habitatName, plantDef, plantTier, projectDef, tagColor } from '../content/config';
 import { Modal } from '../components/ui';
 import { PlantArt } from '../components/Garden';
-import { chosenPlant, habitatOpen, plantUnlocked, startFocus } from '../domain/game';
+import { chosenPlant, habitatOpen, newPlants, plantUnlocked, startFocus } from '../domain/game';
 import type { HabitatId, TimerMode } from '../domain/types';
 import { HabitatScene } from '../scenes/HabitatScene';
 import { DEEP_GRACE_MS, TimeGuard, isAndroid, isNative, requestNotifyPermission, type GuardApp } from '../platform';
@@ -39,6 +39,9 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
     const next = d > 0 ? QUICK_MINUTES.find((m) => m > cur) : [...QUICK_MINUTES].reverse().find((m) => m < cur);
     if (next) setSeconds(next * 60);
   };
+
+  // 解鎖了還沒種過的植物：標「新」，種過一次就消失
+  const fresh = newPlants(save);
 
   // 深度專注（Android）：預設開；第一段專注先不開，熟悉之後再挑戰
   const deep = isAndroid && st.deepFocus && !firstTime;
@@ -97,7 +100,8 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
       </div>
       <div className="row center">
         <button className="habitat-chip" onClick={() => setSheet('plant')}>
-          🌱 {plantDef(plant).name} ›
+          🌱 {plantDef(plant).name}
+          {fresh.length > 0 && <span className="new-badge">新</span>} ›
         </button>
         <button className="habitat-chip" onClick={() => setSheet('habitat')}>
           {habitatName(habitat)} ›
@@ -295,7 +299,10 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
                   }}
                 >
                   <PlantArt id={p.id} tier={ok ? 2 : 0} color={ok ? tagColor(tag) : '#c9c2b2'} size={56} />
-                  <span>{p.name}</span>
+                  <span>
+                    {p.name}
+                    {fresh.includes(p) && <span className="new-badge">新</span>}
+                  </span>
                   {!ok && <span className="small muted">修好「{projectDef(p.unlockProjectId!)?.title}」</span>}
                 </button>
               );

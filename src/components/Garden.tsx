@@ -86,8 +86,8 @@ export function PlantArt({ id, tier, color, withered = false, size = 64 }: { id:
       </g>
     );
   else {
-    const h = [30, 44, 58, 70][tier];
-    const r = [6, 7.5, 9, 10][tier];
+    const h = [42, 52, 62, 72][tier]; // 最小的也要在花圃小格子裡看得出來
+    const r = [7.5, 8.5, 9.5, 10.5][tier];
     const xs = tier >= 3 ? [34, 50, 66] : tier === 2 ? [41, 59] : [50];
     body = lotus ? (
       <g>

@@ -3,12 +3,12 @@ import { useGame } from '../app/store';
 import { APP_NAME, AVATARS, COPY } from '../content/config';
 import { startFocus } from '../domain/game';
 import { newSave } from '../domain/save';
-import { Tour } from '../components/Tour';
 
-/** 新手：暱稱、島名、頭像 → 第一段專注（最低 10 分鐘，完成後足夠修好第一個工程）。不需登入。 */
+/** 新手：暱稱、島名、頭像 → 第一段專注（最低 10 分鐘，完成後足夠修好第一個工程）。不需登入。
+ *  導覽不放在這裡：先讓玩家專注一次，第一次回到大廳時再看（見 App 的 FirstTour）。 */
 export function Onboarding() {
   const { replace, update } = useGame();
-  const [step, setStep] = useState<1 | 'tour' | 2>(1);
+  const [step, setStep] = useState<1 | 2>(1);
   const [nickname, setNickname] = useState('');
   const [islandName, setIslandName] = useState('');
   const [avatarId, setAvatarId] = useState(AVATARS[0].id);
@@ -23,7 +23,7 @@ export function Onboarding() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              setStep('tour');
+              setStep(2);
             }}
           >
             <p className="eyebrow">{APP_NAME}</p>
@@ -51,8 +51,6 @@ export function Onboarding() {
               下一步
             </button>
           </form>
-        ) : step === 'tour' ? (
-          <Tour onDone={() => setStep(2)} doneLabel="開始第一段專注" />
         ) : (
           <form
             onSubmit={(e) => {

@@ -1744,3 +1744,25 @@ button.wallet {
 .deep-box p {
   margin: 0.2rem 0 0.4rem;
 }
+.new-badge {
+  display: inline-block;
+  margin-left: 0.3em;
+  padding: 0 0.45em;
+  border-radius: 999px;
+  background: var(--warm);
+  color: #3a2a05;
+  font-size: 0.72em;
+  font-weight: 700;
+  line-height: 1.6;
+  vertical-align: middle;
+}
+/* 結算：按鈕固定在畫面底部，內容長也不用捲到最下面 */
+.result-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  width: calc(100% + 2rem);
+  margin-bottom: calc(-2rem - env(safe-area-inset-bottom));
+  padding: 1.2rem 1rem calc(1rem + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(31, 79, 63, 0) 0%, #1f4f3f 35%);
+}

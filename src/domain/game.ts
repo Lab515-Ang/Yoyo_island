@@ -65,6 +65,8 @@ export const chosenPlant = (save: SaveFile) => {
   const p = plantDef(save.settings.plantId);
   return plantUnlocked(save, p) ? p : PLANTS[0];
 };
+/** 工程解鎖了、但還沒種過的植物（大廳標示「新」）。 */
+export const newPlants = (save: SaveFile) => PLANTS.filter((p) => p.unlockProjectId && plantUnlocked(save, p) && !save.sessions.some((s) => s.plantId === p.id));
 /** 自己的專注中，有結果（完成或放棄）的才算種下。 */
 export const plantedSessions = (save: SaveFile) => save.sessions.filter((s) => s.userId === save.profile.id && s.endedAt && (s.status === 'completed' || s.status === 'abandoned'));
 
