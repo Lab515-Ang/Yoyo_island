@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSave } from '../app/store';
 import { AVATARS } from '../content/config';
 import { validateSave } from '../domain/save';
 import { openSession } from '../domain/game';
 import { notifySupported, playChime } from '../sound';
-import { isNative, requestNotifyPermission } from '../platform';
+import { TimeGuard, isAndroid, isNative, onResume, requestNotifyPermission } from '../platform';
 import { Modal } from '../components/ui';
 import { Tour } from '../components/Tour';
 import type { SaveFile } from '../domain/types';
@@ -20,6 +20,14 @@ export function SettingsPage() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [notifyMsg, setNotifyMsg] = useState<string | null>(null);
   const [touring, setTouring] = useState(false);
+  // Android：沒有「鬧鐘與提醒」權限時，倒數結束通知可能晚一點跳出
+  const [exactAlarm, setExactAlarm] = useState(true);
+  useEffect(() => {
+    if (!isAndroid) return;
+    const check = () => void TimeGuard.status().then((r) => setExactAlarm(r.exactAlarm), () => undefined);
+    check();
+    return onResume(check);
+  }, []);
 
   const toggleNotify = async (on: boolean) => {
     setNotifyMsg(null);
@@ -129,6 +137,14 @@ export function SettingsPage() {
           倒數結束系統通知（鎖定螢幕時也會提醒）
         </label>
         {notifyMsg && <p className="error">{notifyMsg}</p>}
+        {st.endNotify && !exactAlarm && (
+          <p className="small muted">
+            目前通知可能會晚幾分鐘跳出。
+            <button className="link" onClick={() => void TimeGuard.openExactAlarmSettings()}>
+              開啟「鬧鐘與提醒」讓它準時
+            </button>
+          </p>
+        )}
         <label className="toggle">
           <input type="checkbox" checked={st.keepAwake} onChange={(e) => set({ keepAwake: e.target.checked })} />
           專注時保持螢幕開啟（比較耗電）

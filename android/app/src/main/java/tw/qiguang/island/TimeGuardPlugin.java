@@ -48,7 +48,21 @@ public class TimeGuardPlugin extends Plugin {
         JSObject r = new JSObject();
         r.put("usage", hasUsageAccess(getContext()));
         r.put("overlay", Settings.canDrawOverlays(getContext()));
+        r.put("exactAlarm", canExactAlarm());
         call.resolve(r);
+    }
+
+    /** 精確鬧鐘（「鬧鐘與提醒」權限）：倒數結束通知準時跳出。Android 12 以下不用申請。 */
+    private boolean canExactAlarm() {
+        if (Build.VERSION.SDK_INT < 31) return true;
+        android.app.AlarmManager am = (android.app.AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
+        return am != null && am.canScheduleExactAlarms();
+    }
+
+    @PluginMethod
+    public void openExactAlarmSettings(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= 31) getActivity().startActivity(new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + getContext().getPackageName())));
+        call.resolve();
     }
 
     @PluginMethod

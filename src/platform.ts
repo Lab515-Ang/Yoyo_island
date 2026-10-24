@@ -32,7 +32,10 @@ export async function scheduleFocusEnd(at: number, title: string, body: string) 
   try {
     if (!(await requestNotifyPermission())) return;
     await LocalNotifications.cancel({ notifications: [{ id: FOCUS_END_ID }] });
-    await LocalNotifications.schedule({ notifications: [{ id: FOCUS_END_ID, title, body, schedule: { at: new Date(at), allowWhileIdle: true } }] });
+    // 沒有「鬧鐘與提醒」權限時改用一般提醒（可能稍晚一點）：
+    // 不然外掛會在每次開始專注時把玩家帶去系統設定頁，深度專注也會因此判定離開
+    const exact = isAndroid ? (await TimeGuard.status().catch(() => ({ exactAlarm: false }))).exactAlarm : true;
+    await LocalNotifications.schedule({ notifications: [{ id: FOCUS_END_ID, title, body, schedule: { at: new Date(at), allowWhileIdle: true }, isExactNotification: exact }] });
   } catch {
     // 排程失敗不影響計時，回到 App 時仍會結算
   }
@@ -93,7 +96,8 @@ export const defaultGuardConfig = (): GuardConfig => ({
 });
 
 interface TimeGuardNative {
-  status(): Promise<{ usage: boolean; overlay: boolean }>;
+  status(): Promise<{ usage: boolean; overlay: boolean; exactAlarm: boolean }>;
+  openExactAlarmSettings(): Promise<void>;
   openUsageSettings(): Promise<void>;
   openOverlaySettings(): Promise<void>;
   listApps(): Promise<{ apps: GuardApp[] }>;
