@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useCallback, useState, type ReactNode } from 'react';
+import { Component, lazy, memo, Suspense, useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useSave } from '../app/store';
 import { FACILITIES } from '../content/config';
 import { adoptedPets, facilityOwned, isDone, projectQuarter } from '../domain/game';
@@ -34,13 +34,14 @@ export const prefersReducedMotion = () => typeof matchMedia !== 'undefined' && m
 
 /** 依設定與裝置能力選 3D 或 2D；3D 失敗或太慢自動降級，核心功能不受影響。 */
 /** calm：專注背景（不可點、場景往上推）；bubble：大廳的圓形泡泡（不可點、鏡頭拉近）。 */
-export function HabitatScene({ habitatId, onSelect, calm = false, bubble = false }: { habitatId: HabitatId; onSelect?: (id: string) => void; calm?: boolean; bubble?: boolean }) {
+// 外層每秒會重繪好幾次（例如專注倒數）：用 memo 讓場景只在存檔或參數改變時才重繪
+export const HabitatScene = memo(function HabitatScene({ habitatId, onSelect, calm = false, bubble = false }: { habitatId: HabitatId; onSelect?: (id: string) => void; calm?: boolean; bubble?: boolean }) {
   const { save, notify } = useSave();
   const [degraded, setDegraded] = useState(false);
   const done = useCallback((id: string) => isDone(save, id), [save]);
   const prog = useCallback((id: string) => projectQuarter(save, id), [save]);
-  const pets = adoptedPets(save, habitatId).map((v) => ({ id: v.pet.id, typeId: v.def.id, art: v.def.art, stage: v.stage, face: v.face, grow: v.grow }));
-  const facilities = FACILITIES.filter((f) => f.habitatId === habitatId && facilityOwned(save, f.id)).map((f) => f.id);
+  const pets = useMemo(() => adoptedPets(save, habitatId).map((v) => ({ id: v.pet.id, typeId: v.def.id, art: v.def.art, stage: v.stage, face: v.face, grow: v.grow })), [save, habitatId]);
+  const facilities = useMemo(() => FACILITIES.filter((f) => f.habitatId === habitatId && facilityOwned(save, f.id)).map((f) => f.id), [save, habitatId]);
   const reducedMotion = save.settings.reducedMotion || prefersReducedMotion();
   const props = { habitatId, done, prog, pets, facilities, reducedMotion, onSelect: calm || bubble ? undefined : onSelect, backdrop: calm, bubble, lowPower: calm || bubble };
   const flat = <Scene2D {...props} />;
@@ -62,4 +63,4 @@ export function HabitatScene({ habitatId, onSelect, calm = false, bubble = false
       )}
     </div>
   );
-}
+});
