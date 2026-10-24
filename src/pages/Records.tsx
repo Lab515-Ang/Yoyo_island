@@ -212,7 +212,7 @@ export function Records({ initialTag = null }: { initialTag?: string | null }) {
 
       <section className="card">
         <div className="row between">
-          <h2>{tagFilter ? `專注紀錄：「${tagFilter}」` : '全部專注紀錄'}</h2>
+          <h2 ref={(el) => void (initialTag && el && el.scrollIntoView())}>{tagFilter ? `專注紀錄：「${tagFilter}」` : '全部專注紀錄'}</h2>
           {tagFilter && (
             <button className="link" onClick={() => setTagFilter(null)}>
               顯示全部

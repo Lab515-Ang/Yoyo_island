@@ -49,7 +49,7 @@ export const setMode = (mode: AppMode) => localStorage.setItem(MODE_KEY, mode);
 
 /** 重設：只清除本 App 的 key。 */
 export function clearAll() {
-  for (const k of Object.keys(localStorage)) if (k.startsWith(`${STORAGE_PREFIX}:`)) localStorage.removeItem(k);
+  for (const k of Object.keys(localStorage)) if (k.startsWith(`${STORAGE_PREFIX}:`) || k.startsWith('qiguang-ui:')) localStorage.removeItem(k);
 }
 
 export const isOurKey = (k: string | null) => !!k && k.startsWith(`${STORAGE_PREFIX}:`);

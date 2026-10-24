@@ -4,7 +4,7 @@ import { AVATARS } from '../content/config';
 import { validateSave } from '../domain/save';
 import { openSession } from '../domain/game';
 import { notifySupported, playChime } from '../sound';
-import { TimeGuard, isAndroid, isNative, onResume, requestNotifyPermission } from '../platform';
+import { TimeGuard, defaultGuardConfig, isAndroid, isNative, onResume, requestNotifyPermission } from '../platform';
 import { Modal } from '../components/ui';
 import { Tour } from '../components/Tour';
 import type { SaveFile } from '../domain/types';
@@ -63,7 +63,7 @@ export function SettingsPage() {
     try {
       parsed = JSON.parse(await file.text());
     } catch {
-      return setImportError('這個檔案不是有效的 JSON 存檔。');
+      return setImportError('這個檔案不是棲光小島的存檔檔案。');
     }
     const v = validateSave(parsed);
     if (!v.ok) return setImportError(`無法匯入：${v.error}`);
@@ -171,7 +171,7 @@ export function SettingsPage() {
 
       <section className="sheet-section">
         <h3>資料</h3>
-        <p className="small muted">進度只保存在這台裝置的瀏覽器裡。換裝置或清除瀏覽器資料前，請先匯出。</p>
+        <p className="small muted">{isNative ? '進度只保存在這支手機裡。換手機或刪除 App 前，請先匯出備份。' : '進度只保存在這台裝置的瀏覽器裡。換裝置或清除瀏覽器資料前，請先匯出。'}</p>
         <div className="row wrap">
           <button onClick={exportSave}>匯出存檔</button>
           <label className="button-like">
@@ -222,7 +222,14 @@ export function SettingsPage() {
           <div className="notice">
             <p>這會清除這台裝置上棲光小島的所有資料（包含示範存檔），無法復原。建議先匯出。</p>
             <div className="row">
-              <button className="danger" onClick={resetAll}>
+              <button
+                className="danger"
+                onClick={() => {
+                  // 原生端的時間守護與深度專注設定也要清掉，不然重設後還會繼續攔截 App
+                  if (isAndroid) void TimeGuard.setConfig({ config: defaultGuardConfig() }).then(() => TimeGuard.stopFocusWatch(), () => undefined);
+                  resetAll();
+                }}
+              >
                 確認全部重設
               </button>
               <button className="ghost" onClick={() => setConfirmReset(false)}>

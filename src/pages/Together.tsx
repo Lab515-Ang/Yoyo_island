@@ -180,7 +180,10 @@ export function WeeklyGoal({ save }: { save: SaveFile }) {
   const { update } = useSave();
   const tz = save.profile.timezone;
   const week = weekStartKey(localDateKey(Date.now(), tz));
-  const goal = save.weeklyGoals.find((g) => g.islandId === islandId(save) && g.weekStartLocalDate === week);
+  // 這週還沒設定就沿用最近一次設定的目標（不用每週重設）
+  const goal =
+    save.weeklyGoals.find((g) => g.islandId === islandId(save) && g.weekStartLocalDate === week) ??
+    [...save.weeklyGoals].filter((g) => g.islandId === islandId(save) && g.weekStartLocalDate < week).sort((a, b) => b.weekStartLocalDate.localeCompare(a.weekStartLocalDate))[0];
   const [value, setValue] = useState(goal ? String(goal.targetMinutes) : '');
   const [error, setError] = useState<string | null>(null);
   const totals = new Map<string, number>();

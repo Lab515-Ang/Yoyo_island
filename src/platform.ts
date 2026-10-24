@@ -9,6 +9,8 @@ export const isNative = Capacitor.isNativePlatform();
 export const isAndroid = Capacitor.getPlatform() === 'android';
 
 const FOCUS_END_ID = 1;
+// 每次取消就加一：排程要先等權限與狀態查詢，期間若被取消，就放棄這次排程
+let focusEndGen = 0;
 
 /** 要求通知權限；回傳是否允許。 */
 export async function requestNotifyPermission(): Promise<boolean> {
@@ -29,12 +31,14 @@ export async function requestNotifyPermission(): Promise<boolean> {
 /** 排定倒數結束通知：App 版用系統本機通知，鎖屏、關掉 App 也會準時跳出。網頁版不排程（網頁在回到頁面時提醒）。 */
 export async function scheduleFocusEnd(at: number, title: string, body: string) {
   if (!isNative || at <= Date.now()) return;
+  const gen = focusEndGen;
   try {
     if (!(await requestNotifyPermission())) return;
     await LocalNotifications.cancel({ notifications: [{ id: FOCUS_END_ID }] });
     // 沒有「鬧鐘與提醒」權限時改用一般提醒（可能稍晚一點）：
     // 不然外掛會在每次開始專注時把玩家帶去系統設定頁，深度專注也會因此判定離開
     const exact = isAndroid ? (await TimeGuard.status().catch(() => ({ exactAlarm: false }))).exactAlarm : true;
+    if (gen !== focusEndGen) return;
     await LocalNotifications.schedule({ notifications: [{ id: FOCUS_END_ID, title, body, schedule: { at: new Date(at), allowWhileIdle: true }, isExactNotification: exact }] });
   } catch {
     // 排程失敗不影響計時，回到 App 時仍會結算
@@ -43,6 +47,7 @@ export async function scheduleFocusEnd(at: number, title: string, body: string) 
 
 /** 暫停、取消、放棄或結束時，取消還沒跳出的通知。 */
 export async function cancelFocusEnd() {
+  focusEndGen++;
   if (!isNative) return;
   try {
     await LocalNotifications.cancel({ notifications: [{ id: FOCUS_END_ID }] });

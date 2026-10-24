@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyDeepFocus, dueAt, completeNow, createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, weekStartKey } from './focus';
 import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, feed, feedFor, adoptPet, feedPet, adoptedPets, fedByUser, buyEgg, buyFacility, eggOdds, grantStarter, habitatSlots, naturalFace, setFace, starterGiftDue, sessionRoll, chanceFor, chanceFind, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote, isDone, projectQuarter, remainingFor, applyFocusRewards, focusOutcome, companionPet, chosenPlant, plantUnlocked, plantedSessions } from './game';
-import { CHANCE, EGG_PRICE, PACING_VERSION, PLANTS, SOUNDS, petDef, plantTier, projectDef } from '../content/config';
+import { CHANCE, EGG_PRICE, PACING_VERSION, PLANTS, SOUNDS, SPECIES, petDef, plantTier, projectDef } from '../content/config';
 import { newSave, newDemoSave, validateSave, demoGrant } from './save';
 import type { SaveFile } from './types';
 
@@ -561,5 +561,43 @@ describe('存檔設定欄位', () => {
     expect(r.save.settings.focusAllow).toEqual([]);
     expect(r.save.settings.deepFocus).toBe(true);
     expect(r.save.settings.plantId).toBe('daisy');
+  });
+});
+
+describe('第二輪審查修正', () => {
+  it('節奏 v2 以前的存檔用舊價格買的設施仍能讀取；新存檔的價格不符照樣拒絕', () => {
+    const base = focus(fresh(), 400);
+    const r = buyFacility(base, base.profile.id, 'gh_trellis', T0 + 500 * MIN);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const old = JSON.parse(JSON.stringify(r.save));
+    old.transactions.find((t: { kind: string }) => t.kind === 'facility_buy').amount = -60; // 舊價格
+    old.pacing = 1;
+    const v = validateSave(old);
+    expect(v.ok ? 'ok' : v.error).toBe('ok');
+    old.pacing = PACING_VERSION;
+    expect(validateSave(old).ok).toBe(false);
+  });
+
+  it('午夜被日光節約時間跳過的時區不會卡住（智利 2026-09-06）', () => {
+    const totals = addSegmentsByDay(new Map(), [{ startedAt: '2026-09-06T03:30:00Z', endedAt: '2026-09-06T04:30:00Z' }], 'America/Santiago');
+    expect([...totals.values()].reduce((a, b) => a + b, 0)).toBe(60 * MIN);
+    expect(totals.size).toBe(2);
+  });
+
+  it('偶遇只會遇到已開放棲地的生物', () => {
+    let id = crypto.randomUUID();
+    while (sessionRoll(id) >= 0.05) id = crypto.randomUUID();
+    const save = fresh();
+    const s = finish(session(save, 'stopwatch', null, T0, id), T0 + 120 * MIN, 'completed');
+    const after = closeSession(save, s, T0 + 120 * MIN);
+    const found = chanceFind(after, s.id);
+    expect(found).not.toBeNull();
+    expect(SPECIES.find((x) => x.id === found!.speciesId)!.habitatId).toBe('greenhouse');
+  });
+
+  it('還沒解鎖的植物不能種，改種預設的', () => {
+    const save = startFocus(fresh(), { taskTitle: '', tag: '讀書', habitatId: 'greenhouse', mode: 'countdown', targetSeconds: 25 * 60, plantId: 'tulip' }, T0);
+    expect(save.sessions[0].plantId).toBe('daisy');
   });
 });

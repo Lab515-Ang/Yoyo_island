@@ -144,7 +144,8 @@ const HABITAT_IDS = HABITATS.map((h) => h.id) as string[];
 export function validateSave(raw: unknown): Validation {
   const fail = (error: string): Validation => ({ ok: false, error });
   if (!isObj(raw)) return fail('檔案內容不是有效的存檔。');
-  if (raw.schemaVersion !== 1) return fail(`不支援的存檔版本（${String(raw.schemaVersion)}）。`);
+  if (raw.schemaVersion === undefined) return fail('這不是棲光小島的存檔檔案。');
+  if (raw.schemaVersion !== 1) return fail(`這份存檔來自不同版本的棲光小島（版本 ${String(raw.schemaVersion)}），目前無法讀取。`);
   if (raw.mode !== 'personal' && raw.mode !== 'demo') return fail('存檔模式不正確。');
   const p = raw.profile;
   if (!isObj(p) || !isStr(p.id) || !isStr(p.nickname) || !isStr(p.activeIslandId) || !isStr(p.timezone)) return fail('個人資料不完整。');
@@ -154,6 +155,8 @@ export function validateSave(raw: unknown): Validation {
   if (!Array.isArray(settings.focusAllow) || !settings.focusAllow.every((a: unknown) => isObj(a) && isStr((a as { pkg?: unknown }).pkg))) settings.focusAllow = [];
   if (typeof settings.deepFocus !== 'boolean') settings.deepFocus = true;
   if (!isStr(settings.plantId)) settings.plantId = defaultSettings().plantId;
+  // 節奏 v2 以前的存檔是用舊價格買的（價格調整過）：購買紀錄只檢查是花費、不比對現在的價格
+  const legacyPrices = (typeof raw.pacing === 'number' ? raw.pacing : 1) < PACING_VERSION;
   const save = migratePacing(migratePets({ ...raw, settings } as unknown as SaveFile));
 
   if (!save.islands.some((i) => isObj(i) && i.id === save.profile.activeIslandId)) return fail('找不到目前的島嶼。');
@@ -210,12 +213,13 @@ export function validateSave(raw: unknown): Validation {
       const pet = pets.get(t.petId ?? '');
       const def = pet && petDef(pet.typeId);
       const price = pet?.source === 'egg' ? EGG_PRICE[pet.habitatId] : def?.adoptPrice;
-      if (!pet || !def || pet.source === 'gift' || t.amount !== -(price ?? NaN) || adopted.has(pet.id)) return fail('寵物領養紀錄不符。');
+      const priceOk = legacyPrices ? t.amount < 0 : t.amount === -(price ?? NaN);
+      if (!pet || !def || pet.source === 'gift' || !priceOk || adopted.has(pet.id)) return fail('寵物領養紀錄不符。');
       adopted.add(pet.id);
       invited.push(def.requiredProjectId);
     } else if (t.kind === 'facility_buy') {
       const f = facilityDef(t.facilityId ?? '');
-      if (!f || t.amount !== -f.price || t.idempotencyKey !== `facility:${t.islandId}:${f.id}`) return fail('設施購買紀錄不符。');
+      if (!f || !(legacyPrices ? t.amount < 0 : t.amount === -f.price) || t.idempotencyKey !== `facility:${t.islandId}:${f.id}`) return fail('設施購買紀錄不符。');
       const unlock = HABITATS.find((h) => h.id === f.habitatId)?.unlockProjectId;
       if (unlock) invited.push(unlock);
     } else if (t.kind === 'feed_spend') {

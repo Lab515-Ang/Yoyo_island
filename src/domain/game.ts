@@ -50,10 +50,12 @@ export function startFocus(save: SaveFile, p: { taskTitle: string; tag: string; 
   const t = p.targetSeconds ?? 0;
   const inRange = t >= MIN_FOCUS_MINUTES * 60 && t <= MAX_FOCUS_MINUTES * 60;
   if (p.mode === 'countdown' && !inRange && !(save.mode === 'demo' && t === 10)) return save;
-  const s = createSession({ ...p, id: newId(), userId: save.profile.id, islandId: islandId(save) }, now);
+  const plant = PLANTS.find((x) => x.id === p.plantId);
+  const plantId = plant && plantUnlocked(save, plant) ? plant.id : chosenPlant(save).id;
+  const s = createSession({ ...p, plantId, id: newId(), userId: save.profile.id, islandId: islandId(save) }, now);
   return {
     ...putSession(save, s),
-    settings: { ...save.settings, lastTimerMode: p.mode, lastTargetSeconds: p.targetSeconds ?? save.settings.lastTargetSeconds, preferredHabitatId: p.habitatId, plantId: p.plantId ?? save.settings.plantId },
+    settings: { ...save.settings, lastTimerMode: p.mode, lastTargetSeconds: p.targetSeconds ?? save.settings.lastTargetSeconds, preferredHabitatId: p.habitatId, plantId },
   };
 }
 
@@ -134,7 +136,7 @@ export function chanceFor(s: FocusSession) {
 export function rollChance(save: SaveFile, s: FocusSession, now: number): SaveFile {
   if (save.discoveries.some((d) => d.sessionId === s.id)) return save;
   if (sessionRoll(s.id) >= chanceFor(s)) return save;
-  const pool = SPECIES.filter((sp) => !discoveryOf(save, sp.id));
+  const pool = SPECIES.filter((sp) => !discoveryOf(save, sp.id) && habitatOpen(save, sp.habitatId));
   if (!pool.length) return save;
   const sp = pool[Math.floor(hash01(`${s.id}:pick`) * pool.length)];
   return {

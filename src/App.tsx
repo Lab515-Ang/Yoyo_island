@@ -170,8 +170,18 @@ function Main() {
     const r = settleOpenSessions(save, Date.now());
     if (!r.completed) return;
     const id = r.completed.id;
-    // 點數自動投入工程、飼料自動餵陪伴寵物
-    if (!update(() => applyFocusRewards(r.save, id, Date.now()))) return;
+    // 點數自動投入工程、飼料自動餵陪伴寵物；在最新的存檔上結算（別的流程可能剛改過，例如深度專注判定放棄）
+    let settled = false;
+    if (
+      !update((s) => {
+        const x = settleOpenSessions(s, Date.now());
+        if (x.completed?.id !== id) return s;
+        settled = true;
+        return applyFocusRewards(x.save, id, Date.now());
+      }) ||
+      !settled
+    )
+      return;
     setSummaryId(id);
     // App 版鎖屏時系統通知已經提醒過，回來只在剛結束時響鈴；網頁版 30 分鐘內回來都補提醒
     if (Date.now() - Date.parse(r.completed.endedAt!) < (isNative ? 60_000 : 30 * 60_000)) {
@@ -185,8 +195,14 @@ function Main() {
   // 新手禮物：完成第一個工程後送一顆黃蝶的卵
   useEffect(() => {
     if (!starterGiftDue(save)) return;
-    const r = grantStarter(save, Date.now());
-    if (r.ok && update(() => r.save)) notify('完成第一個工程的禮物：一顆黃蝶的卵！到「我的小島」用飼料把牠養大吧。');
+    let granted = false;
+    const saved = update((s) => {
+      if (!starterGiftDue(s)) return s;
+      const r = grantStarter(s, Date.now());
+      granted = r.ok;
+      return r.ok ? r.save : s;
+    });
+    if (saved && granted) notify('完成第一個工程的禮物：一顆黃蝶的卵！到「我的小島」用飼料把牠養大吧。');
   }, [save, update, notify]);
 
   // 時間守護：背景服務在玩家打開想減少使用的 App 時把小島叫到前面
@@ -287,7 +303,7 @@ function Main() {
             </button>
           ))}
         </nav>
-        <main className="content">
+        <main className="content" key={mode}>
           {view === 'lobby' && <Lobby onStarted={() => setSummaryId(null)} />}
           {view === 'lobby' && save.sessions.filter((s) => s.endedAt).length === 1 && <FirstTour />}
           {view === 'island' && <IslandPage habitat={habitat} setHabitat={setHabitat} onShop={() => go('shop')} />}

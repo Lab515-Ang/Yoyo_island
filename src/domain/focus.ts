@@ -145,7 +145,12 @@ export function nextLocalMidnight(t: number, tz: string) {
   let next = midnightAsUtc - offsetAt(t, tz);
   const off2 = offsetAt(next, tz);
   if (midnightAsUtc - off2 !== next) next = midnightAsUtc - off2;
-  return next;
+  if (next > t) return next;
+  // 午夜被日光節約時間跳過（例如智利、古巴）：找第一個換日的整點
+  const today = localDateKey(t, tz);
+  let h = Math.floor(t / 3_600_000) * 3_600_000 + 3_600_000;
+  while (localDateKey(h, tz) === today) h += 3_600_000;
+  return h;
 }
 
 /** 依本地日期分配有效時間；暫停時間不在任何 segment 內，所以不會被計入。 */

@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { CATEGORY_LABEL, CHANCE, habitatName, speciesDef } from '../content/config';
-import { discoveryOf } from '../domain/game';
+import { discoveryOf, habitatOpen } from '../domain/game';
 import type { SaveFile } from '../domain/types';
 import { Creature } from './Creature';
 
@@ -46,6 +46,7 @@ export const fmtMinutes = (ms: number) => {
 export function conditionText(save: SaveFile, speciesId: string) {
   const s = speciesDef(speciesId)!;
   if (discoveryOf(save, s.id)) return null;
+  if (!habitatOpen(save, s.habitatId)) return `「${habitatName(s.habitatId)}」開放後，專注時有機會偶遇。`;
   return `完成 ${CHANCE.minMinutes} 分鐘以上的專注時有機會偶遇，專注越久機率越高。`;
 }
 

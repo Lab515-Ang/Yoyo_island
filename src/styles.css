@@ -1766,3 +1766,7 @@ button.wallet {
   padding: 1.2rem 1rem calc(1rem + env(safe-area-inset-bottom));
   background: linear-gradient(180deg, rgba(31, 79, 63, 0) 0%, #1f4f3f 35%);
 }
+/* 捲動到標題時留出頂部工具列的高度 */
+.content h2 {
+  scroll-margin-top: 80px;
+}
