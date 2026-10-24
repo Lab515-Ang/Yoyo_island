@@ -1751,3 +1751,164 @@ button.wallet {
   font-size: 0.9rem;
   opacity: 0.9;
 }
+
+/* ---------- 時間守護首頁 ---------- */
+.guard-hero {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 0.8rem;
+}
+.guard-hero-pet {
+  flex: none;
+  width: 88px;
+  height: 88px;
+  display: grid;
+  place-items: center;
+  font-size: 3rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 60%, #e6f2df, #d3e7cc);
+}
+.guard-hero p {
+  margin: 0;
+}
+.plan-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.3rem;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.plan-card .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.plan-card .dot.on {
+  background: #3fb27f;
+}
+.plan-edit {
+  color: var(--sage-deep);
+  font-size: 0.9rem;
+}
+.date-nav {
+  margin: 0.6rem 0;
+}
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.8rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.stat-card strong {
+  font-size: 1.3rem;
+}
+.stat-icon {
+  font-size: 1.3rem;
+}
+.stat-change {
+  align-self: flex-start;
+  font-size: 0.8rem;
+  padding: 0 0.5em;
+  border-radius: 999px;
+  background: #eee6d4;
+}
+.stat-change.good {
+  background: #dcf1e2;
+  color: #2f7a4b;
+}
+.stat-change.bad {
+  background: #f8e1d8;
+  color: var(--danger);
+}
+.guard-counts {
+  margin: 0.6rem 0 0;
+}
+.usage-legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-left: 0.4em;
+}
+.seg-guarded {
+  background: #ef7f9a;
+}
+.seg-other {
+  background: #5fb7c9;
+}
+.usage-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 120px;
+  margin-top: 0.6rem;
+  border-bottom: 1px solid var(--line);
+}
+.usage-bar {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column-reverse; /* 其他 App 在下、想減少的 App 疊在上面 */
+}
+.usage-bar span {
+  display: block;
+  border-radius: 2px;
+}
+.usage-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.usage-axis.week {
+  justify-content: space-around;
+}
+.rank-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.7rem;
+}
+.rank-list img {
+  border-radius: 7px;
+}
+.rank-bar {
+  display: block;
+  height: 5px;
+  margin-top: 0.3rem;
+  border-radius: 3px;
+  background: #5fb7c9;
+}
+.rank-bar.guarded {
+  background: #ef7f9a;
+}
+.tag-guarded {
+  font-size: 0.7rem;
+  padding: 0 0.45em;
+  border-radius: 999px;
+  background: #fbe3e9;
+  color: #b8435f;
+}
+.editor-actions {
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+.segmented[role='tablist'] button {
+  flex: 1;
+}

@@ -100,6 +100,14 @@ export const defaultGuardConfig = (): GuardConfig => ({
   days: [false, true, true, true, true, true, false],
 });
 
+/** 一段期間的手機使用時間（毫秒）：buckets 是每小時或每天一格，分成想減少的 App 和其他 App。 */
+export interface UsageReport {
+  totalMs: number;
+  guardedMs: number;
+  apps: { pkg: string; label: string; icon?: string; ms: number }[];
+  buckets: { guarded: number; other: number }[];
+}
+
 interface TimeGuardNative {
   status(): Promise<{ usage: boolean; overlay: boolean; exactAlarm: boolean }>;
   openExactAlarmSettings(): Promise<void>;
@@ -114,6 +122,7 @@ interface TimeGuardNative {
   stopFocusWatch(): Promise<void>;
   focusWatchStatus(): Promise<{ active: boolean; failedAt: number; callStart: number; calls: [number, number][] }>;
   clearFocusEvents(): Promise<void>;
+  usage(o: { start: number; end: number; bucketMs: number; guarded: string[] }): Promise<UsageReport>;
 }
 
 /** 深度專注：離開小島超過這麼久，蛋就不會孵化。 */

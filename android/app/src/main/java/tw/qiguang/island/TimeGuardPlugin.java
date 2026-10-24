@@ -1,6 +1,8 @@
 package tw.qiguang.island;
 
 import android.app.AppOpsManager;
+import android.app.usage.UsageEvents;
+import android.app.usage.UsageStatsManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -20,8 +22,11 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.ByteArrayOutputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /** 時間守護給網頁端用的介面：權限、App 清單、設定、解鎖。 */
@@ -147,6 +152,124 @@ public class TimeGuardPlugin extends Plugin {
         Intent launch = getContext().getPackageManager().getLaunchIntentForPackage(pkg);
         if (launch != null) getActivity().startActivity(launch);
         call.resolve();
+    }
+
+    // ---------- 使用時間統計（時間守護首頁） ----------
+
+    /**
+     * start～end 之間每個 App 在前景的時間，並切成每 bucketMs 一格（一天用 1 小時、一週用 1 天）。
+     * guarded 是想減少使用的 App：每格分成「干擾 App」和「其他 App」兩段。桌面與系統介面不算。
+     */
+    @PluginMethod
+    public void usage(PluginCall call) {
+        if (!hasUsageAccess(getContext())) {
+            call.reject("沒有使用情況存取權");
+            return;
+        }
+        // optLong：網頁傳來的小數字會是 Integer，getLong 讀不到
+        long start = call.getData().optLong("start", 0L);
+        long end = call.getData().optLong("end", System.currentTimeMillis());
+        long bucket = Math.max(60_000L, call.getData().optLong("bucketMs", 3_600_000L));
+        JSArray g = call.getArray("guarded", new JSArray());
+        getBridge().execute(() -> {
+            try {
+                Set<String> guarded = new HashSet<>(g.<String>toList());
+                long until = Math.min(end, System.currentTimeMillis());
+                int n = (int) Math.max(1, Math.ceil((end - start) / (double) bucket));
+                long[] gb = new long[n];
+                long[] ob = new long[n];
+                Map<String, Long> total = new HashMap<>();
+                Set<String> skip = homePackages();
+                skip.add("com.android.systemui");
+                UsageStatsManager um = (UsageStatsManager) getContext().getSystemService(Context.USAGE_STATS_SERVICE);
+                // 往前多查 3 小時：區間開始時已經開著的 App 也算得到
+                UsageEvents ev = um.queryEvents(start - 3 * 3_600_000L, until);
+                UsageEvents.Event e = new UsageEvents.Event();
+                // 同一時間只有一個 App 在前景：換成別的 App、螢幕關閉、上鎖、關機／開機時，前一個 App 的時間就結束
+                // （不看單一畫面的 PAUSED／STOPPED：同一個 App 換畫面時會先停舊畫面，容易把新畫面也算成結束）
+                String cur = null;
+                long since = 0;
+                while (ev.hasNextEvent()) {
+                    ev.getNextEvent(e);
+                    int t = e.getEventType();
+                    long at = e.getTimeStamp();
+                    if (t == 1) { // ACTIVITY_RESUMED
+                        String pkg = e.getPackageName();
+                        if (pkg.equals(cur)) continue;
+                        if (cur != null && !skip.contains(cur)) span(cur, since, at, start, until, bucket, guarded, total, gb, ob);
+                        cur = pkg;
+                        since = at;
+                    } else if (t == 16 || t == 17 || t == 26 || t == 27) { // 螢幕關閉、上鎖畫面、關機、開機
+                        if (cur != null && !skip.contains(cur)) span(cur, since, at, start, until, bucket, guarded, total, gb, ob);
+                        cur = null;
+                    }
+                }
+                if (cur != null && !skip.contains(cur)) span(cur, since, until, start, until, bucket, guarded, total, gb, ob);
+
+                List<Map.Entry<String, Long>> sorted = new ArrayList<>(total.entrySet());
+                sorted.sort((a, b) -> Long.compare(b.getValue(), a.getValue()));
+                PackageManager pm = getContext().getPackageManager();
+                JSArray apps = new JSArray();
+                long sum = 0;
+                long guardedSum = 0;
+                for (Map.Entry<String, Long> en : sorted) {
+                    sum += en.getValue();
+                    if (guarded.contains(en.getKey())) guardedSum += en.getValue();
+                    if (apps.length() >= 8 || en.getValue() < 60_000L) continue; // 清單只列前 8 個、至少 1 分鐘
+                    JSObject a = new JSObject();
+                    a.put("pkg", en.getKey());
+                    a.put("ms", en.getValue());
+                    try {
+                        android.content.pm.ApplicationInfo info = pm.getApplicationInfo(en.getKey(), 0);
+                        a.put("label", pm.getApplicationLabel(info).toString());
+                        a.put("icon", iconData(pm.getApplicationIcon(info)));
+                    } catch (PackageManager.NameNotFoundException ex) {
+                        a.put("label", en.getKey());
+                    }
+                    apps.put(a);
+                }
+                JSArray buckets = new JSArray();
+                for (int i = 0; i < n; i++) {
+                    JSObject b = new JSObject();
+                    b.put("guarded", gb[i]);
+                    b.put("other", ob[i]);
+                    buckets.put(b);
+                }
+                JSObject r = new JSObject();
+                r.put("totalMs", sum);
+                r.put("guardedMs", guardedSum);
+                r.put("apps", apps);
+                r.put("buckets", buckets);
+                call.resolve(r);
+            } catch (Exception ex) {
+                call.reject("讀不到使用時間");
+            }
+        });
+    }
+
+    /** 把一段前景時間（裁到 start～until 之內）加進總計與各格。 */
+    private static void span(String pkg, long a, long b, long start, long until, long bucket, Set<String> guarded, Map<String, Long> total, long[] gb, long[] ob) {
+        a = Math.max(a, start);
+        b = Math.min(b, until);
+        if (b <= a) return;
+        Long cur = total.get(pkg);
+        total.put(pkg, (cur == null ? 0 : cur) + (b - a));
+        long[] arr = guarded.contains(pkg) ? gb : ob;
+        for (long x = a; x < b; ) {
+            int i = (int) ((x - start) / bucket);
+            long y = Math.min(b, start + (i + 1) * bucket);
+            if (i < arr.length) arr[i] += y - x;
+            x = y;
+        }
+    }
+
+    /** 桌面 App（切回桌面的時間不算使用）。 */
+    private Set<String> homePackages() {
+        Set<String> out = new HashSet<>();
+        Intent home = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
+        for (ResolveInfo ri : getContext().getPackageManager().queryIntentActivities(home, 0)) out.add(ri.activityInfo.packageName);
+        out.remove("com.android.settings"); // 「設定」裡有開機用的備用桌面，但它是一般 App
+        return out;
     }
 
     // ---------- 深度專注 ----------
