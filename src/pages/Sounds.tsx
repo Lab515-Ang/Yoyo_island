@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { useSave } from '../app/store';
-import { SOUNDS, petDef, projectDef, speciesDef, type SoundUnlock } from '../content/config';
+import { SOUNDS, animalDef, projectDef, type SoundUnlock } from '../content/config';
 import { soundUnlocked } from '../domain/game';
 import { useAmbient } from '../sound';
 
 function unlockText(u: SoundUnlock) {
   if (u.kind === 'project') return `完成「${projectDef(u.id)?.title}」後收集`;
-  if (u.kind === 'species') return `遇見${speciesDef(u.id)?.name}後收集`;
-  if (u.kind === 'petGrown') return `把${petDef(u.id)?.name}養大後收集`;
+  if (u.kind === 'hatched') return `孵出${animalDef(u.id).name}後收集`;
   return '';
 }
 
@@ -25,7 +24,7 @@ export function Sounds({ onSettings }: { onSettings: () => void }) {
     <div className="page">
       <h1>大自然交響樂</h1>
       <p>
-        已收集 <strong>{got.length}</strong> / {SOUNDS.length} 種聲音。修復棲地、遇見生物、養大寵物，小島的聲音會越來越豐富。
+        已收集 <strong>{got.length}</strong> / {SOUNDS.length} 種聲音。修復森林、孵出動物，小島的聲音會越來越豐富。
       </p>
       {!st.soundEnabled && (
         <div className="notice">
@@ -40,7 +39,7 @@ export function Sounds({ onSettings }: { onSettings: () => void }) {
         <h2>專注背景音</h2>
         <label className="toggle">
           <input type="radio" name="focus-sound" checked={current === 'auto'} onChange={() => choose('auto')} />
-          跟著棲地（溫室是風聲或噴泉，溪流是流水）
+          跟著森林（平常是微風，修好水源地後是流水）
         </label>
         {got.map((s) => (
           <label key={s.id} className="toggle">

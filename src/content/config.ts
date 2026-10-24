@@ -31,17 +31,17 @@ export const avatarEmoji = (id: string) => AVATARS.find((a) => a.id === id)?.emo
 export interface HabitatDef {
   id: HabitatId;
   name: string;
-  playable: boolean;
+  playable: boolean; // false = 日後改版才開放
   unlockProjectId: string | null; // null = 開局即可進入
   blurb: string;
 }
 
+// 目前只開放陸地的「棲光森林」；水域與海岸留待日後改版
 export const HABITATS: HabitatDef[] = [
-  { id: 'greenhouse', name: '花園溫室', playable: true, unlockProjectId: null, blurb: '奶油白的溫室，噴泉、花圃與吊盆。' },
-  { id: 'stream', name: '溪流濕地', playable: true, unlockProjectId: 'st_entrance', blurb: '淺淺的溪水、岸邊植物與木橋。' },
-  { id: 'woodland', name: '林間草地', playable: false, unlockProjectId: null, blurb: '未來區域' },
-  { id: 'coast', name: '潮間帶海岸', playable: false, unlockProjectId: null, blurb: '未來區域' },
-  { id: 'bay', name: '海灣水下', playable: false, unlockProjectId: null, blurb: '未來區域' },
+  { id: 'forest', name: '棲光森林', playable: true, unlockProjectId: null, blurb: '台灣低海拔到中海拔的森林：步道、樹林、草叢與水源。' },
+  { id: 'wetland', name: '溪流濕地', playable: false, unlockProjectId: null, blurb: '日後改版開放' },
+  { id: 'coast', name: '潮間帶海岸', playable: false, unlockProjectId: null, blurb: '日後改版開放' },
+  { id: 'bay', name: '海灣水下', playable: false, unlockProjectId: null, blurb: '日後改版開放' },
 ];
 export const habitatName = (id: HabitatId) => HABITATS.find((h) => h.id === id)?.name ?? id;
 
@@ -56,116 +56,61 @@ export interface ProjectDef {
   promise: string; // 「再 12 點，{promise}。」
 }
 
-// 工程表（固定順序）。節奏目標：每天專注約 2 小時，溫室約 4 週、溪流約 3 個月修完；數值可集中調整，pacing.test.ts 會模擬檢查
+// 森林修復工程（固定順序）。節奏目標：每天專注約 1～3 小時，約 3 個月修完（共 9,410 點）；pacing.test.ts 會模擬檢查
 export const PROJECTS: ProjectDef[] = [
-  { id: 'gh_entrance', habitatId: 'greenhouse', title: '整理溫室入口', description: '清出小徑、增加入口花盆', requiredPoints: 10, prerequisiteProjectId: null, sceneChangeKey: 'gh_entrance', promise: '溫室入口就會整理好' },
-  { id: 'gh_flowers', habitatId: 'greenhouse', title: '恢復第一座花圃', description: '花圃開花、第一隻蝴蝶出現', requiredPoints: 300, prerequisiteProjectId: 'gh_entrance', sceneChangeKey: 'gh_flowers', promise: '花圃就會開花' },
-  { id: 'gh_fountain', habitatId: 'greenhouse', title: '修好溫室噴泉', description: '噴泉開始流水、加入水聲', requiredPoints: 900, prerequisiteProjectId: 'gh_flowers', sceneChangeKey: 'gh_fountain', promise: '噴泉就能重新流水' },
-  { id: 'gh_plants', habitatId: 'greenhouse', title: '增加食草與葉叢', description: '植物層次增加、更多昆蟲造訪', requiredPoints: 1700, prerequisiteProjectId: 'gh_fountain', sceneChangeKey: 'gh_plants', promise: '溫室就會長出更多葉叢' },
-  { id: 'st_entrance', habitatId: 'stream', title: '打開溪流步道', description: '溪流場景可進入', requiredPoints: 900, prerequisiteProjectId: 'gh_plants', sceneChangeKey: 'st_entrance', promise: '就能走到溪流濕地' },
-  { id: 'st_bank', habitatId: 'stream', title: '恢復溪岸植被', description: '蘆葦、水邊植物、蜻蜓出現', requiredPoints: 1400, prerequisiteProjectId: 'st_entrance', sceneChangeKey: 'st_bank', promise: '溪岸就會長回蘆葦' },
-  { id: 'st_water', habitatId: 'stream', title: '整理淺水區', description: '水面更清楚、小魚活動', requiredPoints: 1800, prerequisiteProjectId: 'st_bank', sceneChangeKey: 'st_water', promise: '淺水區就會變清澈' },
-  { id: 'st_bridge', habitatId: 'stream', title: '修好溪流木橋', description: '木橋完成、青蛙與水鳥造訪', requiredPoints: 2400, prerequisiteProjectId: 'st_water', sceneChangeKey: 'st_bridge', promise: '木橋就能修好' },
+  { id: 'fo_trail', habitatId: 'forest', title: '清出林間步道', description: '搬開倒木與落石，步道可以走了', requiredPoints: 10, prerequisiteProjectId: null, sceneChangeKey: 'fo_trail', promise: '林間步道就會清出來' },
+  { id: 'fo_saplings', habitatId: 'forest', title: '種回原生樹苗', description: '一排排小樹苗冒出新芽', requiredPoints: 300, prerequisiteProjectId: 'fo_trail', sceneChangeKey: 'fo_saplings', promise: '原生樹苗就會種下' },
+  { id: 'fo_cabin', habitatId: 'forest', title: '修好森林觀察小屋', description: '小屋亮起燈，可以安靜地觀察森林', requiredPoints: 900, prerequisiteProjectId: 'fo_saplings', sceneChangeKey: 'fo_cabin', promise: '觀察小屋就能修好' },
+  { id: 'fo_undergrowth', habitatId: 'forest', title: '恢復林下草叢', description: '蕨類與草叢長回來，小動物有地方躲', requiredPoints: 1300, prerequisiteProjectId: 'fo_cabin', sceneChangeKey: 'fo_undergrowth', promise: '林下草叢就會長回來' },
+  { id: 'fo_corridor', habitatId: 'forest', title: '架設生態廊道', description: '動物可以安全穿越的綠色通道', requiredPoints: 1500, prerequisiteProjectId: 'fo_undergrowth', sceneChangeKey: 'fo_corridor', promise: '生態廊道就會架好' },
+  { id: 'fo_spring', habitatId: 'forest', title: '整理森林水源地', description: '清澈的泉水流進小水池', requiredPoints: 1700, prerequisiteProjectId: 'fo_corridor', sceneChangeKey: 'fo_spring', promise: '水源地就會恢復清澈' },
+  { id: 'fo_canopy', habitatId: 'forest', title: '搭建樹冠步道', description: '高處的木棧道，看得到整片樹海', requiredPoints: 1800, prerequisiteProjectId: 'fo_spring', sceneChangeKey: 'fo_canopy', promise: '樹冠步道就能完成' },
+  { id: 'fo_rescue', habitatId: 'forest', title: '設立保育救傷站', description: '受傷的動物在這裡被好好照顧', requiredPoints: 1900, prerequisiteProjectId: 'fo_canopy', sceneChangeKey: 'fo_rescue', promise: '保育救傷站就會設立' },
 ];
 export const projectDef = (id: string) => PROJECTS.find((p) => p.id === id);
 
-export interface SpeciesDef {
+// ---------- 動物：每段專注孵化一隻（台灣陸地保育類動物） ----------
+
+/**
+ * 開始前選一顆蛋，專注時蛋慢慢裂開，完成就孵出來（大小依專注時間）；放棄的話蛋沒有孵化。
+ * 取得方式：一開始就有、修好工程解鎖、商店用金幣解鎖、商店特別品種（真錢，上架後開放）。
+ * 介紹保持簡單、保守，不宣稱保育等級或精確生態；上線前請內容夥伴再核對。
+ */
+export type AnimalShape = 'bird' | 'owl' | 'raptor' | 'pheasant' | 'pangolin' | 'cat' | 'mustelid' | 'bear' | 'goat';
+export type AnimalUnlock = { kind: 'start' } | { kind: 'project'; id: string } | { kind: 'coins'; price: number } | { kind: 'iap'; price: string };
+export interface AnimalDef {
   id: string;
   name: string;
-  category: 'insect' | 'fish' | 'amphibian' | 'bird';
-  habitatId: HabitatId;
-  requiredProjectId: string;
-  description: string;
-  behaviorLabel: string;
-  price: number; // 舊版「邀請野生訪客」的價格，只用來驗證舊存檔的交易紀錄
-}
-
-export const CATEGORY_LABEL = { insect: '昆蟲', fish: '魚類', amphibian: '兩棲類', bird: '鳥類' } as const;
-
-// 介紹保持簡單、保守的觀察描述，不宣稱學名或精確生態
-export const SPECIES: SpeciesDef[] = [
-  { id: 'butterfly_yellow', name: '黃蝶', category: 'insect', habitatId: 'greenhouse', requiredProjectId: 'gh_flowers', description: '翅膀是明亮的黃色，常在開花的花圃附近慢慢飛。', behaviorLabel: '緩慢振翅、訪花、停棲', price: 30 },
-  { id: 'bee', name: '訪花蜂', category: 'insect', habitatId: 'greenhouse', requiredProjectId: 'gh_fountain', description: '身上有黃黑相間的條紋，在花朵之間來回停留。', behaviorLabel: '花間移動、短暫懸停', price: 40 },
-  { id: 'butterfly_green', name: '青綠鳳蝶', category: 'insect', habitatId: 'greenhouse', requiredProjectId: 'gh_plants', description: '黑色翅膀帶著青綠色的斑紋，喜歡在葉叢間繞圈。', behaviorLabel: '繞行、振翅、短暫停棲', price: 60 },
-  { id: 'ladybird', name: '瓢蟲', category: 'insect', habitatId: 'greenhouse', requiredProjectId: 'gh_plants', description: '圓圓的紅色背殼上有黑點，常沿著葉片慢慢爬。', behaviorLabel: '沿葉片緩慢移動', price: 50 },
-  { id: 'dragonfly', name: '蜻蜓', category: 'insect', habitatId: 'stream', requiredProjectId: 'st_bank', description: '細長的身體和透明的翅膀，常在水面上方巡飛，偶爾停在枝梢。', behaviorLabel: '水面飛行、停在枝梢', price: 70 },
-  { id: 'minnow', name: '溪流小魚', category: 'fish', habitatId: 'stream', requiredProjectId: 'st_water', description: '小小的銀色身影，成群在清澈的淺水裡游動。', behaviorLabel: '小群緩慢游動', price: 80 },
-  { id: 'frog', name: '青蛙', category: 'amphibian', habitatId: 'stream', requiredProjectId: 'st_bridge', description: '綠色的身體靜靜趴在岸邊，喉嚨隨著呼吸輕輕起伏。', behaviorLabel: '呼吸起伏、偶爾跳動', price: 100 },
-  { id: 'waterside_bird', name: '水邊小鳥', category: 'bird', habitatId: 'stream', requiredProjectId: 'st_bridge', description: '在岸邊慢慢走動，不時低頭觀察水面。', behaviorLabel: '岸邊走動、低頭觀察', price: 120 },
-];
-export const speciesDef = (id: string) => SPECIES.find((s) => s.id === id);
-
-// ---------- 寵物（數值可集中調整） ----------
-
-export type Rarity = 'common' | 'rare' | 'special';
-export const RARITY_LABEL: Record<Rarity, string> = { common: '常見', rare: '稀有', special: '特殊' };
-
-export interface PetDef {
-  id: string;
-  name: string;
-  rarity: Rarity;
-  habitatId: HabitatId;
-  requiredProjectId: string; // 棲地條件
-  adoptPrice: number; // 領養所需金幣
-  stages: [string, string, string, string]; // 四個成長階段名稱
-  thresholds: [number, number, number]; // 進入第 2、3、4 階段所需的累計飼料
-  blurb: string;
-  art?: boolean; // true = 已有美術圖檔（public/pets/{id}/），否則用程式畫的臨時圖
-}
-
-// 每小時專注約得 12～14 份飼料：只養一隻時，常見約 20 小時、稀有約 35 小時、特殊約 70 小時長成成體
-// （同時養好幾隻會分散飼料，實際會更久；pacing.test.ts 有模擬）
-export const COMMON: PetDef['thresholds'] = [30, 110, 260];
-export const RARE: PetDef['thresholds'] = [50, 180, 450];
-export const SPECIAL: PetDef['thresholds'] = [100, 350, 900];
-
-// 第一階段只放已開放棲地的 5 隻；林間草地、海岸、海灣開放後再加入其餘 5 隻
-export const PETS: PetDef[] = [
-  { id: 'pet_butterfly', name: '黃蝶', rarity: 'common', habitatId: 'greenhouse', requiredProjectId: 'gh_flowers', adoptPrice: 300, stages: ['卵', '毛毛蟲', '蛹', '黃蝶'], thresholds: COMMON, blurb: '從一顆小小的卵開始，慢慢變成在花間飛舞的蝴蝶。' },
-  { id: 'pet_whiteeye', name: '綠繡眼', rarity: 'common', habitatId: 'greenhouse', requiredProjectId: 'gh_plants', adoptPrice: 300, stages: ['蛋', '雛鳥', '幼鳥', '綠繡眼'], thresholds: COMMON, blurb: '長大後眼睛周圍會出現一圈白色的羽毛。' },
-  { id: 'pet_frog', name: '青蛙', rarity: 'common', habitatId: 'stream', requiredProjectId: 'st_entrance', adoptPrice: 300, stages: ['卵塊', '蝌蚪', '長腳蝌蚪', '青蛙'], thresholds: COMMON, blurb: '從水裡的蝌蚪，一點一點長出腳，最後跳上岸。' },
-  { id: 'pet_firefly', name: '螢火蟲', rarity: 'rare', habitatId: 'stream', requiredProjectId: 'st_water', adoptPrice: 700, stages: ['卵', '水中幼蟲', '蛹', '螢火蟲'], thresholds: RARE, blurb: '幼蟲住在乾淨的水裡，長大後會發出柔和的光。' },
-  { id: 'pet_axolotl', name: '六角恐龍', rarity: 'special', habitatId: 'stream', requiredProjectId: 'st_bridge', adoptPrice: 1500, stages: ['卵', '幼體', '長出外鰓', '六角恐龍'], thresholds: SPECIAL, blurb: '長大後仍保留幼體的模樣，頭兩側有像羽毛的外鰓。' },
-];
-export const petDef = (id: string) => PETS.find((p) => p.id === id);
-
-/** 每種寵物 6 組表情，孵化（卵 → 第 2 階段）時隨機揭曉，長大後可在表情相簿自由切換。 */
-export const FACES = ['開心', '瞇瞇眼', '驚訝', '害羞', '睏睏', '調皮'];
-
-/** 名額：每個開放的場景先有 1 個，每買一個設施 +1，每個場景最多 5 隻。 */
-export const MAX_PETS_PER_HABITAT = 5;
-
-/** 新手禮物：完成第一個工程時送一顆黃蝶的卵。 */
-export const STARTER = { projectId: 'gh_entrance', petTypeId: 'pet_butterfly' };
-
-/** 驚喜蛋：每個場景一種價格；孵出的種類依稀有度加權，優先島上還沒養過的種類。 */
-export const EGG_PRICE: Partial<Record<HabitatId, number>> = { greenhouse: 150, stream: 250 };
-export const RARITY_WEIGHT: Record<Rarity, number> = { common: 3, rare: 2, special: 1 };
-
-export interface FacilityDef {
-  id: string;
-  habitatId: HabitatId;
-  name: string;
-  price: number;
+  shape: AnimalShape; // 臨時圖用的外形
+  color: string; // 臨時圖主色（也是蛋的斑點色）
+  accent: string;
+  unlock: AnimalUnlock;
   blurb: string;
 }
-
-/** 看得到的設施：放進場景，每個名額 +1。 */
-export const FACILITIES: FacilityDef[] = [
-  { id: 'gh_trellis', habitatId: 'greenhouse', name: '蝴蝶花架', price: 300, blurb: '爬滿小花的拱形花架。' },
-  { id: 'gh_nestbox', habitatId: 'greenhouse', name: '鳥巢箱', price: 600, blurb: '掛在柱子上的木頭小屋。' },
-  { id: 'gh_basket', habitatId: 'greenhouse', name: '吊盆花籃', price: 1000, blurb: '從屋頂垂下來的花籃。' },
-  { id: 'gh_planter', habitatId: 'greenhouse', name: '高腳花台', price: 1500, blurb: '種滿香草的木頭花台。' },
-  { id: 'st_pond', habitatId: 'stream', name: '小水池', price: 500, blurb: '岸邊用石頭圍起的淺水池。' },
-  { id: 'st_rocks', habitatId: 'stream', name: '石堆', price: 900, blurb: '可以躲藏、曬太陽的石頭。' },
-  { id: 'st_reeds', habitatId: 'stream', name: '蘆葦叢', price: 1300, blurb: '一大叢搖曳的蘆葦。' },
-  { id: 'st_log', habitatId: 'stream', name: '漂流木', price: 1800, blurb: '橫躺在岸邊的老木頭。' },
+export const ANIMALS: AnimalDef[] = [
+  { id: 'blue_magpie', name: '台灣藍鵲', shape: 'bird', color: '#2f6fd6', accent: '#e23b2e', unlock: { kind: 'start' }, blurb: '一身寶藍色的羽毛和長長的尾巴，常成群在樹林間穿梭。' },
+  { id: 'scops_owl', name: '領角鴞', shape: 'owl', color: '#9a7b5a', accent: '#f0c869', unlock: { kind: 'start' }, blurb: '夜裡活動的小型貓頭鷹，頭上有一對像耳朵的羽毛。' },
+  { id: 'pangolin', name: '穿山甲', shape: 'pangolin', color: '#a8865c', accent: '#6e5233', unlock: { kind: 'project', id: 'fo_trail' }, blurb: '全身覆蓋鱗片，遇到危險會捲成一顆球。' },
+  { id: 'pitta', name: '八色鳥', shape: 'bird', color: '#3fae5a', accent: '#f2c230', unlock: { kind: 'project', id: 'fo_saplings' }, blurb: '色彩繽紛的夏候鳥，常在森林底層的落葉間覓食。' },
+  { id: 'leopard_cat', name: '石虎', shape: 'cat', color: '#c99a5b', accent: '#5a4026', unlock: { kind: 'project', id: 'fo_cabin' }, blurb: '和家貓差不多大，額頭上有兩條明顯的白色斑紋。' },
+  { id: 'swinhoe_pheasant', name: '藍腹鷴', shape: 'pheasant', color: '#2b3f8c', accent: '#d8392f', unlock: { kind: 'project', id: 'fo_undergrowth' }, blurb: '雄鳥有深藍色的身體和白色的尾羽，常在清晨的林道上出現。' },
+  { id: 'crab_mongoose', name: '食蟹獴', shape: 'mustelid', color: '#8a7a66', accent: '#efe6d6', unlock: { kind: 'project', id: 'fo_corridor' }, blurb: '喜歡在溪邊翻找食物，臉頰兩側有白色的條紋。' },
+  { id: 'marten', name: '黃喉貂', shape: 'mustelid', color: '#3b2e25', accent: '#f2c230', unlock: { kind: 'project', id: 'fo_spring' }, blurb: '喉嚨是亮黃色的，動作靈活，能在樹上快速移動。' },
+  { id: 'hawk_eagle', name: '熊鷹', shape: 'raptor', color: '#6b4b30', accent: '#efe2c8', unlock: { kind: 'project', id: 'fo_canopy' }, blurb: '大型的猛禽，在森林上空盤旋，翅膀寬大有力。' },
+  { id: 'black_bear', name: '台灣黑熊', shape: 'bear', color: '#2a2622', accent: '#f1ecdf', unlock: { kind: 'project', id: 'fo_rescue' }, blurb: '胸前有一道白色的 V 字形斑紋，是台灣森林的代表動物。' },
+  { id: 'civet', name: '小麝香貓', shape: 'cat', color: '#b7a07c', accent: '#4a3b2a', unlock: { kind: 'coins', price: 800 }, blurb: '身上有成排的黑色斑點，尾巴有一圈一圈的環紋。' },
+  { id: 'mikado_pheasant', name: '帝雉', shape: 'pheasant', color: '#1f2f5c', accent: '#7fa3d8', unlock: { kind: 'coins', price: 1200 }, blurb: '住在中高海拔森林，羽毛在陽光下帶著藍紫色的光澤。' },
+  { id: 'serow', name: '長鬃山羊', shape: 'goat', color: '#6d5a48', accent: '#d9cbb5', unlock: { kind: 'coins', price: 1600 }, blurb: '擅長在陡峭的山壁上行走，脖子上有長長的鬃毛。' },
+  { id: 'clouded_leopard', name: '台灣雲豹', shape: 'cat', color: '#c2a476', accent: '#5b4630', unlock: { kind: 'iap', price: 'NT$90' }, blurb: '身上有像雲朵的斑紋。野外已多年沒有確切紀錄，是森林裡的傳說。' },
+  { id: 'black_eagle', name: '林鵰', shape: 'raptor', color: '#2b2622', accent: '#f2c230', unlock: { kind: 'iap', price: 'NT$60' }, blurb: '全身深色的大型猛禽，常貼著樹冠緩緩滑翔。' },
 ];
-export const facilityDef = (id: string) => FACILITIES.find((f) => f.id === id);
+export const animalDef = (id: string | undefined) => ANIMALS.find((a) => a.id === id) ?? ANIMALS[0];
+/** 孵出來的大小（0～3）依專注分鐘：10～24、25～59、60～119、120 以上。 */
+export const sizeTier = (min: number) => (min < 25 ? 0 : min < 60 ? 1 : min < 120 ? 2 : 3);
 
 // ---------- 大自然交響樂：可收集的環境音 ----------
 
-export type SoundUnlock = { kind: 'start' } | { kind: 'project'; id: string } | { kind: 'species'; id: string } | { kind: 'petGrown'; id: string };
+export type SoundUnlock = { kind: 'start' } | { kind: 'project'; id: string } | { kind: 'hatched'; id: string };
 export interface SoundDef {
   id: string;
   name: string;
@@ -173,63 +118,29 @@ export interface SoundDef {
   desc: string;
   unlock: SoundUnlock;
 }
+// id 對應 sound.ts 裡合成的聲音
 export const SOUNDS: SoundDef[] = [
-  { id: 'breeze', name: '溫室微風', icon: '🍃', desc: '風輕輕吹過玻璃屋頂。', unlock: { kind: 'start' } },
-  { id: 'fountain', name: '噴泉水聲', icon: '⛲', desc: '修好的噴泉，水滴落回池子裡。', unlock: { kind: 'project', id: 'gh_fountain' } },
-  { id: 'bees', name: '花間蜂鳴', icon: '🐝', desc: '訪花蜂在花圃之間嗡嗡飛著。', unlock: { kind: 'species', id: 'bee' } },
-  { id: 'stream', name: '溪流潺潺', icon: '💧', desc: '淺淺的溪水流過石頭。', unlock: { kind: 'project', id: 'st_entrance' } },
-  { id: 'birds', name: '水邊鳥鳴', icon: '🐦', desc: '岸邊的小鳥偶爾輕聲啼叫。', unlock: { kind: 'species', id: 'waterside_bird' } },
-  { id: 'frogs', name: '蛙鳴', icon: '🐸', desc: '青蛙在岸邊此起彼落地叫著。', unlock: { kind: 'species', id: 'frog' } },
-  { id: 'night', name: '夏夜蟲鳴', icon: '🌙', desc: '螢火蟲亮起的夜晚，草叢裡的蟲鳴。', unlock: { kind: 'petGrown', id: 'pet_firefly' } },
+  { id: 'breeze', name: '森林微風', icon: '🍃', desc: '風輕輕吹過樹梢。', unlock: { kind: 'start' } },
+  { id: 'birds', name: '林間鳥鳴', icon: '🐦', desc: '樹林間此起彼落的鳥叫聲。', unlock: { kind: 'project', id: 'fo_saplings' } },
+  { id: 'bees', name: '草叢蟲鳴', icon: '🐝', desc: '草叢裡忙碌的小昆蟲。', unlock: { kind: 'project', id: 'fo_undergrowth' } },
+  { id: 'stream', name: '泉水潺潺', icon: '💧', desc: '水源地的泉水流過石頭。', unlock: { kind: 'project', id: 'fo_spring' } },
+  { id: 'fountain', name: '雨後滴答', icon: '🌧️', desc: '雨停後，水滴從樹葉落下。', unlock: { kind: 'project', id: 'fo_canopy' } },
+  { id: 'night', name: '夏夜森林', icon: '🌙', desc: '夜晚的森林，遠處傳來貓頭鷹的叫聲。', unlock: { kind: 'hatched', id: 'scops_owl' } },
+  { id: 'frogs', name: '林間蛙鳴', icon: '🐸', desc: '下過雨的夜裡，樹蛙開始合唱。', unlock: { kind: 'project', id: 'fo_rescue' } },
 ];
-
-// ---------- 今日花圃：每段專注種下一株植物 ----------
-
-/** 開始前選植物，專注時看它長大，結束後種進當天的花圃（放棄會枯萎）。新手 2 種，每修好一個工程解鎖 1 種。花色跟著標籤。 */
-export type PlantBloom = 'petals' | 'star' | 'cup' | 'cluster' | 'bells' | 'spike' | 'lotus';
-export interface PlantDef {
-  id: string;
-  name: string;
-  unlockProjectId: string | null; // null = 一開始就有
-  bloom: PlantBloom;
-}
-export const PLANTS: PlantDef[] = [
-  { id: 'daisy', name: '雛菊', unlockProjectId: null, bloom: 'petals' },
-  { id: 'clover', name: '白三葉草', unlockProjectId: null, bloom: 'cluster' },
-  { id: 'tulip', name: '鬱金香', unlockProjectId: 'gh_entrance', bloom: 'cup' },
-  { id: 'cosmos', name: '波斯菊', unlockProjectId: 'gh_flowers', bloom: 'star' },
-  { id: 'waterlily', name: '睡蓮', unlockProjectId: 'gh_fountain', bloom: 'lotus' },
-  { id: 'lily_valley', name: '鈴蘭', unlockProjectId: 'gh_plants', bloom: 'bells' },
-  { id: 'ginger', name: '野薑花', unlockProjectId: 'st_entrance', bloom: 'star' },
-  { id: 'reed', name: '蘆葦', unlockProjectId: 'st_bank', bloom: 'spike' },
-  { id: 'iris', name: '鳶尾花', unlockProjectId: 'st_water', bloom: 'cup' },
-  { id: 'hydrangea', name: '繡球花', unlockProjectId: 'st_bridge', bloom: 'cluster' },
-];
-export const plantDef = (id: string | undefined) => PLANTS.find((p) => p.id === id) ?? PLANTS[0];
-/** 植物大小（0～3）依專注分鐘：10～24、25～59、60～119、120 以上。 */
-export const plantTier = (min: number) => (min < 25 ? 0 : min < 60 ? 1 : min < 120 ? 2 : 3);
 
 /** 測試工具（專注畫面的「立即完成」）。上線前改成 false。 */
 export const TEST_TOOLS = true;
 
-/** 專注完成時偶遇生物：滿 10 分鐘才有機會，每分鐘 +0.13%，最高 12%（60 分鐘約 8%，平均 1～2 週遇到一次）。 */
-export const CHANCE = { minMinutes: 10, perMinute: 0.0013, max: 0.12 };
-
-/** 節奏版本：v2 起改為長期節奏；舊存檔載入時會換算寵物成長（見 save.ts migratePacing）。 */
-export const PACING_VERSION = 2;
-
-/** 專注每 5 分鐘 1 份飼料；倒數每撐完 25 分鐘再多 1 份。 */
-export const FEED_PER_MINUTES = 5;
-export const COUNTDOWN_BONUS_PER_MINUTES = 25;
+/** 內容版本：3 = 陸地森林＋孵化動物（舊的溫室／溪流、植物、寵物存檔載入時轉換，見 save.ts migrateForest）。 */
+export const CONTENT_VERSION = 3;
 
 export const COPY = {
   start: '為自己留一段時間。',
-  complete: (min: number) => `這 ${min} 分鐘，讓小島更靠近春天。`,
+  complete: (min: number) => `這 ${min} 分鐘，讓森林更靠近春天。`,
   projectNeed: (pts: number, promise: string) => `再 ${pts} 點，${promise}。`,
-  newVisitor: (habitat: string) => `有新朋友來訪。去${habitat}看看吧。`,
-  canAdopt: (names: string) => `${names}可以領養了，到商店用金幣領養吧。`,
   welcomeBack: '歡迎回來，小島一直在這裡。',
-  allRestored: '這一階段的棲地已經恢復。今天也一起好好生活。',
+  allRestored: '森林已經恢復了。今天也一起好好生活。',
   demoBanner: '本機合作示範，非即時連線',
   multiplayerOff: '多人連線尚未啟用',
 };

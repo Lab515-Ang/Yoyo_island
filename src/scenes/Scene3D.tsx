@@ -1,9 +1,9 @@
-// 原創低多邊形 3D 棲地：場景物件由工程狀態推導；住在島上的只有領養的寵物
+// 原創低多邊形 3D 森林：場景物件由工程狀態推導；動物是專注孵出來的
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { PetArt, faceArtUrl, petArtUrl } from '../components/PetArt';
+import { AnimalArt } from '../components/Animal';
 import type { HabitatId } from '../domain/types';
 
 export interface SceneProps {
@@ -11,13 +11,12 @@ export interface SceneProps {
   done: (projectId: string) => boolean;
   prog?: (projectId: string) => number; // 工程進度，切成 0／0.25／0.5／0.75／1，中途就讓場景有一點變化
   reducedMotion: boolean;
-  onSelect?: (speciesId: string) => void;
+  onSelect?: (id: string) => void;
   onSlow?: () => void;
   backdrop?: boolean; // 專注畫面的全螢幕背景：場景往上移，留出下方放倒數泡泡
   bubble?: boolean; // 大廳的圓形泡泡：鏡頭拉近
   lowPower?: boolean; // 省電：每秒只畫 12 張、解析度降到 1 倍（專注背景、大廳泡泡用）
-  pets?: ScenePet[]; // 住在這個場景的寵物（點擊回傳 pet:{id}）
-  facilities?: string[]; // 已購買的設施
+  animals?: SceneAnimal[]; // 最近孵出的動物（點擊回傳 session id）
 }
 
 const C = {
@@ -109,22 +108,23 @@ function useAnim(still: boolean, fn: Anim) {
   return ref;
 }
 
-// ---------- 寵物（2D 圖片，永遠面向鏡頭）與設施 ----------
+// ---------- 動物（2D 圖片，永遠面向鏡頭） ----------
 
-export interface ScenePet {
-  id: string;
-  typeId: string;
-  art?: boolean;
-  stage: number;
-  face: number;
-  grow?: number; // 0～1：目前階段裡長大了多少
+export interface SceneAnimal {
+  id: string; // 孵出牠的那段專注
+  animalId: string;
+  tier: number; // 0～3：專注越久越大
 }
 
-/** 每個場景最多 5 隻，依領養順序放在固定位置。 */
-const PET_SPOTS: Record<string, [number, number, number][]> = {
-  greenhouse: [[-1.9, 0.1, 2.0], [1.9, 0.1, 2.0], [-1.6, 0.1, -1.9], [1.7, 0.1, -2.0], [-3.6, 0.1, -0.8]],
-  stream: [[-1.4, 0.3, 1.5], [0.4, 0.3, 1.6], [-3.4, 0.3, -1.6], [1.0, 0.3, -1.6], [-4.6, 0.3, 1.6]],
-};
+/** 最多 6 隻，依最近孵出的順序放在固定位置。 */
+const SPOTS: [number, number, number][] = [
+  [-1.2, 0.05, 1.9],
+  [1.4, 0.05, 1.7],
+  [-2.8, 0.05, 0.4],
+  [2.9, 0.05, 0.2],
+  [-0.4, 0.05, 3.0],
+  [0.9, 0.05, -0.9],
+];
 
 const loadImage = (src: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
@@ -134,21 +134,18 @@ const loadImage = (src: string) =>
     img.src = src;
   });
 
-/** 把寵物圖（美術圖疊圖，或臨時 SVG）畫成貼圖。 */
-function usePetTexture(p: ScenePet) {
+/** 把動物圖（臨時 SVG；美術圖到位後換成圖片）畫成貼圖。 */
+function useAnimalTexture(animalId: string) {
   const [tex, setTex] = useState<THREE.CanvasTexture | null>(null);
   useEffect(() => {
     let alive = true;
-    const urls = p.art
-      ? [petArtUrl(p.typeId, p.stage), ...(p.stage > 0 ? [faceArtUrl(p.typeId, p.stage, p.face)] : [])]
-      : [`data:image/svg+xml;charset=utf-8,${encodeURIComponent(renderToStaticMarkup(<PetArt id={p.typeId} stage={p.stage} face={p.face} size={256} />))}`];
-    Promise.all(urls.map(loadImage))
-      .then((imgs) => {
+    const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(renderToStaticMarkup(<AnimalArt id={animalId} size={256} />))}`;
+    loadImage(url)
+      .then((img) => {
         if (!alive) return;
         const c = document.createElement('canvas');
         c.width = c.height = 256;
-        const g = c.getContext('2d')!;
-        for (const img of imgs) g.drawImage(img, 0, 0, 256, 256);
+        c.getContext('2d')!.drawImage(img, 0, 0, 256, 256);
         const t = new THREE.CanvasTexture(c);
         t.colorSpace = THREE.SRGBColorSpace;
         setTex(t);
@@ -157,29 +154,25 @@ function usePetTexture(p: ScenePet) {
     return () => {
       alive = false;
     };
-  }, [p.typeId, p.art, p.stage, p.face]);
+  }, [animalId]);
   return tex;
 }
 
-function PetSprite({ pet, spot, still, onSelect }: { pet: ScenePet; spot: [number, number, number]; still: boolean; onSelect?: (id: string) => void }) {
-  const tex = usePetTexture(pet);
-  const phase = pet.id.length + spot[0];
+function AnimalSprite({ a, spot, still, onSelect }: { a: SceneAnimal; spot: [number, number, number]; still: boolean; onSelect?: (id: string) => void }) {
+  const tex = useAnimalTexture(a.animalId);
+  const phase = a.id.length + spot[0];
   const ref = useAnim(still, (g, t) => {
     g.position.y = Math.abs(Math.sin(t * 1.4 + phase)) * 0.05; // 輕輕彈跳
     g.scale.y = 1 + Math.sin(t * 2.2 + phase) * 0.02; // 呼吸
   });
-  const s = [0.6, 0.85, 1, 1.15][pet.stage] * 1.5 * (1 + 0.15 * (pet.grow ?? 0));
+  const s = [1.0, 1.2, 1.4, 1.6][Math.max(0, Math.min(3, a.tier))];
   return (
-    <Pick id={`pet:${pet.id}`} onSelect={onSelect}>
+    <Pick id={a.id} onSelect={onSelect}>
       <group position={spot}>
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]} raycast={noHit}>
-          <circleGeometry args={[s * 0.32, 16]} />
-          <meshBasicMaterial color="#2f4a36" transparent opacity={0.14} depthWrite={false} />
-        </mesh>
         <group ref={ref}>
           {tex && (
-            // 美術規格：腳底在畫布 472/512 處，往下補回 40px 的留白，讓腳踩在地上
-            <sprite scale={[s, s, 1]} position={[0, s / 2 - s * (40 / 512), 0]}>
+            // 畫布 100×100、地面在 y = 92（含自己的影子）：往下補回 8% 的留白，讓腳踩在地上
+            <sprite scale={[s, s, 1]} position={[0, s / 2 - s * 0.08, 0]}>
               <spriteMaterial map={tex} transparent depthWrite={false} />
             </sprite>
           )}
@@ -187,119 +180,6 @@ function PetSprite({ pet, spot, still, onSelect }: { pet: ScenePet; spot: [numbe
       </group>
     </Pick>
   );
-}
-
-function Facility({ id }: { id: string }) {
-  switch (id) {
-    case 'gh_trellis':
-      return (
-        <group position={[-2.3, 0.1, -2.7]}>
-          {[-0.6, 0.6].map((x) => (
-            <mesh key={x} position={[x, 0.7, 0]}>
-              <cylinderGeometry args={[0.05, 0.05, 1.4, 6]} />
-              <Mat color={C.wood} />
-            </mesh>
-          ))}
-          <mesh position={[0, 1.4, 0]}>
-            <torusGeometry args={[0.6, 0.05, 6, 20, Math.PI]} />
-            <Mat color={C.wood} />
-          </mesh>
-          {[0.3, 0.9, 1.5, 2.1, 2.7].map((a, i) => (
-            <Flower key={a} p={[Math.cos(a) * 0.6, 1.4 + Math.sin(a) * 0.6 - 0.14, 0]} color={FLOWER[i % FLOWER.length]} h={0.1} />
-          ))}
-        </group>
-      );
-    case 'gh_nestbox':
-      return (
-        <group position={[3.5, 1.9, -2.55]}>
-          <mesh>
-            <boxGeometry args={[0.36, 0.42, 0.32]} />
-            <Mat color={C.wood} />
-          </mesh>
-          <mesh position={[0, 0.27, 0]} rotation={[0, 0, Math.PI / 4]}>
-            <boxGeometry args={[0.32, 0.32, 0.38]} />
-            <Mat color={C.woodDark} />
-          </mesh>
-          <mesh position={[0, 0.02, 0.17]} rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.07, 0.07, 0.02, 12]} />
-            <Mat color="#3a3128" />
-          </mesh>
-        </group>
-      );
-    case 'gh_basket':
-      return (
-        <group position={[-1.4, 2.6, -4.1]}>
-          <mesh position={[0, 0.5, 0]}>
-            <cylinderGeometry args={[0.01, 0.01, 1, 4]} />
-            <Mat color={C.woodDark} />
-          </mesh>
-          <mesh>
-            <sphereGeometry args={[0.3, 12, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2]} />
-            <Mat color={C.wood} />
-          </mesh>
-          <Bush p={[0, -0.12, 0]} s={0.5} />
-          <Flower p={[0.12, 0, 0.1]} color={FLOWER[3]} h={0.12} />
-        </group>
-      );
-    case 'gh_planter':
-      return (
-        <group position={[3.3, 0.1, 2.5]}>
-          <mesh position={[0, 0.35, 0]}>
-            <boxGeometry args={[1, 0.3, 0.5]} />
-            <Mat color={C.wood} />
-          </mesh>
-          {[-0.4, 0.4].map((x) => (
-            <mesh key={x} position={[x, 0.12, 0]}>
-              <boxGeometry args={[0.08, 0.25, 0.4]} />
-              <Mat color={C.woodDark} />
-            </mesh>
-          ))}
-          {[-0.3, 0, 0.3].map((x, i) => (
-            <Bush key={x} p={[x, 0.45, 0]} s={0.35} color={i % 2 ? C.sage : C.sageDark} />
-          ))}
-        </group>
-      );
-    case 'st_pond':
-      return (
-        <group position={[-3.8, 0.3, 2.7]}>
-          <mesh position={[0, 0.02, 0]}>
-            <cylinderGeometry args={[0.6, 0.6, 0.02, 20]} />
-            <Mat color={C.water} />
-          </mesh>
-          {Array.from({ length: 9 }, (_, i) => (i / 9) * Math.PI * 2).map((a) => (
-            <Rock key={a} p={[Math.cos(a) * 0.68, 0.04, Math.sin(a) * 0.68]} s={0.12} />
-          ))}
-        </group>
-      );
-    case 'st_rocks':
-      return (
-        <group position={[-0.8, 0.3, -2.3]}>
-          <Rock p={[0, 0.12, 0]} s={0.35} />
-          <Rock p={[0.4, 0.08, 0.15]} s={0.24} />
-          <Rock p={[-0.35, 0.06, 0.2]} s={0.2} />
-        </group>
-      );
-    case 'st_reeds':
-      return (
-        <group position={[4.6, 0.3, 1.9]}>
-          {spread(9, 0.4).map(([x, z], i) => (
-            <mesh key={i} position={[x, 0.5, z]} rotation={[0, 0, (i % 3 - 1) * 0.1]}>
-              <cylinderGeometry args={[0.02, 0.03, 1, 5]} />
-              <Mat color={C.sageDark} />
-            </mesh>
-          ))}
-        </group>
-      );
-    case 'st_log':
-      return (
-        <mesh position={[4.2, 0.42, -2.1]} rotation={[0, 0.4, Math.PI / 2]}>
-          <cylinderGeometry args={[0.16, 0.18, 1.6, 10]} />
-          <Mat color={C.woodDark} />
-        </mesh>
-      );
-    default:
-      return null;
-  }
 }
 
 // ---------- 場景物件 ----------
@@ -380,343 +260,188 @@ function Water({ y, still, color, opacity, children }: { y: number; still: boole
   );
 }
 
+
 type Progress = { done: (id: string) => boolean; prog: (id: string) => number; still: boolean };
 
-function Greenhouse({ done, prog, still }: Progress) {
-  const R = 4.8;
-  const pillars = [0, 1, 2, 3, 4, 5].map((i) => (i / 5) * Math.PI);
-  const flowers = useMemo(() => spread(14, 0.8), []);
-  const leafs = useMemo(() => spread(7, 0.75), []);
-  const jet = useAnim(still, (g, t) => {
-    g.scale.y = 1 + Math.sin(t * 3) * 0.06;
-  });
-  const fountainOn = done('gh_fountain');
-  const fq = prog('gh_fountain');
-  const flowerCount = done('gh_flowers') ? flowers.length : Math.floor(flowers.length * prog('gh_flowers'));
-  const leafCount = done('gh_plants') ? leafs.length : Math.floor(leafs.length * prog('gh_plants'));
+function Log({ p, r = 0 }: { p: [number, number, number]; r?: number }) {
   return (
-    <group>
-      {/* 戶外草地與遠景樹 */}
-      <mesh position={[0, -0.15, 0]} raycast={noHit}>
-        <cylinderGeometry args={[16, 16, 0.1, 40]} />
-        <Mat color={C.grass} />
-      </mesh>
-      <Tree p={[-6.5, 0, -6.5]} s={1.4} />
-      <Tree p={[-2.5, 0, -8.5]} s={1.7} />
-      <Tree p={[3.5, 0, -8]} s={1.5} />
-      <Tree p={[7, 0, -5]} s={1.3} />
+    <mesh position={p} rotation={[0, r, Math.PI / 2]}>
+      <cylinderGeometry args={[0.16, 0.18, 1.6, 8]} />
+      <Mat color={C.woodDark} />
+    </mesh>
+  );
+}
 
-      {/* 溫室地板、柱子、玻璃（後半剖面，讓 3/4 視角看得到內部） */}
-      <mesh position={[0, 0, 0]} raycast={noHit}>
-        <cylinderGeometry args={[R + 0.2, R + 0.3, 0.2, 40]} />
-        <Mat color={C.cream} />
-      </mesh>
-      {pillars.map((a) => (
-        <mesh key={a} position={[Math.cos(a) * R, 1.6, -Math.sin(a) * R]}>
-          <cylinderGeometry args={[0.14, 0.17, 3.2, 10]} />
-          <Mat color="#f6f1e6" />
+function Fern({ p, s = 1 }: { p: [number, number, number]; s?: number }) {
+  return (
+    <group position={p} scale={s}>
+      {[0, 1.2, 2.4, 3.6, 4.8].map((a) => (
+        <mesh key={a} position={[Math.cos(a) * 0.12, 0.18, Math.sin(a) * 0.12]} rotation={[0.7 * Math.cos(a), a, 0.7 * Math.sin(a)]}>
+          <coneGeometry args={[0.07, 0.5, 4]} />
+          <Mat color={C.sageDark} />
         </mesh>
       ))}
-      {[3.2, 1.6].map((y) => (
-        <mesh key={y} position={[0, y, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[R, y > 2 ? 0.09 : 0.04, 6, 40, Math.PI]} />
-          <Mat color="#f6f1e6" />
-        </mesh>
-      ))}
-      <mesh position={[0, 1.6, 0]} raycast={noHit}>
-        <cylinderGeometry args={[R - 0.02, R - 0.02, 3.2, 32, 1, true, Math.PI / 2, Math.PI]} />
-        <meshLambertMaterial color={C.glass} transparent opacity={0.18} side={THREE.DoubleSide} depthWrite={false} />
-      </mesh>
-      <mesh position={[0, 3.2, 0]} scale={[1, 0.5, 1]} raycast={noHit}>
-        <sphereGeometry args={[R, 32, 10, Math.PI, Math.PI, 0, Math.PI / 2]} />
-        <meshLambertMaterial color={C.glass} transparent opacity={0.16} side={THREE.DoubleSide} depthWrite={false} />
-      </mesh>
-
-      {/* gh_entrance：入口小徑與花盆 */}
-      {done('gh_entrance') ? (
-        <group>
-          {[4.6, 3.9, 3.2, 2.5].map((z, i) => (
-            <mesh key={z} position={[i % 2 ? 0.15 : -0.15, 0.12, z]}>
-              <cylinderGeometry args={[0.36, 0.38, 0.05, 14]} />
-              <Mat color={C.stone} />
-            </mesh>
-          ))}
-          {[-1.3, 1.3].map((x) => (
-            <group key={x} position={[x, 0.1, 4.1]}>
-              <mesh position={[0, 0.22, 0]}>
-                <cylinderGeometry args={[0.3, 0.22, 0.44, 12]} />
-                <Mat color="#d39a77" />
-              </mesh>
-              <Bush p={[0, 0.3, 0]} s={0.6} />
-              <Flower p={[0.1, 0.5, 0.1]} color={FLOWER[1]} h={0.25} />
-            </group>
-          ))}
-        </group>
-      ) : (
-        <group>
-          <Rock p={[-0.5, 0.2, 3.9]} s={0.32} />
-          <Rock p={[0.6, 0.2, 3.3]} s={0.26} />
-          <Rock p={[1.4, 0.18, 4.3]} s={0.22} />
-          {[[-1, 3, 0.6], [0.2, 4.4, -0.4], [1.1, 2.8, 1.2]].map(([x, z, r]) => (
-            <mesh key={x} position={[x, 0.15, z]} rotation={[Math.PI / 2, 0, r]}>
-              <cylinderGeometry args={[0.03, 0.04, 0.9, 5]} />
-              <Mat color={C.dry} />
-            </mesh>
-          ))}
-        </group>
-      )}
-
-      {/* 噴泉 */}
-      <group>
-        <mesh position={[0, 0.32, 0]}>
-          <cylinderGeometry args={[1.4, 1.5, 0.45, 32]} />
-          <Mat color={C.stone} />
-        </mesh>
-        {fountainOn ? (
-          <Water y={0.33} still={still} color={C.water} opacity={0.85}>
-            <cylinderGeometry args={[1.22, 1.22, 0.47, 32]} />
-          </Water>
-        ) : (
-          <>
-            <mesh position={[0, 0.33, 0]}>
-              <cylinderGeometry args={[1.22, 1.22, 0.46, 32]} />
-              <Mat color={fq >= 0.25 ? '#ddd2bc' : '#cdbfa3'} />
-            </mesh>
-            {fq >= 0.5 && (
-              <mesh position={[0, 0.57, 0]} raycast={noHit}>
-                <cylinderGeometry args={[1.2 * fq, 1.2 * fq, 0.02, 32]} />
-                <Mat color={C.water} opacity={0.8} />
-              </mesh>
-            )}
-          </>
-        )}
-        <mesh position={[0, 0.95, 0]}>
-          <cylinderGeometry args={[0.18, 0.28, 1.1, 14]} />
-          <Mat color={C.stone} />
-        </mesh>
-        <mesh position={[0, 1.55, 0]}>
-          <cylinderGeometry args={[0.62, 0.3, 0.25, 20]} />
-          <Mat color={C.stone} />
-        </mesh>
-        <mesh position={[0, 1.8, 0]}>
-          <sphereGeometry args={[0.14, 12, 10]} />
-          <Mat color={C.stone} />
-        </mesh>
-        {fountainOn && (
-          <group ref={jet}>
-            <mesh position={[0, 1.1, 0]} raycast={noHit}>
-              <cylinderGeometry args={[0.64, 1.1, 0.85, 24, 1, true]} />
-              <meshLambertMaterial color="#d8f1f3" transparent opacity={0.35} side={THREE.DoubleSide} depthWrite={false} />
-            </mesh>
-            <mesh position={[0, 2.05, 0]} raycast={noHit}>
-              <cylinderGeometry args={[0.02, 0.05, 0.4, 8]} />
-              <meshLambertMaterial color="#d8f1f3" transparent opacity={0.6} depthWrite={false} />
-            </mesh>
-          </group>
-        )}
-      </group>
-
-      {/* 左花圃：gh_flowers */}
-      <group position={[-2.8, 0, 0.6]}>
-        <mesh position={[0, 0.25, 0]}>
-          <cylinderGeometry args={[1.1, 1.15, 0.35, 24]} />
-          <Mat color={C.stone} />
-        </mesh>
-        <mesh position={[0, 0.43, 0]}>
-          <cylinderGeometry args={[1, 1, 0.02, 24]} />
-          <Mat color={C.soil} />
-        </mesh>
-        {flowerCount > 0
-          ? flowers.slice(0, flowerCount).map(([x, z], i) => <Flower key={i} p={[x, 0.43, z]} color={FLOWER[i % FLOWER.length]} h={0.25 + (i % 3) * 0.07} />)
-          : [[-0.3, 0.2], [0.35, -0.2], [0.1, 0.45]].map(([x, z]) => (
-              <mesh key={x} position={[x, 0.55, z]} rotation={[0.3, 0, x]}>
-                <cylinderGeometry args={[0.015, 0.02, 0.25, 4]} />
-                <Mat color={C.dry} />
-              </mesh>
-            ))}
-      </group>
-
-      {/* 右花圃與葉叢：gh_plants */}
-      <group position={[2.8, 0, 0.6]}>
-        <mesh position={[0, 0.25, 0]}>
-          <cylinderGeometry args={[1.1, 1.15, 0.35, 24]} />
-          <Mat color={C.stone} />
-        </mesh>
-        <mesh position={[0, 0.43, 0]}>
-          <cylinderGeometry args={[1, 1, 0.02, 24]} />
-          <Mat color={C.soil} />
-        </mesh>
-        {leafCount > 0 ? (
-          <>
-            {leafs.slice(0, leafCount).map(([x, z], i) => (
-              <mesh key={i} position={[x, 0.6, z]} rotation={[0.5, i, 0]} scale={[1, 0.25, 0.6]}>
-                <sphereGeometry args={[0.35, 10, 8]} />
-                <Mat color={i % 2 ? C.sage : C.sageDark} />
-              </mesh>
-            ))}
-            {done('gh_plants') && <Flower p={[0.2, 0.43, -0.4]} color={FLOWER[4]} h={0.45} />}
-          </>
-        ) : (
-          <Flower p={[0, 0.43, 0]} color={C.sage} h={0.12} />
-        )}
-      </group>
-      {done('gh_plants') && (
-        <group>
-          <Bush p={[-3.4, 0.1, -2.6]} s={1.3} />
-          <Bush p={[0, 0.1, -3.8]} s={1.5} />
-          <Bush p={[3.4, 0.1, -2.6]} s={1.2} color={C.sageDark} />
-          {[1, 4].map((i) => {
-            const a = pillars[i];
-            return (
-              <group key={i} position={[Math.cos(a) * (R - 0.45), 2.3, -Math.sin(a) * (R - 0.45)]}>
-                <mesh>
-                  <sphereGeometry args={[0.3, 12, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2]} />
-                  <Mat color={C.wood} />
-                </mesh>
-                <Bush p={[0, -0.15, 0]} s={0.55} />
-              </group>
-            );
-          })}
-        </group>
-      )}
-      {done('gh_flowers') && !done('gh_plants') && <Bush p={[0, 0.1, -3.8]} s={0.9} />}
-
     </group>
   );
 }
 
-function Stream({ done, prog, still }: Progress) {
-  const clear = done('st_water');
-  const wq = prog('st_water'); // 淺水區：越整理越清澈、漂流物越少
-  const reedCount = done('st_bank') ? Infinity : Math.floor(16 * prog('st_bank'));
-  const planks = done('st_bridge') ? 9 : Math.floor(9 * prog('st_bridge'));
-  const reeds = useMemo(() => [...spread(9, 1).map(([x, z]) => [x * 2 - 3, z * 0.4 + 1.35] as const), ...spread(7, 1).map(([x, z]) => [x * 2 + 1, z * 0.3 - 1.35] as const)], []);
+/** 棲光森林：8 個工程各自讓森林有看得見的變化；進度每到 25% 就先出現一部分。 */
+function Forest({ done, prog, still }: Progress) {
+  const saplings = useMemo(() => spread(10, 1).map(([x, z]) => [-3.2 + x * 1.1, z * 1.1 - 1.6] as const), []);
+  const ferns = useMemo(() => spread(16, 1).map(([x, z]) => [x * 4.2, z * 1.2 + 2.4] as const), []);
+  const fireflies = useAnim(still, (g, t) => {
+    g.position.y = 2.2 + Math.sin(t * 0.8) * 0.15;
+  });
+  const n = (id: string, count: number) => (done(id) ? count : Math.floor(count * prog(id)));
+  const restored = ['fo_trail', 'fo_saplings', 'fo_cabin', 'fo_undergrowth', 'fo_corridor', 'fo_spring', 'fo_canopy', 'fo_rescue'].filter(done).length;
+  // 森林越修越綠：地面從枯黃慢慢轉綠
+  const ground = new THREE.Color(C.dry).lerp(new THREE.Color(C.grass), restored / 8);
+  const logsLeft = 3 - n('fo_trail', 3);
+  const cabin = prog('fo_cabin');
+  const corridor = prog('fo_corridor');
+  const spring = prog('fo_spring');
+  const canopy = prog('fo_canopy');
+  const rescue = prog('fo_rescue');
   return (
     <group>
-      {/* 溪床、兩岸、水面 */}
-      <mesh position={[0, -0.25, 0]} raycast={noHit}>
-        <boxGeometry args={[16, 0.2, 3]} />
-        <Mat color={clear ? '#cdbb98' : '#8f8466'} />
+      {/* 地面與遠景樹林（修好的工程越多，樹越多） */}
+      <mesh position={[0, -0.15, 0]} raycast={noHit}>
+        <cylinderGeometry args={[7.6, 7.8, 0.3, 40]} />
+        <meshLambertMaterial color={ground} />
       </mesh>
-      <mesh position={[0, 0, 4.5]} raycast={noHit}>
-        <boxGeometry args={[16, 0.6, 7]} />
-        <Mat color={C.grass} />
-      </mesh>
-      <mesh position={[0, 0, -4.5]} raycast={noHit}>
-        <boxGeometry args={[16, 0.6, 7]} />
-        <Mat color={C.grass} />
-      </mesh>
-      <Water y={0.08} still={still} color={clear ? C.water : wq >= 0.5 ? '#97c2bd' : C.murky} opacity={clear ? 0.72 : wq >= 0.5 ? 0.85 : 0.92}>
-        <boxGeometry args={[16, 0.02, 2.2]} />
-      </Water>
-      {!clear && [[-2, 0.3], [1.5, -0.4], [4, 0.2]].slice(0, 3 - Math.floor(wq * 4)).map(([x, z]) => (
-        <mesh key={x} position={[x, 0.08, z]} rotation={[0, x, 0]}>
-          <boxGeometry args={[0.5, 0.06, 0.18]} />
-          <Mat color={C.woodDark} />
+      {spread(6 + restored * 2, 1).map(([x, z], i) => {
+        const a = (i / (6 + restored * 2)) * Math.PI * 2 + 0.4;
+        // 鏡頭那一側不種，免得擋住動物
+        if (Math.sin(a) > 0.35) return null;
+        return <Tree key={i} p={[Math.cos(a) * (6.2 + (x + z) * 0.3), 0, Math.sin(a) * 5.2 - 0.6]} s={1.1 + ((i * 7) % 5) * 0.12} />;
+      })}
+
+      {/* 1. 林間步道：倒木與落石慢慢清掉，步道出現 */}
+      {prog('fo_trail') > 0 && (
+        <mesh position={[0, 0.01, 1.2]} rotation={[-Math.PI / 2, 0, 0.12]} raycast={noHit}>
+          <planeGeometry args={[1.3, 7.5]} />
+          <Mat color="#c9b28c" />
         </mesh>
+      )}
+      {logsLeft > 0 && <Log p={[-0.3, 0.16, 2.2]} r={0.4} />}
+      {logsLeft > 1 && <Log p={[0.5, 0.16, 0.2]} r={-0.6} />}
+      {logsLeft > 2 && <Rock p={[0.1, 0.1, 3.2]} s={0.45} />}
+
+      {/* 2. 原生樹苗 */}
+      {saplings.slice(0, n('fo_saplings', saplings.length)).map(([x, z], i) => (
+        <Tree key={i} p={[x, 0, z]} s={0.45} />
       ))}
-      {clear && [[-4, 0.5], [-1, -0.6], [2.5, 0.6], [5, -0.3]].map(([x, z]) => <Rock key={x} p={[x, 0.02, z]} s={0.22} />)}
 
-      {/* 遠景 */}
-      <Tree p={[-5.5, 0.3, -5]} s={1.3} />
-      <Tree p={[-1.5, 0.3, -6.5]} s={1.6} />
-      <Tree p={[4.5, 0.3, -5.5]} s={1.4} />
-
-      {/* st_entrance：步道 */}
-      {[5, 4.2, 3.4, 2.6].map((z, i) => (
-        <mesh key={z} position={[-0.6 + (i % 2) * 0.35, 0.32, z]}>
-          <cylinderGeometry args={[0.34, 0.36, 0.05, 12]} />
-          <Mat color={C.stone} />
-        </mesh>
-      ))}
-      <group position={[-1.7, 0.3, 3]}>
-        <mesh position={[0, 0.4, 0]}>
-          <cylinderGeometry args={[0.05, 0.05, 0.8, 6]} />
-          <Mat color={C.woodDark} />
-        </mesh>
-        <mesh position={[0, 0.75, 0]}>
-          <boxGeometry args={[0.6, 0.3, 0.05]} />
-          <Mat color={C.wood} />
-        </mesh>
-      </group>
-
-      {/* st_bank：蘆葦與水邊植物 */}
-      {reedCount > 0 && (
-        <group>
-          {reeds.slice(0, reedCount).map(([x, z], i) => (
-            <group key={i} position={[x, 0.3, z]}>
-              <mesh position={[0, 0.45, 0]} rotation={[0, 0, (i % 3 - 1) * 0.08]}>
-                <cylinderGeometry args={[0.02, 0.03, 0.9, 5]} />
-                <Mat color={C.sageDark} />
-              </mesh>
-              {i % 2 === 0 && (
-                <mesh position={[0, 0.9, 0]}>
-                  <capsuleGeometry args={[0.035, 0.14, 4, 6]} />
-                  <Mat color="#9b7653" />
-                </mesh>
-              )}
-            </group>
-          ))}
-          {done('st_bank') && (
-            <>
-              <Bush p={[-5, 0.3, 1.8]} s={0.9} />
-              <Bush p={[5.2, 0.3, 1.9]} s={0.8} color={C.sageDark} />
-              <Bush p={[-3.5, 0.3, -1.9]} s={0.85} />
-              <Bush p={[3.6, 0.3, -2]} s={1} />
-            </>
+      {/* 3. 森林觀察小屋：地板 → 牆 → 屋頂 → 亮燈 */}
+      {cabin > 0 && (
+        <group position={[3.0, 0, -1.6]} rotation={[0, -0.5, 0]}>
+          <mesh position={[0, 0.08, 0]}>
+            <boxGeometry args={[1.8, 0.16, 1.4]} />
+            <Mat color={C.wood} />
+          </mesh>
+          {cabin >= 0.5 && (
+            <mesh position={[0, 0.65, 0]}>
+              <boxGeometry args={[1.6, 1.0, 1.2]} />
+              <Mat color="#d8bf93" />
+            </mesh>
+          )}
+          {cabin >= 0.75 && (
+            <mesh position={[0, 1.42, 0]} rotation={[0, Math.PI / 4, 0]}>
+              <coneGeometry args={[1.3, 0.7, 4]} />
+              <Mat color="#7d5f45" />
+            </mesh>
+          )}
+          {done('fo_cabin') && (
+            <mesh position={[0, 0.7, 0.61]}>
+              <planeGeometry args={[0.45, 0.35]} />
+              <meshBasicMaterial color="#ffd77a" />
+            </mesh>
           )}
         </group>
       )}
-      {!done('st_bank') && prog('st_bank') < 0.5 && (
-        <group>
-          {[[-3, 1.6], [2, 1.8], [-1, -1.7]].map(([x, z]) => (
-            <mesh key={x} position={[x, 0.31, z]}>
-              <cylinderGeometry args={[0.5, 0.5, 0.02, 14]} />
-              <Mat color="#8f7a5d" />
+
+      {/* 4. 林下草叢與蕨類 */}
+      {ferns.slice(0, n('fo_undergrowth', ferns.length)).map(([x, z], i) =>
+        i % 3 === 0 ? <Bush key={i} p={[x, 0, z]} s={0.7} /> : <Fern key={i} p={[x, 0, z]} s={1.1} />,
+      )}
+
+      {/* 5. 生態廊道：綠色拱橋一段段搭起來 */}
+      {corridor > 0 && (
+        <group position={[-3.6, 0, -0.4]} rotation={[0, 0.3, 0]}>
+          {[-0.9, 0.9].map((x, i) => (corridor >= (i + 1) * 0.25 ? (
+            <mesh key={x} position={[x, 0.6, 0]}>
+              <boxGeometry args={[0.25, 1.2, 1.2]} />
+              <Mat color={C.woodDark} />
             </mesh>
-          ))}
-          {[[-4, 1.4], [0.5, -1.5], [4, 1.5]].map(([x, z]) => (
-            <mesh key={x} position={[x, 0.45, z]} rotation={[0, 0, 0.3]}>
-              <coneGeometry args={[0.08, 0.3, 5]} />
-              <Mat color={C.dry} />
+          ) : null))}
+          {corridor >= 0.75 && (
+            <mesh position={[0, 1.28, 0]}>
+              <boxGeometry args={[2.2, 0.18, 1.2]} />
+              <Mat color={done('fo_corridor') ? C.sage : C.wood} />
             </mesh>
+          )}
+        </group>
+      )}
+
+      {/* 6. 森林水源地：由混濁轉清澈 */}
+      {spring > 0 && (
+        <group position={[-1.6, 0, -2.6]}>
+          <Water y={0.03} still={still} color={done('fo_spring') ? C.water : C.murky} opacity={0.6 + spring * 0.35}>
+            <cylinderGeometry args={[1.1, 1.1, 0.06, 24]} />
+          </Water>
+          {spread(6, 1.25).slice(0, Math.max(2, Math.floor(6 * spring))).map(([x, z], i) => (
+            <Rock key={i} p={[x * 1.15, 0.08, z * 1.15]} s={0.2} />
           ))}
         </group>
       )}
 
-      {/* st_bridge：木橋 */}
-      <group position={[2.2, 0, 0]}>
-        {[-1.5, 1.5].flatMap((z) =>
-          [-0.55, 0.55].map((x) => (
-            <mesh key={`${x}${z}`} position={[x, 0.45, z]}>
-              <cylinderGeometry args={[0.07, 0.08, done('st_bridge') || prog('st_bridge') >= 0.25 ? 0.9 : 0.5, 8]} />
+      {/* 7. 樹冠步道：兩棵大樹之間的木棧道 */}
+      {canopy > 0 && (
+        <group position={[1.6, 0, -3.4]}>
+          <Tree p={[-1.4, 0, 0]} s={1.6} />
+          <Tree p={[1.4, 0, 0]} s={1.6} />
+          {canopy >= 0.5 && (
+            <mesh position={[0, 1.9, 0.3]}>
+              <boxGeometry args={[2.4, 0.08, 0.45]} />
+              <Mat color={C.wood} />
+            </mesh>
+          )}
+          {done('fo_canopy') && (
+            <mesh position={[0, 2.12, 0.5]}>
+              <boxGeometry args={[2.4, 0.04, 0.04]} />
               <Mat color={C.woodDark} />
             </mesh>
-          )),
-        )}
-        {planks > 0 ? (
-          <group>
-            {Array.from({ length: planks }, (_, i) => (
-              <mesh key={i} position={[0, 0.42 + Math.sin((i / 8) * Math.PI) * 0.18, -1.6 + i * 0.4]} rotation={[Math.cos((i / 8) * Math.PI) * -0.4, 0, 0]}>
-                <boxGeometry args={[1.25, 0.07, 0.36]} />
-                <Mat color={i % 2 ? C.wood : '#d4b48a'} />
-              </mesh>
-            ))}
-            {done('st_bridge') && [-0.58, 0.58].map((x) => (
-              <mesh key={x} position={[x, 0.95, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[1, 1, 1]}>
-                <cylinderGeometry args={[0.035, 0.035, 3.1, 6]} />
-                <Mat color={C.woodDark} />
-              </mesh>
-            ))}
-          </group>
-        ) : (
-          <mesh position={[0.3, 0.1, 0.2]} rotation={[0.2, 0.6, 0.1]}>
-            <boxGeometry args={[1.1, 0.07, 0.35]} />
-            <Mat color={C.woodDark} />
-          </mesh>
-        )}
-      </group>
+          )}
+        </group>
+      )}
 
+      {/* 8. 保育救傷站：帳篷 → 小屋 → 葉子標誌 */}
+      {rescue > 0 && (
+        <group position={[3.6, 0, 1.4]} rotation={[0, -0.9, 0]}>
+          <mesh position={[0, 0.45, 0]} rotation={[0, Math.PI / 4, 0]}>
+            <coneGeometry args={[0.9, 0.9, 4]} />
+            <Mat color={rescue >= 0.5 ? '#e8e1d0' : '#c9b28c'} />
+          </mesh>
+          {done('fo_rescue') && (
+            <mesh position={[0, 1.0, 0]}>
+              <sphereGeometry args={[0.14, 10, 8]} />
+              <Mat color="#5fae6a" />
+            </mesh>
+          )}
+        </group>
+      )}
+
+      {/* 全部修好：夜晚的螢火點點 */}
+      {restored === 8 && (
+        <group ref={fireflies}>
+          {spread(8, 4).map(([x, z], i) => (
+            <mesh key={i} position={[x, (i % 3) * 0.3, z]} raycast={noHit}>
+              <sphereGeometry args={[0.05, 6, 6]} />
+              <meshBasicMaterial color="#fff2a8" />
+            </mesh>
+          ))}
+        </group>
+      )}
     </group>
   );
 }
@@ -730,8 +455,7 @@ function FpsCap({ fps }: { fps: number }) {
   }, [invalidate, fps]);
   return null;
 }
-
-export default function Scene3D({ habitatId, done, prog, reducedMotion, onSelect, onSlow, backdrop, bubble, lowPower, pets = [], facilities = [] }: SceneProps) {
+export default function Scene3D({ done, prog, reducedMotion, onSelect, onSlow, backdrop, bubble, lowPower, animals = [] }: SceneProps) {
   const [hidden, setHidden] = useState(document.hidden);
   useEffect(() => {
     const on = () => setHidden(document.hidden);
@@ -746,20 +470,17 @@ export default function Scene3D({ habitatId, done, prog, reducedMotion, onSelect
       dpr={lowPower ? 1 : [1, 1.5]}
       camera={{ fov: 40, near: 0.1, far: 80 }}
       gl={{ antialias: true, powerPreference: 'low-power' }}
-      aria-label="棲地場景"
+      aria-label="森林場景"
     >
-      <color attach="background" args={[habitatId === 'stream' ? '#cfe5df' : '#d9ead9']} />
+      <color attach="background" args={['#d6e8d4']} />
       <hemisphereLight args={['#fff4dc', '#9fbf9a', 1.6]} />
       <directionalLight position={[5, 9, 5]} intensity={1.5} color="#fff0d2" />
-      <FitCamera dist={(habitatId === 'stream' ? 10.5 : 10) * (bubble ? 0.78 : 1)} raise={backdrop ? 0.2 : 0} />
+      <FitCamera dist={10.5 * (bubble ? 0.78 : 1)} raise={backdrop ? 0.2 : 0} />
       {!reducedMotion && !lowPower && <PerfWatch onSlow={onSlow} />}
       {lowPower && !reducedMotion && !hidden && <FpsCap fps={12} />}
-      {habitatId === 'stream' ? <Stream {...props} /> : <Greenhouse {...props} />}
-      {facilities.map((f) => (
-        <Facility key={f} id={f} />
-      ))}
-      {pets.slice(0, PET_SPOTS[habitatId].length).map((p, i) => (
-        <PetSprite key={p.id} pet={p} spot={PET_SPOTS[habitatId][i]} still={reducedMotion} onSelect={onSelect} />
+      <Forest {...props} />
+      {animals.slice(0, SPOTS.length).map((a, i) => (
+        <AnimalSprite key={a.id} a={a} spot={SPOTS[i]} still={reducedMotion} onSelect={onSelect} />
       ))}
     </Canvas>
   );

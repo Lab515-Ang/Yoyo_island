@@ -190,7 +190,7 @@ export function SettingsPage() {
                 {preview.profile.nickname} 的「{preview.islands[0]?.name}」
               </li>
               <li>
-                專注 {preview.sessions.length} 筆 · 工程投入 {preview.contributions.length} 筆 · 發現 {preview.discoveries.length} 種
+                專注 {preview.sessions.length} 筆 · 工程投入 {preview.contributions.length} 筆
               </li>
               <li>存檔時間 {new Date(preview.savedAt).toLocaleString('zh-TW')}</li>
             </ul>

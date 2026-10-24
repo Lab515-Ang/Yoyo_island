@@ -2,7 +2,7 @@
 export type ID = string;
 export type ISODate = string;
 export type AppMode = 'personal' | 'demo';
-export type HabitatId = 'greenhouse' | 'stream' | 'woodland' | 'coast' | 'bay';
+export type HabitatId = 'forest' | 'wetland' | 'coast' | 'bay';
 export type TimerMode = 'countdown' | 'stopwatch';
 export type Outcome = 'done' | 'partial' | 'continue';
 
@@ -27,9 +27,8 @@ export interface Settings {
   lastTimerMode: TimerMode;
   lastTargetSeconds: number;
   customTags: string[];
-  companionPetId: string | null; // 陪伴寵物：專注得到的飼料自動餵牠；null = 自動挑最接近長大的
   keepAwake: boolean; // 專注時保持螢幕開啟（讓倒數結束能準時提醒）
-  plantId: string; // 上次選的植物（今日花圃）
+  eggId: string; // 上次選的蛋（要孵化的動物）
   deepFocus: boolean; // 深度專注：專注中離開小島超過 10 秒植物會枯萎（Android）
   focusAllow: { pkg: string; label: string }[]; // 深度專注時可以使用的 App
 }
@@ -73,28 +72,23 @@ export interface FocusSession {
   startedAt: ISODate;
   endedAt: ISODate | null;
   outcome: Outcome | null;
-  plantId?: string; // 這段專注種下的植物；舊紀錄沒有時當作第一種
+  animalId?: string; // 這段專注孵化的動物；舊紀錄（植物時代）沒有時當作第一種
   deep?: boolean; // 深度專注（離開太久會放棄）
   note?: string; // 專注筆記（只存在自己的裝置，不分享）
-  applied?: boolean; // 已經把這段的點數、飼料自動投入（避免重複）
+  applied?: boolean; // 已經把這段的點數自動投入工程（避免重複）
 }
 
 export interface PointTransaction {
   id: ID;
   userId: ID;
   islandId: ID;
-  // 成長點數：focus_reward / project_spend
-  // 金幣：coin_reward / species_spend / pet_adopt
-  // 飼料：feed_reward / feed_spend；設施（金幣）：facility_buy
-  kind: 'focus_reward' | 'project_spend' | 'coin_reward' | 'species_spend' | 'pet_adopt' | 'feed_reward' | 'feed_spend' | 'facility_buy';
+  // 成長點數：focus_reward / project_spend；金幣：coin_reward / animal_unlock（商店解鎖動物）
+  kind: 'focus_reward' | 'project_spend' | 'coin_reward' | 'animal_unlock';
   amount: number; // 獲得 > 0、花費 < 0
   sessionId?: ID;
   contributionId?: ID;
-  speciesId?: ID;
-  petTypeId?: ID;
-  petId?: ID; // 寵物個體（pet_adopt / feed_spend）
-  facilityId?: ID;
-  idempotencyKey: string; // reward:/coin:{sessionId}、spend:{contributionId}、species:{islandId}:{speciesId}
+  animalId?: ID;
+  idempotencyKey: string; // reward:/coin:{sessionId}、spend:{contributionId}、animal:{islandId}:{animalId}
   createdAt: ISODate;
 }
 
@@ -115,31 +109,10 @@ export interface Contribution {
   createdAt: ISODate;
 }
 
-export interface Discovery {
-  islandId: ID;
-  speciesId: ID;
-  discoveredAt: ISODate;
-  triggeredByProjectId: ID;
-  sessionId?: ID; // 專注完成時偶遇（隨機解鎖）的那一段專注
-}
-
 export interface WeeklyGoal {
   islandId: ID;
   weekStartLocalDate: string;
   targetMinutes: number;
-}
-
-/** 寵物個體：同一種可以養很多隻；成長由 feed_spend 交易推導。 */
-export interface PetInstance {
-  id: ID;
-  islandId: ID;
-  typeId: ID;
-  habitatId: HabitatId;
-  adoptedBy: ID;
-  adoptedAt: ISODate;
-  source: 'gift' | 'buy' | 'egg';
-  faceOverride: number | null; // 長大後在表情相簿選的表情；null = 孵化時隨機的表情
-  bonusFed?: number; // 舊節奏換算來的成長量（讓舊存檔的寵物不倒退）
 }
 
 export interface SaveFile {
@@ -153,9 +126,7 @@ export interface SaveFile {
   transactions: PointTransaction[];
   projects: IslandProject[];
   contributions: Contribution[];
-  discoveries: Discovery[];
   weeklyGoals: WeeklyGoal[];
-  pets: PetInstance[];
-  pacing?: number; // 節奏版本（PACING_VERSION）
+  content?: number; // 內容版本（CONTENT_VERSION）：3 = 陸地森林＋孵化動物
   savedAt: ISODate;
 }

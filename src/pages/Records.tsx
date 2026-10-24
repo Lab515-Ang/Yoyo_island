@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { useSave } from '../app/store';
-import { HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, QUICK_MINUTES, TAGS, habitatName } from '../content/config';
+import { HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, QUICK_MINUTES, TAGS, animalDef, habitatName } from '../content/config';
 import { fmtDateTime, fmtMinutes } from '../components/ui';
-import { GardenPlot } from '../components/Garden';
+import { HatchPlot } from '../components/Animal';
 import { localDateKey, shiftDateKey, weekStartKey } from '../domain/focus';
-import { feedFor, habitatOpen, minutesByDay, plantedSessions, rewardFor } from '../domain/game';
+import { endedSessions, habitatOpen, minutesByDay, rewardFor } from '../domain/game';
 import type { FocusSession, Settings } from '../domain/types';
 
 export function sessionLine(s: FocusSession) {
   const min = Math.floor(s.accumulatedMs / 60000);
-  return `${s.taskTitle} · ${s.tag} · ${min} 分鐘${s.status === 'abandoned' ? '（提前結束，無獎勵）' : ` · +${rewardFor(s)} 點 +${rewardFor(s)} 金幣 +${feedFor(s)} 飼料`}`;
+  return `${s.taskTitle} · ${s.tag} · ${min} 分鐘${s.status === 'abandoned' ? '（提前結束，蛋沒有孵化）' : ` · 孵出${animalDef(s.animalId).name} · +${rewardFor(s)} 點 +${rewardFor(s)} 金幣`}`;
 }
 
 type Range = 'day' | 'week' | 'month' | 'year';
@@ -19,7 +19,7 @@ const RANGES: [Range, string][] = [
   ['month', '月'],
   ['year', '年'],
 ];
-// 每種範圍的花圃：幾欄、至少幾格
+// 每種範圍的紀錄：幾欄、至少幾格
 const PLOT: Record<Range, { cols: number; min: number }> = { day: { cols: 4, min: 8 }, week: { cols: 6, min: 12 }, month: { cols: 8, min: 24 }, year: { cols: 12, min: 48 } };
 
 const shiftMonth = (key: string, n: number) => {
@@ -29,8 +29,8 @@ const shiftMonth = (key: string, n: number) => {
 };
 const md = (key: string) => `${Number(key.slice(5, 7))}/${Number(key.slice(8))}`;
 
-/** 花圃：每段專注一株（天／週／月／年）。每天都從空的花圃開始。 */
-function GardenView() {
+/** 孵化紀錄：每段專注一隻（天／週／月／年）。每天都從空的草地開始。 */
+function HatchView() {
   const { save } = useSave();
   const tz = save.profile.timezone;
   const today = localDateKey(Date.now(), tz);
@@ -39,10 +39,9 @@ function GardenView() {
 
   const inRange = (key: string) =>
     range === 'day' ? key === cursor : range === 'week' ? weekStartKey(key) === weekStartKey(cursor) : range === 'month' ? key.slice(0, 7) === cursor.slice(0, 7) : key.slice(0, 4) === cursor.slice(0, 4);
-  const shown = plantedSessions(save)
+  const shown = endedSessions(save)
     .filter((s) => inRange(localDateKey(Date.parse(s.endedAt!), tz)))
     .sort((a, b) => a.endedAt!.localeCompare(b.endedAt!));
-  const visitors = new Map(save.discoveries.filter((d) => d.sessionId).map((d) => [d.sessionId!, d.speciesId]));
   const grown = shown.filter((s) => s.status === 'completed');
   const totalMs = grown.reduce((a, s) => a + s.accumulatedMs, 0);
 
@@ -61,7 +60,7 @@ function GardenView() {
 
   return (
     <section className="card garden-card">
-      <div className="segmented" role="radiogroup" aria-label="花圃範圍">
+      <div className="segmented" role="radiogroup" aria-label="紀錄範圍">
         {RANGES.map(([k, l]) => (
           <button key={k} role="radio" aria-checked={range === k} className={range === k ? 'on' : ''} onClick={() => (setRange(k), setCursor(today))}>
             {l}
@@ -77,17 +76,17 @@ function GardenView() {
           ›
         </button>
       </div>
-      <GardenPlot sessions={shown} visitors={visitors} cols={PLOT[range].cols} minCells={PLOT[range].min} />
+      <HatchPlot sessions={shown} cols={PLOT[range].cols} minCells={PLOT[range].min} />
       <p className="small center-text">
         {shown.length ? (
           <>
-            種了 <strong>{grown.length}</strong> 株 · 專注 {fmtMinutes(totalMs)}
-            {shown.length > grown.length && ` · 枯萎 ${shown.length - grown.length} 株`}
+            孵出 <strong>{grown.length}</strong> 隻 · 專注 {fmtMinutes(totalMs)}
+            {shown.length > grown.length && ` · ${shown.length - grown.length} 顆蛋沒孵化`}
           </>
         ) : isNow ? (
-          '還是空的花圃。完成一段專注，就會種下第一株。'
+          '還是空的草地。完成一段專注，就會孵出第一隻。'
         ) : (
-          '這段時間沒有種下植物。'
+          '這段時間沒有孵出動物。'
         )}
       </p>
     </section>
@@ -123,7 +122,7 @@ export function Records({ initialTag = null }: { initialTag?: string | null }) {
     <div className="page">
       <h1>專注紀錄與專注計畫設置</h1>
 
-      <GardenView />
+      <HatchView />
 
       <section className="card">
         <h2>專注計畫設置</h2>
@@ -165,14 +164,19 @@ export function Records({ initialTag = null }: { initialTag?: string | null }) {
         </div>
         <p className="small muted">目前預設：{Math.round(st.lastTargetSeconds / 60) || '<1'} 分鐘</p>
 
-        <div className="field-label">預設專注背景</div>
-        <div className="chips" role="radiogroup" aria-label="預設專注背景">
-          {HABITATS.filter((h) => habitatOpen(save, h.id)).map((h) => (
-            <button key={h.id} role="radio" aria-checked={st.preferredHabitatId === h.id} className={st.preferredHabitatId === h.id ? 'chip on' : 'chip'} onClick={() => set({ preferredHabitatId: h.id })}>
-              {h.name}
-            </button>
-          ))}
-        </div>
+        {/* 開放兩個以上的場景才需要選預設背景 */}
+        {HABITATS.filter((h) => habitatOpen(save, h.id)).length > 1 && (
+          <>
+            <div className="field-label">預設專注背景</div>
+            <div className="chips" role="radiogroup" aria-label="預設專注背景">
+              {HABITATS.filter((h) => habitatOpen(save, h.id)).map((h) => (
+                <button key={h.id} role="radio" aria-checked={st.preferredHabitatId === h.id} className={st.preferredHabitatId === h.id ? 'chip on' : 'chip'} onClick={() => set({ preferredHabitatId: h.id })}>
+                  {h.name}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         <div className="field-label">自訂標籤</div>
         <div className="chips">

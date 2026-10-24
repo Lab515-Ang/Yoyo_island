@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { useSave } from '../app/store';
-import { habitatName, projectDef, speciesDef } from '../content/config';
+import { animalDef, projectDef } from '../content/config';
 import { fmtDateTime } from '../components/ui';
-import type { HabitatId } from '../domain/types';
+import { endedSessions } from '../domain/game';
 import { Codex } from './Codex';
 
-/** 我的歷程：生物圖鑑、工程投入與發現的時間軸。 */
-export function Journey({ onEnter }: { onEnter: (h: HabitatId) => void }) {
+/** 我的歷程：動物圖鑑、工程投入與孵化的時間軸。 */
+export function Journey() {
   const { save } = useSave();
   const [tab, setTab] = useState<'codex' | 'projects' | 'found'>('codex');
+  const hatches = endedSessions(save).filter((s) => s.status === 'completed').reverse();
   const names = new Map(save.memberships.map((m) => [m.userId, m.demoNickname ?? save.profile.nickname]));
   return (
     <div className="page">
@@ -16,9 +17,9 @@ export function Journey({ onEnter }: { onEnter: (h: HabitatId) => void }) {
       <div className="segmented" role="tablist">
         {(
           [
-            ['codex', '生物圖鑑'],
+            ['codex', '動物圖鑑'],
             ['projects', '工程紀錄'],
-            ['found', '發現紀錄'],
+            ['found', '孵化紀錄'],
           ] as const
         ).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>
@@ -26,7 +27,7 @@ export function Journey({ onEnter }: { onEnter: (h: HabitatId) => void }) {
           </button>
         ))}
       </div>
-      {tab === 'codex' && <Codex onEnter={onEnter} />}
+      {tab === 'codex' && <Codex />}
       {tab === 'projects' && (
         <section className="card">
           <ul className="list">
@@ -45,15 +46,15 @@ export function Journey({ onEnter }: { onEnter: (h: HabitatId) => void }) {
       {tab === 'found' && (
         <section className="card">
           <ul className="list">
-            {[...save.discoveries].reverse().map((d) => (
-              <li key={d.speciesId}>
-                <span className="small muted">{fmtDateTime(d.discoveredAt)}</span>
+            {hatches.map((s) => (
+              <li key={s.id}>
+                <span className="small muted">{fmtDateTime(s.endedAt!)}</span>
                 <div>
-                  發現了{speciesDef(d.speciesId)?.name}（{habitatName(speciesDef(d.speciesId)!.habitatId)}）
+                  孵出了{animalDef(s.animalId).name}（{Math.floor(s.accumulatedMs / 60000)} 分鐘）
                 </div>
               </li>
             ))}
-            {!save.discoveries.length && <li className="muted">還沒有發現紀錄。</li>}
+            {!hatches.length && <li className="muted">還沒有孵化紀錄。</li>}
           </ul>
         </section>
       )}

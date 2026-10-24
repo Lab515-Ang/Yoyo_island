@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useSave } from '../app/store';
-import { avatarEmoji, COPY, FACILITIES, projectDef } from '../content/config';
+import { ANIMALS, avatarEmoji, COPY, projectDef } from '../content/config';
 import { Progress, fmtDateTime } from '../components/ui';
-import { localDateKey, shiftDateKey, weekStartKey } from '../domain/focus';
-import { activeProject, adoptedPets, adoptPet, balance, buyFacility, contribute, contributionsByUser, facilityOwned, fedByUser, feedPet, habitatFree, islandId, minutesByDay } from '../domain/game';
+import { completeNow, createSession, localDateKey, shiftDateKey, weekStartKey } from '../domain/focus';
+import { activeProject, animalUnlocked, balance, closeSession, contribute, contributionsByUser, islandId, minutesByDay, unlockAnimal } from '../domain/game';
 import { demoGrant } from '../domain/save';
 import type { SaveFile } from '../domain/types';
-import { PETS, PROJECTS, SPECIES } from '../content/config';
+import { PROJECTS } from '../content/config';
 
 export function Together() {
   const { save, mode, switchMode, resetDemo, update, notify } = useSave();
@@ -30,32 +30,22 @@ export function Together() {
         const r = contribute(next, next.profile.id, p.id, need, Date.now());
         if (r.ok) next = r.save;
       }
-      // 買下全部設施、把名額養滿（每種輪流），示範成員各餵一些，展示一起養
-      const helper = next.memberships.find((m) => m.demoNickname)?.userId;
-      for (const f of FACILITIES) {
-        if (facilityOwned(next, f.id)) continue;
-        next = demoGrant(next, next.profile.id, f.price, Date.now(), 'coins');
-        const r = buyFacility(next, next.profile.id, f.id, Date.now());
-        if (r.ok) next = r.save;
-      }
-      for (const h of ['greenhouse', 'stream'] as const) {
-        const types = PETS.filter((p) => p.habitatId === h);
-        for (let i = 0; habitatFree(next, h) > 0 && i < 10; i++) {
-          const p = types[i % types.length];
-          next = demoGrant(next, next.profile.id, p.adoptPrice, Date.now(), 'coins');
-          const a = adoptPet(next, next.profile.id, p.id, Date.now());
-          if (!a.ok) break;
-          next = a.save;
-          if (helper) {
-            const amount = p.thresholds[i % 3];
-            next = demoGrant(next, helper, amount, Date.now(), 'feed');
-            const f = feedPet(next, helper, a.pet.id, amount, Date.now());
-            if (f.ok) next = f.save;
-          }
+      // 金幣解鎖全部動物，再每種孵一隻（示範用的完成紀錄），讓森林裡看得到牠們
+      for (const an of ANIMALS) {
+        if (an.unlock.kind === 'coins' && !animalUnlocked(next, an)) {
+          next = demoGrant(next, next.profile.id, an.unlock.price, Date.now(), 'coins');
+          const r = unlockAnimal(next, next.profile.id, an.id, Date.now());
+          if (r.ok) next = r.save;
         }
       }
+      let t = Date.now() - ANIMALS.length * 30 * 60_000;
+      for (const an of ANIMALS.filter((x) => animalUnlocked(next, x))) {
+        const sess = createSession({ id: crypto.randomUUID(), userId: next.profile.id, islandId: islandId(next), taskTitle: '示範', tag: '其他', habitatId: 'forest', mode: 'countdown', targetSeconds: 25 * 60, animalId: an.id }, t);
+        t += 26 * 60_000;
+        next = closeSession(next, completeNow(sess, t, 25), t);
+      }
       return next;
-    }) && notify('示範路線已全部完成，設施與寵物都放滿了。到「我的小島」看看吧。');
+    }) && notify('示範路線已全部完成，每種動物都孵了一隻。到「我的小島」看看吧。');
 
   return (
     <div className="page">
@@ -113,29 +103,9 @@ export function Together() {
               </div>
             </li>
           ))}
-          {!save.contributions.length && <li className="muted">還沒有貢獻。完成專注後到「我的小島」投入點數。</li>}
+          {!save.contributions.length && <li className="muted">還沒有貢獻。完成專注後，點數會自動投入森林工程。</li>}
         </ul>
         <p className="muted small">只會顯示暱稱、頭像與工程貢獻；你的任務名稱不會分享。</p>
-      </section>
-
-      <section className="card">
-        <h2>共同寵物</h2>
-        {adoptedPets(save).length ? (
-          <ul className="list">
-            {adoptedPets(save).map(({ pet, def, stage }) => (
-              <li key={pet.id}>
-                <strong>
-                  {def.name}・{def.stages[stage]}
-                </strong>
-                <div className="small muted">
-                  {[...fedByUser(save, pet.id)].map(([uid, n]) => `${name(uid)} 餵了 ${n} 份`).join('、') || '還沒有人餵過'}
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="muted">島上還沒有寵物。成員都可以用自己的飼料餵同一隻寵物。</p>
-        )}
       </section>
 
       <section className="card">
@@ -146,8 +116,7 @@ export function Together() {
             <div className="row wrap">
               <button onClick={() => update((s) => demoGrant(s, s.profile.id, 30, Date.now())) && notify('已在示範存檔加入 30 點。')}>＋30 點（示範）</button>
               <button onClick={() => update((s) => demoGrant(s, s.profile.id, 50, Date.now(), 'coins')) && notify('已在示範存檔加入 50 金幣。')}>＋50 金幣（示範）</button>
-              <button onClick={() => update((s) => demoGrant(s, s.profile.id, 30, Date.now(), 'feed')) && notify('已在示範存檔加入 30 份飼料。')}>＋30 飼料（示範）</button>
-              <button onClick={fastForward}>完成全部工程、領養全部寵物（示範）</button>
+              <button onClick={fastForward}>完成全部工程、解鎖並孵出全部動物（示範）</button>
               <button
                 className="danger"
                 onClick={() => {

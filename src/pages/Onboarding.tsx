@@ -56,12 +56,12 @@ export function Onboarding() {
             onSubmit={(e) => {
               e.preventDefault();
               if (!create()) return;
-              update((s) => startFocus(s, { taskTitle: task, tag: '其他', habitatId: 'greenhouse', mode: 'countdown', targetSeconds: 10 * 60 }, Date.now()));
+              update((s) => startFocus(s, { taskTitle: task, tag: '其他', habitatId: 'forest', mode: 'countdown', targetSeconds: 10 * 60 }, Date.now()));
             }}
           >
             <p className="eyebrow">第一段專注</p>
             <h1>{COPY.start}</h1>
-            <p className="muted">先試試 10 分鐘。完成後會得到 10 點成長點數，足夠整理溫室入口，還會收到一顆寵物的卵。</p>
+            <p className="muted">先試試 10 分鐘。完成後蛋裡會孵出一隻台灣藍鵲，還會得到 10 點成長點數，足夠清出森林的步道。</p>
             <label>
               這段時間要做什麼？（可不填）
               <input value={task} onChange={(e) => setTask(e.target.value)} maxLength={40} placeholder="例如：讀完一頁筆記" autoFocus />

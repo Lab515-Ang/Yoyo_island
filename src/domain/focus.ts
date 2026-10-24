@@ -12,7 +12,7 @@ const iso = (t: number) => new Date(t).toISOString();
 export const isOpen = (s: FocusSession) => s.status === 'running' || s.status === 'paused';
 
 export function createSession(
-  input: { id: ID; userId: ID; islandId: ID; taskTitle: string; tag: string; habitatId: HabitatId; mode: TimerMode; targetSeconds: number | null; plantId?: string; deep?: boolean },
+  input: { id: ID; userId: ID; islandId: ID; taskTitle: string; tag: string; habitatId: HabitatId; mode: TimerMode; targetSeconds: number | null; animalId?: string; deep?: boolean },
   now: number,
 ): FocusSession {
   return {

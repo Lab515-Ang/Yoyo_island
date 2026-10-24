@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGame, useNow, useSave } from './app/store';
 import { APP_NAME, COPY, avatarEmoji } from './content/config';
-import { applyFocusRewards, closeSession, coins, grantStarter, openSession, putSession, settleOpenSessions, starterGiftDue } from './domain/game';
+import { applyFocusRewards, closeSession, coins, openSession, putSession, settleOpenSessions } from './domain/game';
 import * as storage from './data/storage';
 import { applyDeepFocus, dueAt, remainingMs } from './domain/focus';
 import { notifyEnd, playChime } from './sound';
@@ -170,7 +170,7 @@ function Main() {
     const r = settleOpenSessions(save, Date.now());
     if (!r.completed) return;
     const id = r.completed.id;
-    // 點數自動投入工程、飼料自動餵陪伴寵物；在最新的存檔上結算（別的流程可能剛改過，例如深度專注判定放棄）
+    // 點數自動投入工程；在最新的存檔上結算（別的流程可能剛改過，例如深度專注判定放棄）
     let settled = false;
     if (
       !update((s) => {
@@ -191,19 +191,6 @@ function Main() {
       if (st.endNotify && !isNative) void notifyEnd(`${APP_NAME}・專注完成`, `「${r.completed.taskTitle}」完成了 ${Math.floor(r.completed.accumulatedMs / 60000)} 分鐘，回來看看小島吧。`);
     }
   }, [now, wake, save, update]);
-
-  // 新手禮物：完成第一個工程後送一顆黃蝶的卵
-  useEffect(() => {
-    if (!starterGiftDue(save)) return;
-    let granted = false;
-    const saved = update((s) => {
-      if (!starterGiftDue(s)) return s;
-      const r = grantStarter(s, Date.now());
-      granted = r.ok;
-      return r.ok ? r.save : s;
-    });
-    if (saved && granted) notify('完成第一個工程的禮物：一顆黃蝶的卵！到「我的小島」用飼料把牠養大吧。');
-  }, [save, update, notify]);
 
   // 時間守護：背景服務在玩家打開想減少使用的 App 時把小島叫到前面
   // 每次攔截都是新的畫面（同一個 App 再被攔也重新倒數）；App 進到背景就收掉，不會留到下次打開
@@ -286,7 +273,7 @@ function Main() {
             <span className="brand-name">🏠 {APP_NAME}</span>
             <span className="muted small">{save.islands[0]?.name}</span>
           </button>
-          <button className="wallet" title="金幣：在商店領養寵物、買設施" onClick={() => go('shop')} aria-label={`金幣 ${coins(save)}，前往商店`}>
+          <button className="wallet" title="金幣：在商店解鎖動物" onClick={() => go('shop')} aria-label={`金幣 ${coins(save)}，前往商店`}>
             <Coin /> <strong>{coins(save)}</strong>
           </button>
           <button className="avatar-btn" onClick={() => go('settings')} aria-label="設定">
@@ -306,15 +293,15 @@ function Main() {
         <main className="content" key={mode}>
           {view === 'lobby' && <Lobby onStarted={() => setSummaryId(null)} />}
           {view === 'lobby' && save.sessions.filter((s) => s.endedAt).length === 1 && <FirstTour />}
-          {view === 'island' && <IslandPage habitat={habitat} setHabitat={setHabitat} onShop={() => go('shop')} />}
+          {view === 'island' && <IslandPage habitat={habitat} setHabitat={setHabitat} />}
           {view === 'quests' && <Quests onIsland={() => go('island')} onShop={() => go('shop')} />}
           {view === 'records' && <Records key={recordsTag ?? 'all'} initialTag={recordsTag} />}
           {view === 'guard' && <GuardPage />}
           {view === 'sounds' && <Sounds onSettings={() => go('settings')} />}
-          {view === 'journey' && <Journey onEnter={enter} />}
+          {view === 'journey' && <Journey />}
           {view === 'friends' && <Together />}
           {view === 'achievements' && <NotYet title="成就" />}
-          {view === 'shop' && <Shop onIsland={() => go('island')} />}
+          {view === 'shop' && <Shop onLobby={() => go('lobby')} />}
           {view === 'news' && <NotYet title="活動消息" />}
           {view === 'settings' && <SettingsPage />}
         </main>

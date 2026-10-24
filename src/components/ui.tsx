@@ -1,8 +1,8 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { CATEGORY_LABEL, CHANCE, habitatName, speciesDef } from '../content/config';
-import { discoveryOf, habitatOpen } from '../domain/game';
+import { animalDef, projectDef, type AnimalDef } from '../content/config';
+import { animalUnlocked, hatchCounts } from '../domain/game';
 import type { SaveFile } from '../domain/types';
-import { Creature } from './Creature';
+import { AnimalArt } from './Animal';
 
 /** CSS 畫的金幣圖示（🪙 在 Windows 10 的表情字型裡沒有）。 */
 export const Coin = () => <span className="coin" aria-hidden="true" />;
@@ -43,45 +43,32 @@ export const fmtMinutes = (ms: number) => {
   return m >= 60 ? `${Math.floor(m / 60)} 小時 ${m % 60} 分` : `${m} 分鐘`;
 };
 
-export function conditionText(save: SaveFile, speciesId: string) {
-  const s = speciesDef(speciesId)!;
-  if (discoveryOf(save, s.id)) return null;
-  if (!habitatOpen(save, s.habitatId)) return `「${habitatName(s.habitatId)}」開放後，專注時有機會偶遇。`;
-  return `完成 ${CHANCE.minMinutes} 分鐘以上的專注時有機會偶遇，專注越久機率越高。`;
+/** 這種動物怎麼取得（還沒解鎖時顯示）。 */
+export function unlockText(a: AnimalDef) {
+  const u = a.unlock;
+  if (u.kind === 'start') return '一開始就有';
+  if (u.kind === 'project') return `修好「${projectDef(u.id)?.title}」後解鎖`;
+  if (u.kind === 'coins') return `商店用 ${u.price} 金幣解鎖`;
+  return `商店特別品種（${u.price}）`;
 }
 
-export function SpeciesCard({ save, speciesId, onClose }: { save: SaveFile; speciesId: string; onClose: () => void }) {
-  const s = speciesDef(speciesId)!;
-  const d = discoveryOf(save, s.id);
-  const cond = conditionText(save, s.id);
+/** 動物圖鑑卡：孵過的顯示介紹與數量；還沒孵過的顯示剪影與取得方式。 */
+export function AnimalCard({ save, animalId, onClose }: { save: SaveFile; animalId: string; onClose: () => void }) {
+  const a = animalDef(animalId);
+  const n = hatchCounts(save).get(a.id) ?? 0;
+  const ok = animalUnlocked(save, a);
   return (
-    <Modal title={d ? s.name : '尚未發現'} onClose={onClose}>
+    <Modal title={n ? a.name : ok ? `${a.name}（還沒孵過）` : '尚未解鎖'} onClose={onClose}>
       <div className="species-hero">
-        <Creature id={s.id} size={120} hidden={!d} />
+        <AnimalArt id={a.id} size={140} hidden={!n} />
       </div>
       <dl className="facts">
-        <dt>類別</dt>
-        <dd>{CATEGORY_LABEL[s.category]}</dd>
-        <dt>棲地</dt>
-        <dd>{habitatName(s.habitatId)}</dd>
-        {d ? (
-          <>
-            <dt>代表行為</dt>
-            <dd>{s.behaviorLabel}</dd>
-            <dt>首次發現</dt>
-            <dd>
-              {fmtDateTime(d.discoveredAt)}
-              {d.sessionId ? '・專注時偶遇' : ''}
-            </dd>
-          </>
-        ) : (
-          <>
-            <dt>條件</dt>
-            <dd>{cond}</dd>
-          </>
-        )}
+        <dt>孵過</dt>
+        <dd>{n} 隻</dd>
+        <dt>取得</dt>
+        <dd>{ok ? '已解鎖，大廳選這顆蛋就能孵化' : unlockText(a)}</dd>
       </dl>
-      {d && <p className="muted">{s.description}</p>}
+      {(n > 0 || ok) && <p className="muted">{a.blurb}</p>}
     </Modal>
   );
 }

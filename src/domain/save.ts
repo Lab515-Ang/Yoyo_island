@@ -1,7 +1,6 @@
-// 存檔建立、驗證與示範資料
-import { PROJECTS, HABITATS, SPECIES, EGG_PRICE, FACES, PACING_VERSION, facilityDef, petDef, type Rarity } from '../content/config';
-import { contribute, balance, coins, feed, feedFor, petMaxFeed } from './game';
-import type { PetInstance, PointTransaction } from './types';
+// 存檔建立、驗證、示範資料與舊存檔轉換
+import { ANIMALS, CONTENT_VERSION, HABITATS, PROJECTS } from '../content/config';
+import { balance, coins, contribute, investAll } from './game';
 import type { AppMode, SaveFile, Settings } from './types';
 
 const iso = (t: number) => new Date(t).toISOString();
@@ -15,18 +14,19 @@ export const defaultSettings = (): Settings => ({
   focusSound: 'auto',
   reducedMotion: false,
   sceneMode: 'auto',
-  preferredHabitatId: 'greenhouse',
+  preferredHabitatId: 'forest',
   lastTimerMode: 'countdown',
   lastTargetSeconds: 10 * 60, // 第一段建議 10 分鐘（最低時間），完成後足夠修好第一個工程
   customTags: [],
-  companionPetId: null,
   keepAwake: false,
-  plantId: 'daisy',
+  eggId: ANIMALS[0].id,
   deepFocus: true,
   focusAllow: [],
 });
 
 export const deviceTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+const freshProjects = (isl: string) => PROJECTS.map((p) => ({ islandId: isl, projectId: p.id, contributedPoints: 0, completedAt: null }));
 
 export function newSave(mode: AppMode, who: { nickname: string; islandName: string; avatarId: string; timezone?: string }, now: number): SaveFile {
   const userId = newId();
@@ -40,12 +40,10 @@ export function newSave(mode: AppMode, who: { nickname: string; islandName: stri
     memberships: [{ islandId: isl, userId, role: 'owner', joinedAt: iso(now) }],
     sessions: [],
     transactions: [],
-    projects: PROJECTS.map((p) => ({ islandId: isl, projectId: p.id, contributedPoints: 0, completedAt: null })),
+    projects: freshProjects(isl),
     contributions: [],
-    discoveries: [],
     weeklyGoals: [],
-    pets: [],
-    pacing: PACING_VERSION,
+    content: CONTENT_VERSION,
     savedAt: iso(now),
   };
 }
@@ -56,7 +54,6 @@ export function newSave(mode: AppMode, who: { nickname: string; islandName: stri
 const DEMO_GRANT = {
   points: { kind: 'focus_reward', prefix: 'demo-grant' },
   coins: { kind: 'coin_reward', prefix: 'demo-coin' },
-  feed: { kind: 'feed_reward', prefix: 'demo-feed' },
 } as const;
 
 export function demoGrant(save: SaveFile, userId: string, amount: number, now: number, currency: keyof typeof DEMO_GRANT = 'points'): SaveFile {
@@ -85,79 +82,85 @@ export function newDemoSave(from: SaveFile | null, now: number): SaveFile {
       ...DEMO_MEMBERS.map((m, i) => ({ islandId: s.profile.activeIslandId, userId: ids[i], role: 'member' as const, joinedAt: iso(now - (i + 1) * 86400000), demoNickname: m.nickname, demoAvatarId: m.avatarId })),
     ],
   };
-  // 範例貢獻：小林完成入口，兩人一起把花圃推進到 270/300
-  const plan: [number, string, number][] = [[0, 'gh_entrance', 10], [0, 'gh_flowers', 150], [1, 'gh_flowers', 120]];
+  // 範例貢獻：小林清出步道，兩人一起把樹苗推進到 270/300
+  const plan: [number, string, number][] = [[0, 'fo_trail', 10], [0, 'fo_saplings', 150], [1, 'fo_saplings', 120]];
   for (const [who, pid, pts] of plan) {
     s = demoGrant(s, ids[who], pts, now);
     const r = contribute(s, ids[who], pid, pts, now);
     if (r.ok) s = r.save;
   }
-  return demoGrant(demoGrant(demoGrant(s, s.profile.id, 40, now), s.profile.id, 500, now, 'coins'), s.profile.id, 60, now, 'feed');
+  return demoGrant(demoGrant(s, s.profile.id, 40, now), s.profile.id, 500, now, 'coins');
 }
 
 // ---------- 舊存檔轉換 ----------
 
-/** v0.3～v0.5 的寵物沒有個體紀錄（每種一隻、以種類記帳）：轉成個體，id 固定為 legacy-{種類}。 */
-export function migratePets(save: SaveFile): SaveFile {
-  if (Array.isArray(save.pets)) return save;
-  const pets: PetInstance[] = [];
-  const transactions = save.transactions.map((t: PointTransaction) => {
-    if ((t.kind !== 'pet_adopt' && t.kind !== 'feed_spend') || t.petId || !t.petTypeId) return t;
-    const petId = `legacy-${t.petTypeId}`;
-    const def = petDef(t.petTypeId);
-    if (t.kind === 'pet_adopt' && def)
-      pets.push({ id: petId, islandId: t.islandId, typeId: def.id, habitatId: def.habitatId, adoptedBy: t.userId, adoptedAt: t.createdAt, source: 'buy', faceOverride: null });
-    return { ...t, petId };
-  });
-  return { ...save, pets, transactions };
-}
+const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x);
+const isStr = (x: unknown): x is string => typeof x === 'string';
 
 /**
- * v1 節奏（數值很小）→ v2 長期節奏：
- * - 已完成的工程維持完成（驗證允許舊數值完成的工程）；未完成的工程改用新數值繼續。
- * - 寵物依「舊門檻的成長比例」換算到新門檻，寫進 bonusFed，已長大的不會倒退。
+ * 內容 v3（陸地森林＋孵化動物）以前的存檔：溫室／溪流、植物、寵物、設施、飼料、偶遇。
+ * - 專注紀錄、點數與金幣的獲得保留；場景一律改成森林；植物紀錄不保留（當作第一種動物）。
+ * - 寵物、設施、驚喜蛋花掉的金幣全部退回（刪掉那些花費紀錄）；飼料、圖鑑偶遇移除。
+ * - 舊工程進度改成新的森林工程：把累積的點數重新依序投入。
  */
-const LEGACY_MAX_FEED: Record<Rarity, number> = { common: 60, rare: 100, special: 150 };
-export function migratePacing(save: SaveFile): SaveFile {
-  if ((save.pacing ?? 1) >= PACING_VERSION) return save;
-  const pets = save.pets.map((p) => {
-    const def = petDef(p.typeId);
-    if (!def) return p;
-    const spent = -save.transactions.reduce((a, t) => (t.kind === 'feed_spend' && t.petId === p.id ? a + t.amount : a), 0);
-    const max = def.thresholds[2];
-    const scaled = Math.min(max, Math.round((spent / LEGACY_MAX_FEED[def.rarity]) * max));
-    return scaled > spent ? { ...p, bonusFed: scaled - spent } : p;
+export function migrateForest(raw: Record<string, unknown>, now: number): Record<string, unknown> {
+  if (typeof raw.content === 'number' && raw.content >= CONTENT_VERSION) return raw;
+  const isl = raw.profile && isObj(raw.profile) ? String(raw.profile.activeIslandId) : '';
+  const sessions = (raw.sessions as Record<string, unknown>[]).map((s) => {
+    if (!isObj(s)) return s;
+    const { plantId: _plant, ...rest } = s;
+    return { ...rest, habitatId: 'forest' };
   });
-  return { ...save, pets, pacing: PACING_VERSION };
+  // 只留點數與金幣的獲得（飼料、示範飼料、寵物、設施、生物邀請、舊工程投入都拿掉）
+  const transactions = (raw.transactions as Record<string, unknown>[]).filter((t) => isObj(t) && (t.kind === 'focus_reward' || t.kind === 'coin_reward'));
+  const settings = isObj(raw.settings) ? { ...raw.settings } : {};
+  delete settings.plantId;
+  delete settings.companionPetId;
+  settings.preferredHabitatId = 'forest';
+  settings.eggId = ANIMALS[0].id;
+  let save = {
+    ...raw,
+    sessions,
+    transactions,
+    settings,
+    projects: freshProjects(isl),
+    contributions: [],
+    islands: (raw.islands as Record<string, unknown>[]).map((i) => (isObj(i) && i.id === isl ? { ...i, activeProjectId: PROJECTS[0].id } : i)),
+    content: CONTENT_VERSION,
+  } as unknown as SaveFile;
+  delete (save as unknown as Record<string, unknown>).pets;
+  delete (save as unknown as Record<string, unknown>).discoveries;
+  delete (save as unknown as Record<string, unknown>).pacing;
+  for (const m of save.memberships) if (isObj(m)) save = investAll(save, m.userId, now);
+  return save as unknown as Record<string, unknown>;
 }
 
 // ---------- 驗證 ----------
 
 export type Validation = { ok: true; save: SaveFile } | { ok: false; error: string };
 
-const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x);
-const isStr = (x: unknown): x is string => typeof x === 'string';
-const ARRAYS = ['islands', 'memberships', 'sessions', 'transactions', 'projects', 'contributions', 'discoveries', 'weeklyGoals'] as const;
+const ARRAYS = ['islands', 'memberships', 'sessions', 'transactions', 'projects', 'contributions', 'weeklyGoals'] as const;
 const HABITAT_IDS = HABITATS.map((h) => h.id) as string[];
 
-/** 結構與不變條件檢查；任何不符都整份拒絕，不悄悄匯入。 */
-export function validateSave(raw: unknown): Validation {
+/** 結構與不變條件檢查；任何不符都整份拒絕，不悄悄匯入。舊內容版本先轉換再檢查。 */
+export function validateSave(input: unknown, now = Date.now()): Validation {
   const fail = (error: string): Validation => ({ ok: false, error });
-  if (!isObj(raw)) return fail('檔案內容不是有效的存檔。');
-  if (raw.schemaVersion === undefined) return fail('這不是棲光小島的存檔檔案。');
-  if (raw.schemaVersion !== 1) return fail(`這份存檔來自不同版本的棲光小島（版本 ${String(raw.schemaVersion)}），目前無法讀取。`);
-  if (raw.mode !== 'personal' && raw.mode !== 'demo') return fail('存檔模式不正確。');
-  const p = raw.profile;
+  if (!isObj(input)) return fail('檔案內容不是有效的存檔。');
+  if (input.schemaVersion === undefined) return fail('這不是棲光小島的存檔檔案。');
+  if (input.schemaVersion !== 1) return fail(`這份存檔來自不同版本的棲光小島（版本 ${String(input.schemaVersion)}），目前無法讀取。`);
+  if (input.mode !== 'personal' && input.mode !== 'demo') return fail('存檔模式不正確。');
+  const p = input.profile;
   if (!isObj(p) || !isStr(p.id) || !isStr(p.nickname) || !isStr(p.activeIslandId) || !isStr(p.timezone)) return fail('個人資料不完整。');
-  for (const k of ARRAYS) if (!Array.isArray(raw[k])) return fail('存檔缺少必要的紀錄。');
+  for (const k of ARRAYS) if (!Array.isArray(input[k])) return fail('存檔缺少必要的紀錄。');
+  if (!input.memberships || !(input.memberships as unknown[]).every(isObj)) return fail('成員紀錄不正確。');
+  const raw = migrateForest(input, now);
   const settings = { ...defaultSettings(), ...(isObj(raw.settings) ? raw.settings : {}) };
-  // 新加的設定欄位型別不對（匯入的檔案、舊版本）就用預設值，避免畫面當掉
+  // 設定欄位型別不對（匯入的檔案、舊版本）就用預設值，避免畫面當掉
   if (!Array.isArray(settings.focusAllow) || !settings.focusAllow.every((a: unknown) => isObj(a) && isStr((a as { pkg?: unknown }).pkg))) settings.focusAllow = [];
   if (typeof settings.deepFocus !== 'boolean') settings.deepFocus = true;
-  if (!isStr(settings.plantId)) settings.plantId = defaultSettings().plantId;
-  // 節奏 v2 以前的存檔是用舊價格買的（價格調整過）：購買紀錄只檢查是花費、不比對現在的價格
-  const legacyPrices = (typeof raw.pacing === 'number' ? raw.pacing : 1) < PACING_VERSION;
-  const save = migratePacing(migratePets({ ...raw, settings } as unknown as SaveFile));
+  if (!isStr(settings.eggId)) settings.eggId = defaultSettings().eggId;
+  if (!HABITAT_IDS.includes(settings.preferredHabitatId)) settings.preferredHabitatId = 'forest';
+  const save = { ...raw, settings } as unknown as SaveFile;
 
   if (!save.islands.some((i) => isObj(i) && i.id === save.profile.activeIslandId)) return fail('找不到目前的島嶼。');
   try {
@@ -172,64 +175,32 @@ export function validateSave(raw: unknown): Validation {
   for (const s of save.sessions) {
     if (!isObj(s) || !isStr(s.id) || !['running', 'paused', 'completed', 'abandoned'].includes(s.status) || !Array.isArray(s.segments)) return fail('專注紀錄格式不正確。');
     if (typeof s.accumulatedMs !== 'number' || s.accumulatedMs < 0 || !HABITAT_IDS.includes(s.habitatId)) return fail('專注紀錄數值不正確。');
-    if (s.plantId !== undefined && !isStr(s.plantId)) return fail('專注紀錄的植物不正確。');
+    if (s.animalId !== undefined && !isStr(s.animalId)) return fail('專注紀錄的動物不正確。');
     if (s.deep !== undefined && typeof s.deep !== 'boolean') return fail('專注紀錄的深度專注設定不正確。');
     if (s.status === 'running' || s.status === 'paused') open++;
   }
   if (open > 1) return fail('存檔中有多個未結算的專注。');
 
   const keys = new Set<string>();
-  const rewarded = { focus_reward: new Set<string>(), coin_reward: new Set<string>(), feed_reward: new Set<string>() };
-  const invited: string[] = []; // 邀請生物、領養寵物、購買設施時要求的工程
-  const fedTotal = new Map<string, number>();
-  if (!Array.isArray(save.pets)) return fail('寵物紀錄不完整。');
-  const pets = new Map(save.pets.map((p) => [p.id, p]));
-  if (pets.size !== save.pets.length) return fail('寵物紀錄重複。');
-  for (const p of save.pets) {
-    if (!isObj(p) || !petDef(p.typeId) || petDef(p.typeId)!.habitatId !== p.habitatId || !['gift', 'buy', 'egg'].includes(p.source)) return fail('寵物紀錄格式不正確。');
-    if (p.faceOverride !== null && !(Number.isInteger(p.faceOverride) && p.faceOverride >= 0 && p.faceOverride < FACES.length)) return fail('寵物表情不正確。');
-    if (p.bonusFed !== undefined && !(Number.isInteger(p.bonusFed) && p.bonusFed >= 0)) return fail('寵物成長紀錄不正確。');
-  }
-  if (save.pets.filter((p) => p.source === 'gift').length > 1) return fail('新手禮物重複。');
-  const adopted = new Set<string>();
+  const rewarded = { focus_reward: new Set<string>(), coin_reward: new Set<string>() };
   for (const t of save.transactions) {
     if (!isObj(t) || !Number.isInteger(t.amount) || t.amount === 0 || !isStr(t.idempotencyKey)) return fail('點數紀錄格式不正確。');
     if (keys.has(t.idempotencyKey)) return fail('點數紀錄重複。');
     keys.add(t.idempotencyKey);
-    if (t.kind === 'focus_reward' || t.kind === 'coin_reward' || t.kind === 'feed_reward') {
+    if (t.kind === 'focus_reward' || t.kind === 'coin_reward') {
       if (t.amount < 0) return fail('點數紀錄數值不正確。');
       if (t.idempotencyKey.startsWith('demo-')) {
         if (save.mode !== 'demo') return fail('個人存檔中含有示範贈點。');
       } else {
-        // 每個完成的 session 最多各一筆點數、金幣、飼料
+        // 每個完成的 session 最多各一筆點數、金幣
         const s = t.sessionId ? sessions.get(t.sessionId) : undefined;
         const seen = rewarded[t.kind];
-        const expected = s && (t.kind === 'feed_reward' ? feedFor(s) : Math.floor(s.accumulatedMs / 60000));
-        if (!s || s.status !== 'completed' || seen.has(s.id) || t.amount !== expected) return fail('專注獎勵與紀錄不符。');
+        if (!s || s.status !== 'completed' || seen.has(s.id) || t.amount !== Math.floor(s.accumulatedMs / 60000)) return fail('專注獎勵與紀錄不符。');
         seen.add(s.id);
       }
-    } else if (t.kind === 'pet_adopt') {
-      // 指定購買＝寵物價格；驚喜蛋＝該場景的蛋價
-      const pet = pets.get(t.petId ?? '');
-      const def = pet && petDef(pet.typeId);
-      const price = pet?.source === 'egg' ? EGG_PRICE[pet.habitatId] : def?.adoptPrice;
-      const priceOk = legacyPrices ? t.amount < 0 : t.amount === -(price ?? NaN);
-      if (!pet || !def || pet.source === 'gift' || !priceOk || adopted.has(pet.id)) return fail('寵物領養紀錄不符。');
-      adopted.add(pet.id);
-      invited.push(def.requiredProjectId);
-    } else if (t.kind === 'facility_buy') {
-      const f = facilityDef(t.facilityId ?? '');
-      if (!f || !(legacyPrices ? t.amount < 0 : t.amount === -f.price) || t.idempotencyKey !== `facility:${t.islandId}:${f.id}`) return fail('設施購買紀錄不符。');
-      const unlock = HABITATS.find((h) => h.id === f.habitatId)?.unlockProjectId;
-      if (unlock) invited.push(unlock);
-    } else if (t.kind === 'feed_spend') {
-      if (t.amount > 0 || !pets.has(t.petId ?? '')) return fail('餵食紀錄不符。');
-      fedTotal.set(t.petId!, (fedTotal.get(t.petId!) ?? 0) - t.amount);
-    } else if (t.kind === 'species_spend') {
-      const sp = SPECIES.find((x) => x.id === t.speciesId);
-      // 舊版「邀請野生訪客」留下的交易：仍需數值正確，但新版不再產生
-      if (!sp || t.amount !== -sp.price || t.idempotencyKey !== `species:${t.islandId}:${sp.id}`) return fail('生物邀請紀錄不符。');
-      invited.push(sp.requiredProjectId);
+    } else if (t.kind === 'animal_unlock') {
+      const a = ANIMALS.find((x) => x.id === t.animalId);
+      if (!a || a.unlock.kind !== 'coins' || t.amount !== -a.unlock.price || t.idempotencyKey !== `animal:${t.islandId}:${a.id}`) return fail('動物解鎖紀錄不符。');
     } else if (t.kind === 'project_spend') {
       if (t.amount > 0) return fail('點數紀錄數值不正確。');
       const c = save.contributions.find((c) => c.id === t.contributionId);
@@ -240,29 +211,14 @@ export function validateSave(raw: unknown): Validation {
     if (!save.transactions.some((t) => t.contributionId === c.id)) return fail('工程投入缺少對應的點數紀錄。');
   }
   for (const m of save.memberships) {
-    if (balance(save, m.userId) < 0 || coins(save, m.userId) < 0 || feed(save, m.userId) < 0) return fail('錢包餘額不可小於 0。');
+    if (balance(save, m.userId) < 0 || coins(save, m.userId) < 0) return fail('錢包餘額不可小於 0。');
   }
   for (const def of PROJECTS) {
     const row = save.projects.find((r) => r.projectId === def.id && r.islandId === save.profile.activeIslandId);
     if (!row) return fail('工程紀錄不完整。');
     const sum = save.contributions.filter((c) => c.projectId === def.id && c.islandId === row.islandId).reduce((a, c) => a + c.points, 0);
     if (sum !== row.contributedPoints || sum > def.requiredPoints) return fail('工程進度與投入紀錄不符。');
-    // 未完成的工程不可達到需求；已完成的可以小於需求（舊節奏用較小的數值完成）
-    if (!row.completedAt && sum >= def.requiredPoints) return fail('工程完成狀態不正確。');
-  }
-  for (const p of save.pets) {
-    if (p.source !== 'gift' && !adopted.has(p.id)) return fail('寵物缺少領養紀錄。');
-  }
-  for (const p of save.pets) {
-    if ((fedTotal.get(p.id) ?? 0) + (p.bonusFed ?? 0) > petMaxFeed(petDef(p.typeId)!)) return fail('寵物餵食紀錄不符。');
-  }
-  for (const pid of invited) {
-    if (!save.projects.some((r) => r.projectId === pid && r.completedAt)) return fail('生物邀請早於棲地工程完成。');
-  }
-  const disc = new Set(save.discoveries.map((d) => `${d.islandId}:${d.speciesId}`));
-  if (disc.size !== save.discoveries.length) return fail('圖鑑紀錄重複。');
-  for (const d of save.discoveries) {
-    if (d.sessionId && sessions.get(d.sessionId)?.status !== 'completed') return fail('偶遇紀錄與專注紀錄不符。');
+    if (!row.completedAt !== sum < def.requiredPoints) return fail('工程完成狀態不正確。');
   }
   return { ok: true, save };
 }

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useSave } from '../app/store';
-import { PetImage } from '../components/PetArt';
+import { AnimalArt } from '../components/Animal';
+import { animalDef } from '../content/config';
 import { localDateKey } from '../domain/focus';
-import { adoptedPets, openSession } from '../domain/game';
+import { openSession, sceneAnimals } from '../domain/game';
 import type { SaveFile } from '../domain/types';
 import { TimeGuard, defaultGuardConfig, isAndroid, onResume, type GuardApp, type GuardConfig } from '../platform';
 
@@ -32,10 +33,10 @@ function logChoice(choice: 'resisted' | 'unlocked', tz: string) {
   }
 }
 
-/** 攔截畫面的角色：陪伴寵物，沒有就挑第一隻。 */
+/** 攔截畫面的角色：最近孵出的動物；還沒孵過就沒有角色。 */
 const guardPet = (save: SaveFile) => {
-  const pets = adoptedPets(save);
-  return pets.find((v) => v.pet.id === save.settings.companionPetId) ?? pets[0] ?? null;
+  const id = sceneAnimals(save, 1)[0]?.animalId;
+  return id ? animalDef(id) : null;
 };
 
 const hm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
@@ -67,7 +68,7 @@ export function GuardScreen({ app, onClose }: { app: GuardApp; onClose: () => vo
 
   return (
     <div className="guard-screen" role="dialog" aria-modal="true" aria-labelledby="guard-title">
-      <div className="guard-pet">{pet ? <PetImage typeId={pet.def.id} art={pet.def.art} stage={pet.stage} face={pet.face} size={180} /> : <span aria-hidden="true">🌱</span>}</div>
+      <div className="guard-pet">{pet ? <AnimalArt id={pet.id} size={180} /> : <span aria-hidden="true">🌱</span>}</div>
       <h1 id="guard-title">先停一下</h1>
       <p>
         嘿，{save.profile.nickname}！<strong>{app.label}</strong> 是你想減少使用的 App。
@@ -83,7 +84,7 @@ export function GuardScreen({ app, onClose }: { app: GuardApp; onClose: () => vo
         </>
       ) : (
         <>
-          <p className="muted">{left > 0 ? `${pet ? pet.def.name : '小島'}陪你深呼吸 ${left} 秒，想想現在真的需要打開它嗎？` : '想好了嗎？不管選哪一個，都是你有意識的選擇。'}</p>
+          <p className="muted">{left > 0 ? `${pet ? pet.name : '小島'}陪你深呼吸 ${left} 秒，想想現在真的需要打開它嗎？` : '想好了嗎？不管選哪一個，都是你有意識的選擇。'}</p>
           <div className="guard-actions">
             <button className="primary" onClick={() => choose('resisted')}>
               其實不需要

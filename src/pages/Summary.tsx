@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { useSave } from '../app/store';
-import { COPY, EGG_PRICE, FACILITIES, HABITATS, PLANTS, plantDef, plantTier, speciesDef, tagColor, TAGS } from '../content/config';
-import { PlantArt } from '../components/Garden';
+import { ANIMALS, COPY, animalDef, sizeTier, tagColor, TAGS } from '../content/config';
+import { AnimalArt, EggArt } from '../components/Animal';
 import { Coin, Modal } from '../components/ui';
-import { Creature } from '../components/Creature';
 import { localDateKey } from '../domain/focus';
-import { activeProject, balance, chanceFind, coins, earnedFor, editSessionNote, eggOdds, facilityOwned, focusOutcome, habitatFree, habitatOpen, minutesByDay, NOTE_MAX, plantedSessions, remainingFor } from '../domain/game';
+import { activeProject, animalUnlocked, animalsUnlockedBy, balance, coins, earnedFor, editSessionNote, endedSessions, focusOutcome, minutesByDay, NOTE_MAX, remainingFor } from '../domain/game';
 import { HabitatScene } from '../scenes/HabitatScene';
 
 const clock = (ms: number) => `${String(Math.floor(ms / 60000)).padStart(2, '0')}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
@@ -35,30 +34,22 @@ export function Summary({
   const done = s.status === 'completed';
   const min = Math.floor(s.accumulatedMs / 60000);
   const earned = earnedFor(save, s.id);
-  const found = chanceFind(save, s.id);
   const todayMin = Math.floor((minutesByDay(save).get(localDateKey(Date.now(), save.profile.timezone)) ?? 0) / 60000);
   const project = activeProject(save);
   const canBuild = project && balance(save) >= remainingFor(save, project);
   const out = focusOutcome(save, s.id);
-  // 這段專注結束時才送到的新手禮物（卵在這段開始之後來到島上）
-  const gift = out.pets.find((p) => p.pet.source === 'gift' && Date.parse(p.pet.adoptedAt) >= Date.parse(s.startedAt));
-  // 下一步：金幣夠買蛋（有空位）或下一個設施時，提示去商店
+  // 下一步：金幣夠解鎖商店裡還沒解鎖的動物時，提示去商店
   const wallet = coins(save);
-  const canShop = HABITATS.some(
-    (h) =>
-      habitatOpen(save, h.id) &&
-      ((habitatFree(save, h.id) > 0 && wallet >= (EGG_PRICE[h.id] ?? Infinity) && eggOdds(save, h.id).length > 0) ||
-        FACILITIES.some((f) => f.habitatId === h.id && !facilityOwned(save, f.id) && wallet >= f.price)),
-  );
+  const canShop = ANIMALS.some((a) => a.unlock.kind === 'coins' && !animalUnlocked(save, a) && wallet >= a.unlock.price);
   const hasTitle = s.taskTitle && s.taskTitle !== '一段專注';
-  // 今天的花圃：這段專注是今天的第幾株
+  // 今天孵出的第幾隻（只算孵出來的）
   const tz = save.profile.timezone;
   const dayOf = (iso: string) => localDateKey(Date.parse(iso), tz);
-  const todays = s.endedAt ? plantedSessions(save).filter((x) => dayOf(x.endedAt!) === dayOf(s.endedAt!)).sort((a, b) => a.endedAt!.localeCompare(b.endedAt!)) : [];
+  const todays = s.endedAt ? endedSessions(save).filter((x) => x.status === 'completed' && dayOf(x.endedAt!) === dayOf(s.endedAt!)).sort((a, b) => a.endedAt!.localeCompare(b.endedAt!)) : [];
   const nth = todays.findIndex((x) => x.id === s.id) + 1;
-  const plantName = plantDef(s.plantId).name;
-  // 這段專注修好的工程解鎖了哪些植物
-  const newPlants = out.projects.filter((p) => p.completed).flatMap((p) => PLANTS.filter((pl) => pl.unlockProjectId === p.def.id));
+  const animal = animalDef(s.animalId);
+  // 這段專注修好的工程解鎖了哪些動物
+  const newAnimals = out.projects.filter((p) => p.completed).flatMap((p) => animalsUnlockedBy(p.def.id));
 
   if (!done && !comforted)
     return (
@@ -67,7 +58,7 @@ export function Summary({
           <HabitatScene habitatId={s.habitatId} bubble />
         </div>
         <div className="comfort-plant">
-          <PlantArt id={s.plantId} tier={0} color={tagColor(s.tag)} withered size={130} />
+          <EggArt id={s.animalId} cold size={120} />
         </div>
         <p className="result-title">沒關係，下次會更好</p>
         <p className="result-time">{clock(s.accumulatedMs)}</p>
@@ -95,11 +86,9 @@ export function Summary({
 
       <div className={done ? 'result-card' : 'result-card faded'}>
         <div className="result-card-scene" aria-hidden="true">
-          <HabitatScene habitatId={s.habitatId} bubble />
-          {/* 這次種下的植物直接長在場景裡；完整的花圃在「專注紀錄」 */}
-          <div className="result-plant">
-            <PlantArt id={s.plantId} tier={plantTier(min)} color={tagColor(s.tag)} withered={!done} size="100%" />
-          </div>
+          <HabitatScene habitatId={s.habitatId} bubble hide={s.id} />
+          {/* 這次孵出的動物直接出現在場景裡；放棄的話是沒孵化的蛋。完整紀錄在「專注紀錄」 */}
+          <div className="result-plant">{done ? <AnimalArt id={s.animalId} tier={sizeTier(min)} size="100%" /> : <EggArt id={s.animalId} cold size="100%" />}</div>
         </div>
         <span className="minute-pill">{min} 分</span>
         <p className="result-tag">
@@ -107,7 +96,7 @@ export function Summary({
           {s.tag}
           {hasTitle && <span className="result-task">・{s.taskTitle}</span>}
         </p>
-        {nth > 0 && <p className="result-plant-line">🌱 {done ? `今天的第 ${nth} 株：${plantName}` : `${plantName}枯萎了，留在今天的花圃裡`}</p>}
+        <p className="result-plant-line">{done && nth > 0 ? `🐣 今天孵出的第 ${nth} 隻：${animal.name}` : `🥚 ${animal.name}的蛋沒有孵化`}</p>
         {s.note ? (
           <button className="result-note" onClick={() => setEditing(true)} aria-label="編輯專注筆記">
             {s.note}
@@ -123,7 +112,7 @@ export function Summary({
         <ul className="reward-list" aria-label="這段專注的成果">
           {out.projects.map((p) => (
             <li key={p.def.id}>
-              <span>🏝️ {p.def.title}</span>
+              <span>🌲 {p.def.title}</span>
               <strong>{p.completed ? '完成了！' : `${Math.round(p.to * 100)}%（+${Math.max(1, Math.round((p.to - p.from) * 100))}%）`}</strong>
             </li>
           ))}
@@ -133,30 +122,12 @@ export function Summary({
               <strong>+{earned.points}</strong>
             </li>
           )}
-          {newPlants.map((p) => (
-            <li key={p.id}>
-              <span>🌱 解鎖新植物</span>
-              <strong>{p.name}，下次專注可以種</strong>
+          {newAnimals.map((a) => (
+            <li key={a.id}>
+              <span>🥚 解鎖新的蛋</span>
+              <strong>{a.name}，下次專注可以孵</strong>
             </li>
           ))}
-          {gift && (
-            <li>
-              <span>🎁 新手禮物</span>
-              <strong>{gift.def.name}的{gift.def.stages[0]}來到島上了！</strong>
-            </li>
-          )}
-          {out.pets.map((p) => (
-            <li key={p.pet.id}>
-              <span>🥚 {p.def.name}吃了 {p.amount} 份飼料</span>
-              <strong>{p.to > p.from ? `長成${p.def.stages[p.to]}了！` : p.def.stages[p.to]}</strong>
-            </li>
-          ))}
-          {!out.pets.length && earned.feed > 0 && (
-            <li>
-              <span>🌾 飼料</span>
-              <strong>+{earned.feed}（先存著）</strong>
-            </li>
-          )}
           <li>
             <span>
               <Coin /> 金幣
@@ -170,7 +141,7 @@ export function Summary({
 
       {saved ? (
         <>
-          <p className="result-saved">{saved === 'first' ? '第一篇專注筆記存好了，小島又多了一段小故事！' : '筆記存好了，小島又多了一段小故事！'}</p>
+          <p className="result-saved">{saved === 'first' ? '第一篇專注筆記存好了，森林又多了一段小故事！' : '筆記存好了，森林又多了一段小故事！'}</p>
           <button className="link-light" onClick={() => onRecords(s.tag)}>
             查看專注紀錄：「{s.tag}」
           </button>
@@ -179,25 +150,11 @@ export function Summary({
         <p className="result-sub">{done ? (min > 0 ? COPY.complete(min) : '未滿一分鐘不會得到獎勵。') : '提前結束，這次沒有獎勵。'}</p>
       )}
 
-      {found && (
-        <div className="reward-chance">
-          <Creature id={found.speciesId} size={56} />
-          <div>
-            <strong>偶遇！{speciesDef(found.speciesId)?.name}</strong>
-            <div className="small">在你專注的時候來訪，已收進圖鑑。</div>
-          </div>
-        </div>
-      )}
-
       <div className="result-actions">
         <button className="pill wide" onClick={onDone}>
           返回首頁
         </button>
-        {gift && (
-          <button className="link-light" onClick={onProject}>
-            去看看{gift.def.name}的{gift.def.stages[0]}
-          </button>
-        )}
+
         {canBuild && (
           <button className="link-light" onClick={onProject}>
             點數夠了，去修「{project.title}」

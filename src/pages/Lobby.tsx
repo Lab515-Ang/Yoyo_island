@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { useSave } from '../app/store';
-import { HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, PLANTS, QUICK_MINUTES, TAGS, clampMinutes, habitatName, plantDef, plantTier, projectDef, tagColor } from '../content/config';
+import { ANIMALS, HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, QUICK_MINUTES, TAGS, animalDef, clampMinutes, habitatName, tagColor } from '../content/config';
 import { Modal } from '../components/ui';
-import { PlantArt } from '../components/Garden';
-import { chosenPlant, habitatOpen, newPlants, plantUnlocked, startFocus } from '../domain/game';
+import { AnimalArt, EggArt } from '../components/Animal';
+import { unlockText } from '../components/ui';
+import { animalUnlocked, chosenAnimal, habitatOpen, newAnimals, startFocus } from '../domain/game';
 import type { HabitatId, TimerMode } from '../domain/types';
 import { HabitatScene } from '../scenes/HabitatScene';
 import { DEEP_GRACE_MS, TimeGuard, isAndroid, isNative, requestNotifyPermission, type GuardApp } from '../platform';
 import { AppPicker } from './Guard';
 
-type Sheet = 'tag' | 'title' | 'time' | 'habitat' | 'plant' | 'allow' | 'usage' | null;
+type Sheet = 'tag' | 'title' | 'time' | 'habitat' | 'egg' | 'allow' | 'usage' | null;
 
 /** 首頁大廳（參考 Forest 構圖）：左上標籤與標題、中央棲地泡泡、大字時間、開始按鈕；細項點了才展開。 */
 export function Lobby({ onStarted }: { onStarted: () => void }) {
@@ -20,8 +21,10 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
   const [timerMode, setTimerMode] = useState<TimerMode>(st.lastTimerMode);
   // 舊存檔可能記著 5 分鐘：收進 10～180 分鐘（示範的 10 秒例外）
   const [seconds, setSeconds] = useState(mode === 'demo' && st.lastTargetSeconds === 10 ? 10 : clampMinutes(st.lastTargetSeconds / 60) * 60);
-  const [habitat, setHabitat] = useState<HabitatId>(habitatOpen(save, st.preferredHabitatId) ? st.preferredHabitatId : 'greenhouse');
-  const [plant, setPlant] = useState(() => chosenPlant(save).id);
+  const [habitat, setHabitat] = useState<HabitatId>(habitatOpen(save, st.preferredHabitatId) ? st.preferredHabitatId : 'forest');
+  // 選的蛋直接記進設定：去商店或其他頁再回來也不會跑掉
+  const egg = chosenAnimal(save).id;
+  const setEgg = (id: string) => update((s) => ({ ...s, settings: { ...s.settings, eggId: id } }));
   const [sheet, setSheet] = useState<Sheet>(null);
   const [draft, setDraft] = useState('');
   const [custom, setCustom] = useState('');
@@ -40,8 +43,10 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
     if (next) setSeconds(next * 60);
   };
 
-  // 解鎖了還沒種過的植物：標「新」，種過一次就消失
-  const fresh = newPlants(save);
+  // 解鎖了還沒孵過的動物：標「新」，孵過一次就消失
+  const fresh = newAnimals(save);
+  // 目前只有一個場景：開放兩個以上才顯示場景選擇
+  const openHabitats = HABITATS.filter((h) => habitatOpen(save, h.id));
 
   // 深度專注（Android）：預設開；第一段專注先不開，熟悉之後再挑戰
   const deep = isAndroid && st.deepFocus && !firstTime;
@@ -54,7 +59,7 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
 
   const begin = (useDeep: boolean) => {
     setSheet(null);
-    const next = update((s) => startFocus(s, { taskTitle: task, tag, habitatId: habitat, mode: timerMode, targetSeconds: timerMode === 'countdown' ? seconds : null, plantId: plant, deep: useDeep }, Date.now()));
+    const next = update((s) => startFocus(s, { taskTitle: task, tag, habitatId: habitat, mode: timerMode, targetSeconds: timerMode === 'countdown' ? seconds : null, animalId: egg, deep: useDeep }, Date.now()));
     if (next) onStarted();
   };
   const start = async () => {
@@ -93,19 +98,22 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
 
       <div className="lobby-bubble">
         <HabitatScene habitatId={habitat} bubble />
-        {/* 準備種下的植物：時間選越長，結束時長得越大 */}
-        <button className="bubble-plant" onClick={() => setSheet('plant')} aria-label={`植物：${plantDef(plant).name}，點一下更換`}>
-          <PlantArt id={plant} tier={timerMode === 'countdown' ? plantTier(seconds / 60) : 1} color={tagColor(tag)} size="100%" />
+        {/* 準備孵化的蛋：專注越久，孵出來越大 */}
+        <button className="bubble-plant" onClick={() => setSheet('egg')} aria-label={`要孵化的蛋：${animalDef(egg).name}，點一下更換`}>
+          <EggArt id={egg} size="100%" />
         </button>
       </div>
       <div className="row center">
-        <button className="habitat-chip" onClick={() => setSheet('plant')}>
-          🌱 {plantDef(plant).name}
-          {fresh.length > 0 && <span className="new-badge">新</span>} ›
+        <button className="habitat-chip" onClick={() => setSheet('egg')}>
+          🥚 {animalDef(egg).name}的蛋
+          {fresh.length > 0 && !fresh.some((a) => a.id === egg) && <span className="new-badge">{fresh.length} 顆新蛋</span>}
+          {fresh.some((a) => a.id === egg) && <span className="new-badge">新</span>} ›
         </button>
-        <button className="habitat-chip" onClick={() => setSheet('habitat')}>
-          {habitatName(habitat)} ›
-        </button>
+        {openHabitats.length > 1 && (
+          <button className="habitat-chip" onClick={() => setSheet('habitat')}>
+            {habitatName(habitat)} ›
+          </button>
+        )}
       </div>
 
       <div className="lobby-time-row">
@@ -280,30 +288,30 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
         </Modal>
       )}
 
-      {sheet === 'plant' && (
-        <Modal title="要種什麼？" onClose={() => setSheet(null)}>
-          <p className="small muted">專注時看它長大，結束後種進今天的花圃。花色跟著標籤，專注越久長得越大。</p>
-          <div className="plant-pick" role="radiogroup" aria-label="植物">
-            {PLANTS.map((p) => {
-              const ok = plantUnlocked(save, p);
+      {sheet === 'egg' && (
+        <Modal title="要孵化哪一顆蛋？" onClose={() => setSheet(null)}>
+          <p className="small muted">專注時蛋會慢慢裂開，完成就孵出來，專注越久孵出來越大。提前放棄的話蛋不會孵化。</p>
+          <div className="plant-pick" role="radiogroup" aria-label="動物">
+            {ANIMALS.map((a) => {
+              const ok = animalUnlocked(save, a);
               return (
                 <button
-                  key={p.id}
+                  key={a.id}
                   role="radio"
-                  aria-checked={plant === p.id}
+                  aria-checked={egg === a.id}
                   disabled={!ok}
-                  className={plant === p.id ? 'plant-option on' : 'plant-option'}
+                  className={egg === a.id ? 'plant-option on' : 'plant-option'}
                   onClick={() => {
-                    setPlant(p.id);
+                    setEgg(a.id);
                     setSheet(null);
                   }}
                 >
-                  <PlantArt id={p.id} tier={ok ? 2 : 0} color={ok ? tagColor(tag) : '#c9c2b2'} size={56} />
+                  {ok ? <EggArt id={a.id} size={56} /> : <AnimalArt id={a.id} size={56} hidden />}
                   <span>
-                    {p.name}
-                    {fresh.includes(p) && <span className="new-badge">新</span>}
+                    {a.name}
+                    {fresh.includes(a) && <span className="new-badge">新</span>}
                   </span>
-                  {!ok && <span className="small muted">修好「{projectDef(p.unlockProjectId!)?.title}」</span>}
+                  {!ok && <span className="small muted">{unlockText(a)}</span>}
                 </button>
               );
             })}

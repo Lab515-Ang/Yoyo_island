@@ -1,30 +1,30 @@
 import { useState } from 'react';
 import { useSave } from '../app/store';
-import { CATEGORY_LABEL, HABITATS, SPECIES, habitatName } from '../content/config';
-import { Creature } from '../components/Creature';
-import { SpeciesCard, conditionText } from '../components/ui';
-import { discoveryOf } from '../domain/game';
-import type { HabitatId } from '../domain/types';
+import { ANIMALS } from '../content/config';
+import { AnimalArt } from '../components/Animal';
+import { AnimalCard, unlockText } from '../components/ui';
+import { animalUnlocked, hatchCounts } from '../domain/game';
 
-export function Codex({ onEnter }: { onEnter: (h: HabitatId) => void }) {
+/** 動物圖鑑：孵過的動物與數量；還沒孵過的顯示剪影與取得方式。 */
+export function Codex() {
   const { save } = useSave();
   const [show, setShow] = useState<'all' | 'found' | 'missing'>('all');
-  const [habitat, setHabitat] = useState<HabitatId | 'all'>('all');
   const [card, setCard] = useState<string | null>(null);
-  const found = SPECIES.filter((s) => discoveryOf(save, s.id)).length;
-  const list = SPECIES.filter((s) => (habitat === 'all' || s.habitatId === habitat) && (show === 'all' || (show === 'found') === !!discoveryOf(save, s.id)));
+  const counts = hatchCounts(save);
+  const found = ANIMALS.filter((a) => counts.get(a.id)).length;
+  const list = ANIMALS.filter((a) => show === 'all' || (show === 'found') === !!counts.get(a.id));
 
   return (
     <div className="page sub">
       <p className="muted">
-        已發現 {found} / {SPECIES.length} 種
+        已孵出 {found} / {ANIMALS.length} 種
       </p>
-      <div className="segmented small" role="radiogroup" aria-label="發現狀態">
+      <div className="segmented small" role="radiogroup" aria-label="孵化狀態">
         {(
           [
             ['all', '全部'],
-            ['found', '已發現'],
-            ['missing', '未發現'],
+            ['found', '孵過'],
+            ['missing', '還沒孵過'],
           ] as const
         ).map(([k, l]) => (
           <button key={k} role="radio" aria-checked={show === k} className={show === k ? 'on' : ''} onClick={() => setShow(k)}>
@@ -32,30 +32,21 @@ export function Codex({ onEnter }: { onEnter: (h: HabitatId) => void }) {
           </button>
         ))}
       </div>
-      <div className="chips" role="radiogroup" aria-label="棲地">
-        {(['all', ...HABITATS.filter((h) => h.playable).map((h) => h.id)] as const).map((h) => (
-          <button key={h} role="radio" aria-checked={habitat === h} className={habitat === h ? 'chip on' : 'chip'} onClick={() => setHabitat(h)}>
-            {h === 'all' ? '所有棲地' : habitatName(h)}
-          </button>
-        ))}
-      </div>
       <div className="codex-grid">
-        {list.map((s) => {
-          const d = discoveryOf(save, s.id);
+        {list.map((a) => {
+          const n = counts.get(a.id) ?? 0;
+          const ok = animalUnlocked(save, a);
           return (
-            <button key={s.id} className={d ? 'codex-card' : 'codex-card locked'} onClick={() => setCard(s.id)}>
-              <Creature id={s.id} size={64} hidden={!d} />
-              <strong>{d ? s.name : '尚未發現'}</strong>
-              <span className="small muted">
-                {CATEGORY_LABEL[s.category]} · {habitatName(s.habitatId)}
-              </span>
-              {!d && <span className="small cond">{conditionText(save, s.id)}</span>}
+            <button key={a.id} className={n ? 'codex-card' : 'codex-card locked'} onClick={() => setCard(a.id)}>
+              <AnimalArt id={a.id} size={64} hidden={!n} />
+              <strong>{n || ok ? a.name : '尚未解鎖'}</strong>
+              {n ? <span className="small muted">孵過 {n} 隻</span> : <span className="small cond">{ok ? '已解鎖，還沒孵過' : unlockText(a)}</span>}
             </button>
           );
         })}
-        {!list.length && <p className="muted">這個篩選下沒有生物。</p>}
+        {!list.length && <p className="muted">這個篩選下沒有動物。</p>}
       </div>
-      {card && <SpeciesCard save={save} speciesId={card} onClose={() => setCard(null)} />}
+      {card && <AnimalCard save={save} animalId={card} onClose={() => setCard(null)} />}
     </div>
   );
 }

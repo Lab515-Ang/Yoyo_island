@@ -1,27 +1,10 @@
 // 節奏模擬：用「一般玩家」的專注習慣跑完整條路線，檢查各里程碑落在目標時間內。
 // 調整 config.ts 的數值後執行 npm test，就能看到節奏有沒有跑掉（結果也會印出來）。
 import { describe, expect, it } from 'vitest';
-import { EGG_PRICE, FACILITIES, PETS, PROJECTS } from '../content/config';
-import {
-  activeProject,
-  adoptedPets,
-  buyEgg,
-  buyFacility,
-  coins,
-  contribute,
-  facilityOwned,
-  feed,
-  feedPet,
-  grantStarter,
-  habitatFree,
-  habitatOpen,
-  isDone,
-  settleOpenSessions,
-  starterGiftDue,
-  startFocus,
-} from './game';
+import { ANIMALS, PROJECTS } from '../content/config';
+import { activeProject, animalUnlocked, applyFocusRewards, coins, hatchCounts, isDone, settleOpenSessions, startFocus, unlockAnimal } from './game';
 import { newSave } from './save';
-import type { HabitatId, SaveFile } from './types';
+import type { SaveFile } from './types';
 
 const DAY = 86_400_000;
 const T0 = Date.parse('2026-01-05T00:00:00Z'); // 週一
@@ -32,93 +15,54 @@ interface Habit {
   daysPerWeek: number;
 }
 
-/** 模擬玩家：每段倒數都完成；點數全投工程；金幣優先買蛋填滿名額、再買設施；飼料都餵給最接近長大的寵物。 */
-function simulate(habit: Habit, maxDays = 400) {
-  let save: SaveFile = newSave('personal', { nickname: '模擬', islandName: '模擬島', avatarId: 'leaf', timezone: 'UTC' }, T0);
-  const uid = save.profile.id;
-  const at: Record<string, number> = {};
-  const mark = (key: string, day: number) => (at[key] ??= day);
-
-  for (let day = 1; day <= maxDays; day++) {
-    if ((day - 1) % 7 >= habit.daysPerWeek) continue;
-    for (let n = 0; n < habit.sessionsPerDay; n++) {
-      const start = T0 + (day - 1) * DAY + (9 + n * 3) * 3_600_000;
-      save = startFocus(save, { taskTitle: '', tag: '讀書', habitatId: 'greenhouse', mode: 'countdown', targetSeconds: habit.minutes * 60 }, start);
-      save = settleOpenSessions(save, start + habit.minutes * 60_000).save;
-
-      // 點數全投進目前的工程
-      for (let p = activeProject(save); p; p = activeProject(save)) {
-        const r = contribute(save, uid, p.id, 'all', start);
-        if (!r.ok) break;
-        save = r.save;
-        if (!r.completed) break;
-      }
-      if (starterGiftDue(save)) {
-        const g = grantStarter(save, start);
-        if (g.ok) save = g.save;
-      }
-
-      // 金幣：有空位就買蛋，否則買下一個設施
-      for (const h of ['greenhouse', 'stream'] as HabitatId[]) {
-        if (!habitatOpen(save, h)) continue;
-        if (habitatFree(save, h) > 0 && coins(save) >= (EGG_PRICE[h] ?? Infinity)) {
-          const e = buyEgg(save, uid, h, start, 0.5);
-          if (e.ok) save = e.save;
+/** 模擬玩家：每段倒數都完成；點數自動投入工程；輪流孵已解鎖的動物；金幣夠就解鎖商店裡最便宜的動物。 */
+function simulate(h: Habit, days: number) {
+  let save: SaveFile = newSave('personal', { nickname: '模擬', islandName: '模擬島', avatarId: 'leaf', timezone: 'Asia/Taipei' }, T0);
+  const firstDay: Record<string, number> = {};
+  const mark = (key: string, day: number) => (firstDay[key] ??= day);
+  for (let d = 0; d < days; d++) {
+    if (d % 7 >= h.daysPerWeek) continue;
+    for (let i = 0; i < h.sessionsPerDay; i++) {
+      const start = T0 + d * DAY + (9 + i * 2) * 3_600_000;
+      const pool = ANIMALS.filter((a) => animalUnlocked(save, a));
+      const egg = pool[(d * h.sessionsPerDay + i) % pool.length].id;
+      save = startFocus(save, { taskTitle: '', tag: '讀書', habitatId: 'forest', mode: 'countdown', targetSeconds: h.minutes * 60, animalId: egg }, start);
+      const end = start + h.minutes * 60_000;
+      const r = settleOpenSessions(save, end);
+      save = applyFocusRewards(r.save, r.completed!.id, end);
+      for (const a of ANIMALS.filter((x) => x.unlock.kind === 'coins').sort((x, y) => (x.unlock.kind === 'coins' && y.unlock.kind === 'coins' ? x.unlock.price - y.unlock.price : 0))) {
+        if (animalUnlocked(save, a)) continue;
+        const u = unlockAnimal(save, save.profile.id, a.id, end);
+        if (u.ok) {
+          save = u.save;
+          mark(`商店解鎖 ${a.name}`, d + 1);
         }
-        const next = FACILITIES.find((f) => f.habitatId === h && !facilityOwned(save, f.id));
-        if (next && habitatFree(save, h) <= 0 && coins(save) >= next.price) {
-          const f = buyFacility(save, uid, next.id, start);
-          if (f.ok) save = f.save;
-        }
-      }
-
-      // 飼料：餵給最接近下一階段的寵物
-      const growing = adoptedPets(save)
-        .filter((v) => v.stage < 3)
-        .sort((a, b) => a.def.thresholds[a.stage] - a.fed - (b.def.thresholds[b.stage] - b.fed));
-      for (const v of growing) {
-        if (feed(save) <= 0) break;
-        const r = feedPet(save, uid, v.pet.id, 'all', start);
-        if (r.ok) save = r.save;
+        break;
       }
     }
-
-    if (isDone(save, 'gh_entrance')) mark('修好溫室入口（收到卵）', day);
-    if (adoptedPets(save).some((v) => v.stage >= 1)) mark('第一次孵化', day);
-    if (adoptedPets(save).some((v) => v.stage === 3)) mark('第一隻寵物長大', day);
-    if (isDone(save, 'gh_plants')) mark('溫室全部修好', day);
-    if (isDone(save, 'st_entrance')) mark('溪流開放', day);
-    if (PROJECTS.every((p) => isDone(save, p.id))) mark('所有工程完成', day);
-    if (adoptedPets(save).some((v) => v.def.rarity === 'rare' && v.stage === 3)) mark('稀有寵物長大', day);
-    if (FACILITIES.every((f) => facilityOwned(save, f.id))) mark('設施全部買齊', day);
-    if (at['所有工程完成'] && PETS.every((p) => adoptedPets(save).some((v) => v.def.id === p.id))) mark('五種寵物都養過', day);
+    for (const p of PROJECTS) if (isDone(save, p.id)) mark(`完成 ${p.title}`, d + 1);
+    if (!activeProject(save)) mark('全部工程完成', d + 1);
+    if (ANIMALS.filter((a) => a.unlock.kind !== 'iap').every((a) => hatchCounts(save).get(a.id))) mark('孵齊所有可取得的動物', d + 1);
   }
-  return at;
+  return { save, firstDay };
 }
 
-const report = (title: string, at: Record<string, number>) =>
-  console.log(`\n${title}\n` + Object.entries(at).map(([k, d]) => `  ${k.padEnd(14, '　')} 第 ${d} 天（約 ${(d / 7).toFixed(1)} 週）`).join('\n'));
-
-describe('長期節奏（每天 1～3 小時，溫室＋溪流約 3 個月）', () => {
-  it('基準玩家：每天 2 小時（兩段 60 分鐘）、每週 6 天', () => {
-    const at = simulate({ sessionsPerDay: 2, minutes: 60, daysPerWeek: 6 });
-    report('基準玩家：每天 2 小時、每週 6 天', at);
-    expect(at['修好溫室入口（收到卵）']).toBe(1); // 第一天就有收穫
-    expect(at['第一次孵化']).toBeLessThanOrEqual(3);
-    expect(at['第一隻寵物長大']).toBeGreaterThanOrEqual(10);
-    expect(at['第一隻寵物長大']).toBeLessThanOrEqual(25);
-    expect(at['溫室全部修好']).toBeGreaterThanOrEqual(21);
-    expect(at['溫室全部修好']).toBeLessThanOrEqual(42);
-    expect(at['所有工程完成']).toBeGreaterThanOrEqual(75);
-    expect(at['所有工程完成']).toBeLessThanOrEqual(110);
+describe('節奏模擬', () => {
+  it('每天 2 小時：第一天就有步道與第一隻動物；約 3 個月修完森林；動物收集跟得上', () => {
+    const { save, firstDay } = simulate({ sessionsPerDay: 4, minutes: 30, daysPerWeek: 7 }, 120);
+    console.table(firstDay);
+    expect(firstDay['完成 清出林間步道']).toBe(1);
+    expect(firstDay['全部工程完成']).toBeGreaterThanOrEqual(70);
+    expect(firstDay['全部工程完成']).toBeLessThanOrEqual(100);
+    expect(firstDay['孵齊所有可取得的動物']).toBeLessThanOrEqual(110);
+    expect(coins(save)).toBeGreaterThanOrEqual(0);
   });
 
-  it('輕度玩家每天 1 小時、重度玩家每天 3 小時，也落在合理範圍', () => {
-    const light = simulate({ sessionsPerDay: 2, minutes: 30, daysPerWeek: 6 });
-    const heavy = simulate({ sessionsPerDay: 3, minutes: 60, daysPerWeek: 6 });
-    report('輕度玩家：每天 1 小時', light);
-    report('重度玩家：每天 3 小時', heavy);
-    expect(light['所有工程完成']).toBeGreaterThan(150); // 約 5 個月以上
-    expect(heavy['所有工程完成']).toBeGreaterThan(50); // 至少約 2 個月
+  it('每天 1 小時：森林大約半年修完，仍會持續解鎖新動物', () => {
+    const { firstDay } = simulate({ sessionsPerDay: 2, minutes: 30, daysPerWeek: 7 }, 200);
+    console.table(firstDay);
+    expect(firstDay['全部工程完成']).toBeGreaterThanOrEqual(140);
+    expect(firstDay['全部工程完成']).toBeLessThanOrEqual(200);
+    expect(firstDay['商店解鎖 小麝香貓']).toBeLessThanOrEqual(30);
   });
 });
