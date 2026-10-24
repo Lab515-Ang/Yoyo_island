@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { useGame, useNow, useSave } from './app/store';
+import { useGame, useSave } from './app/store';
 import { APP_NAME, COPY, avatarEmoji } from './content/config';
 import { applyFocusRewards, closeSession, coins, openSession, putSession, settleOpenSessions } from './domain/game';
 import * as storage from './data/storage';
-import { applyDeepFocus, dueAt, remainingMs } from './domain/focus';
+import { applyDeepFocus, dueAt } from './domain/focus';
 import { notifyEnd, playChime } from './sound';
-import { TimeGuard, buzz, isAndroid, isNative, onGuard, onPause, onResume, type GuardApp } from './platform';
+import { TimeGuard, buzz, isAndroid, isNative, minimizeApp, onBack, onGuard, onPause, onResume, type GuardApp } from './platform';
 import type { HabitatId } from './domain/types';
 import { Onboarding } from './pages/Onboarding';
 import { Lobby } from './pages/Lobby';
@@ -117,7 +117,6 @@ function Main() {
     });
   const wide = () => matchMedia('(min-width: 900px)').matches;
   const open = openSession(save);
-  const now = useNow(500, !!open);
 
   // 深度專注（Android）：App 在背景時網頁不會執行，離開、接電話都由原生端記下；
   // 回到前景或快結束時先套用這些事，確認過了才結算，避免離開太久還被算成完成
@@ -147,7 +146,7 @@ function Main() {
         });
         if (ended) {
           setSummaryId(ended);
-          if (withered) notify('離開棲光小島超過 10 秒，植物枯萎了。');
+          if (withered) notify('離開棲光小島超過 10 秒，這顆蛋沒有孵化。');
         }
       }
       deepChecked.current = at;
@@ -190,7 +189,7 @@ function Main() {
       buzz();
       if (st.endNotify && !isNative) void notifyEnd(`${APP_NAME}・專注完成`, `「${r.completed.taskTitle}」完成了 ${Math.floor(r.completed.accumulatedMs / 60000)} 分鐘，回來看看小島吧。`);
     }
-  }, [now, wake, save, update]);
+  }, [wake, save, update]);
 
   // 時間守護：背景服務在玩家打開想減少使用的 App 時把小島叫到前面
   // 每次攔截都是新的畫面（同一個 App 再被攔也重新倒數）；App 進到背景就收掉，不會留到下次打開
@@ -209,12 +208,28 @@ function Main() {
     if (deepRef.current) void syncRef.current();
   }, []);
 
-  // 背景分頁的 interval 會被節流，另排一個剛好在歸零時觸發的 timeout
+  // 剛好在該結算時（倒數歸零、正向計時滿 180 分鐘）觸發一次結算；不用每秒重繪整個畫面
   useEffect(() => {
-    if (!open || open.status !== 'running' || open.mode !== 'countdown') return;
-    const id = window.setTimeout(() => setWake((w) => w + 1), remainingMs(open, Date.now()) + 50);
+    const due = open ? dueAt(open) : null;
+    if (due === null) return;
+    const id = window.setTimeout(() => setWake((w) => w + 1), Math.max(0, due - Date.now()) + 50);
     return () => clearTimeout(id);
   }, [open]);
+
+  // Android 返回鍵：先關彈窗，再回上一層，最後才回到桌面；專注中不做事（避免誤觸離開）
+  const backRef = useRef(() => {});
+  backRef.current = () => {
+    const dialog = document.querySelector<HTMLDialogElement>('dialog[open]');
+    if (dialog) return void dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
+    if (guardApp) return; // 攔截畫面要等倒數，不能用返回鍵跳過
+    if (open) return;
+    if (navOpen) return setNavOpen(false);
+    if (resting || summaryId) return (setResting(false), go('lobby'));
+    if (habitat) return setHabitat(null);
+    if (view !== 'lobby') return go('lobby');
+    minimizeApp();
+  };
+  useEffect(() => onBack(() => backRef.current()), []);
 
   // 換模式時回到大廳（首次掛載不算，避免清掉重新載入後的結算畫面）
   const lastMode = useRef(mode);
@@ -291,7 +306,7 @@ function Main() {
           ))}
         </nav>
         <main className="content" key={mode}>
-          {view === 'lobby' && <Lobby onStarted={() => setSummaryId(null)} />}
+          {view === 'lobby' && <Lobby onStarted={() => setSummaryId(null)} onShop={() => go('shop')} />}
           {view === 'lobby' && save.sessions.filter((s) => s.endedAt).length === 1 && <FirstTour />}
           {view === 'island' && <IslandPage habitat={habitat} setHabitat={setHabitat} />}
           {view === 'quests' && <Quests onIsland={() => go('island')} onShop={() => go('shop')} />}

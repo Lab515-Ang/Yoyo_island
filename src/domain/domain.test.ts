@@ -315,6 +315,10 @@ describe('深度專注', () => {
     const left = applyDeepFocus(s0, { calls: [], callStart: null, failedAt: T0 + 10 * MIN });
     expect(left.status).toBe('abandoned');
     expect(left.accumulatedMs).toBe(10 * MIN);
+    // 放棄之後才接的電話不會把時間加回來
+    const leftThenCall = applyDeepFocus(s0, { calls: [[T0 + 15 * MIN, T0 + 20 * MIN]], callStart: null, failedAt: T0 + 10 * MIN });
+    expect(leftThenCall.status).toBe('abandoned');
+    expect(leftThenCall.accumulatedMs).toBe(10 * MIN);
 
     // 倒數已經在第 25 分鐘完成，之後才離開：仍然算完成
     const late = applyDeepFocus(s0, { calls: [], callStart: null, failedAt: T0 + 30 * MIN });
@@ -387,8 +391,23 @@ describe('孵化動物', () => {
     expect(animalUnlocked(save, animalDef('clouded_leopard'))).toBe(false);
     expect(validateSave(JSON.parse(JSON.stringify(save))).ok).toBe(true);
     const tampered = JSON.parse(JSON.stringify(save));
-    tampered.transactions.find((t: { kind: string }) => t.kind === 'animal_unlock').amount = -1;
+    tampered.transactions.find((t: { kind: string }) => t.kind === 'animal_unlock').animalId = 'dragon';
     expect(validateSave(tampered).ok).toBe(false);
+  });
+
+  it('之後調整工程點數或價格，舊存檔仍讀得到（已完成的維持完成，達到新門檻的補記完成）', () => {
+    let save = startFocus(fresh(), { taskTitle: '', tag: '讀書', habitatId: 'forest', mode: 'countdown', targetSeconds: 25 * 60 }, T0);
+    const done = completeNow(save.sessions[0], T0 + MIN, 25);
+    save = applyFocusRewards(closeSession(save, done, T0 + MIN), done.id, T0 + MIN);
+    const base = JSON.parse(JSON.stringify(save));
+    const row = base.projects.find((r: { projectId: string }) => r.projectId === 'fo_trail');
+    row.completedAt = null; // 模擬「門檻調低後，投入已經夠了但當時還沒完成」
+    const r = validateSave(base);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.save.projects.find((x) => x.projectId === 'fo_trail')!.completedAt).not.toBeNull();
+    const nulls = JSON.parse(JSON.stringify(save));
+    nulls.sessions.push(null);
+    expect(validateSave(nulls).ok).toBe(false); // 格式壞掉回報錯誤，不會當掉
   });
 
   it('預設的蛋還沒解鎖（例如從示範帶來）就用第一種', () => {

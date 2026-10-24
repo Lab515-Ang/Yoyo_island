@@ -134,22 +134,33 @@ const loadImage = (src: string) =>
     img.src = src;
   });
 
-/** 把動物圖（臨時 SVG；美術圖到位後換成圖片）畫成貼圖。 */
+/** 把動物圖（臨時 SVG；美術圖到位後換成圖片）畫成貼圖。
+ *  所有場景共用同一份（最多 15 種動物）：換頁重開場景時不用重畫，也不會一直累積貼圖。 */
+const texCache = new Map<string, Promise<THREE.CanvasTexture>>();
+function animalTexture(animalId: string) {
+  let p = texCache.get(animalId);
+  if (!p) {
+    const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(renderToStaticMarkup(<AnimalArt id={animalId} size={256} />))}`;
+    p = loadImage(url).then((img) => {
+      const c = document.createElement('canvas');
+      c.width = c.height = 256;
+      c.getContext('2d')!.drawImage(img, 0, 0, 256, 256);
+      const t = new THREE.CanvasTexture(c);
+      t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    });
+    p.catch(() => texCache.delete(animalId)); // 失敗的下次再試
+    texCache.set(animalId, p);
+  }
+  return p;
+}
+
 function useAnimalTexture(animalId: string) {
   const [tex, setTex] = useState<THREE.CanvasTexture | null>(null);
   useEffect(() => {
     let alive = true;
-    const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(renderToStaticMarkup(<AnimalArt id={animalId} size={256} />))}`;
-    loadImage(url)
-      .then((img) => {
-        if (!alive) return;
-        const c = document.createElement('canvas');
-        c.width = c.height = 256;
-        c.getContext('2d')!.drawImage(img, 0, 0, 256, 256);
-        const t = new THREE.CanvasTexture(c);
-        t.colorSpace = THREE.SRGBColorSpace;
-        setTex(t);
-      })
+    animalTexture(animalId)
+      .then((t) => alive && setTex(t))
       .catch(() => undefined); // 圖檔缺漏時不顯示，不影響場景
     return () => {
       alive = false;
@@ -433,7 +444,7 @@ function Forest({ done, prog, still }: Progress) {
 
       {/* 全部修好：夜晚的螢火點點 */}
       {restored === 8 && (
-        <group ref={fireflies}>
+        <group ref={fireflies} position={[0, 2.2, 0]}>
           {spread(8, 4).map(([x, z], i) => (
             <mesh key={i} position={[x, (i % 3) * 0.3, z]} raycast={noHit}>
               <sphereGeometry args={[0.05, 6, 6]} />
@@ -465,8 +476,8 @@ export default function Scene3D({ done, prog, reducedMotion, onSelect, onSlow, b
   const props = { done, prog: prog ?? ((id: string) => (done(id) ? 1 : 0)), still: reducedMotion };
   return (
     <Canvas
-      // 背景分頁停止渲染；低動態只在變化時重繪；省電模式每秒 12 張
-      frameloop={hidden ? 'never' : reducedMotion || lowPower ? 'demand' : 'always'}
+      // 背景分頁停止渲染；低動態只在變化時重繪；動作都很輕微，最多每秒 30 張（省電模式 12 張）
+      frameloop={hidden ? 'never' : 'demand'}
       dpr={lowPower ? 1 : [1, 1.5]}
       camera={{ fov: 40, near: 0.1, far: 80 }}
       gl={{ antialias: true, powerPreference: 'low-power' }}
@@ -477,7 +488,7 @@ export default function Scene3D({ done, prog, reducedMotion, onSelect, onSlow, b
       <directionalLight position={[5, 9, 5]} intensity={1.5} color="#fff0d2" />
       <FitCamera dist={10.5 * (bubble ? 0.78 : 1)} raise={backdrop ? 0.2 : 0} />
       {!reducedMotion && !lowPower && <PerfWatch onSlow={onSlow} />}
-      {lowPower && !reducedMotion && !hidden && <FpsCap fps={12} />}
+      {!reducedMotion && !hidden && <FpsCap fps={lowPower ? 12 : 30} />}
       <Forest {...props} />
       {animals.slice(0, SPOTS.length).map((a, i) => (
         <AnimalSprite key={a.id} a={a} spot={SPOTS[i]} still={reducedMotion} onSelect={onSelect} />

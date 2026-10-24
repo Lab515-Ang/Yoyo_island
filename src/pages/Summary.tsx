@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useSave } from '../app/store';
 import { ANIMALS, COPY, animalDef, sizeTier, tagColor, TAGS } from '../content/config';
 import { AnimalArt, EggArt } from '../components/Animal';
-import { Coin, Modal } from '../components/ui';
+import { Coin, Modal, fmtMinutes } from '../components/ui';
 import { localDateKey } from '../domain/focus';
 import { activeProject, animalUnlocked, animalsUnlockedBy, balance, coins, earnedFor, editSessionNote, endedSessions, focusOutcome, minutesByDay, NOTE_MAX, remainingFor } from '../domain/game';
 import { HabitatScene } from '../scenes/HabitatScene';
@@ -30,13 +30,24 @@ export function Summary({
   const [comforted, setComforted] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState<'first' | 'again' | null>(null);
-  if (!s) return null;
+  // 紀錄不見了（例如在別的分頁重設）：不要留白畫面，給一個回大廳的按鈕
+  if (!s)
+    return (
+      <div className="result">
+        <p className="result-title">找不到這段專注的紀錄。</p>
+        <button className="pill wide" onClick={onDone}>
+          返回首頁
+        </button>
+      </div>
+    );
   const done = s.status === 'completed';
   const min = Math.floor(s.accumulatedMs / 60000);
   const earned = earnedFor(save, s.id);
   const todayMin = Math.floor((minutesByDay(save).get(localDateKey(Date.now(), save.profile.timezone)) ?? 0) / 60000);
   const project = activeProject(save);
   const canBuild = project && balance(save) >= remainingFor(save, project);
+  // 下一顆蛋還要多久：目前工程修好會解鎖的動物（1 點＝專注 1 分鐘）
+  const nextEgg = project ? animalsUnlockedBy(project.id)[0] : undefined;
   const out = focusOutcome(save, s.id);
   // 下一步：金幣夠解鎖商店裡還沒解鎖的動物時，提示去商店
   const wallet = coins(save);
@@ -128,6 +139,14 @@ export function Summary({
               <strong>{a.name}，下次專注可以孵</strong>
             </li>
           ))}
+          {nextEgg && !newAnimals.length && (
+            <li>
+              <span>🔜 下一顆蛋</span>
+              <strong>
+                {nextEgg.name}・再專注約 {fmtMinutes(remainingFor(save, project!) * 60000)}
+              </strong>
+            </li>
+          )}
           <li>
             <span>
               <Coin /> 金幣
@@ -208,7 +227,11 @@ function NoteEditor({ sessionId, onClose, onSaved }: { sessionId: string; onClos
         </button>
         <input className="note-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={40} placeholder="新增專注標題" aria-label="專注標題" />
       </div>
-      <p className="note-prompt">✦ 今天在「{tag}」上有進展了，讚喔！把想記住的細節留在筆記裡；也可以加個專注標題，寫上這次做了什麼。</p>
+      <p className="note-prompt">
+        {s.status === 'completed'
+          ? `✦ 今天在「${tag}」上有進展了，讚喔！把想記住的細節留在筆記裡；也可以加個專注標題，寫上這次做了什麼。`
+          : '✦ 這次沒有完成也沒關係。記下是什麼打斷了你，下次比較容易避開。'}
+      </p>
       <textarea
         className="note-input"
         value={note}

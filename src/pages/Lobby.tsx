@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useSave } from '../app/store';
 import { ANIMALS, HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, QUICK_MINUTES, TAGS, animalDef, clampMinutes, habitatName, tagColor } from '../content/config';
 import { Modal } from '../components/ui';
@@ -13,11 +13,15 @@ import { AppPicker } from './Guard';
 type Sheet = 'tag' | 'title' | 'time' | 'habitat' | 'egg' | 'allow' | 'usage' | null;
 
 /** 首頁大廳（參考 Forest 構圖）：左上標籤與標題、中央棲地泡泡、大字時間、開始按鈕；細項點了才展開。 */
-export function Lobby({ onStarted }: { onStarted: () => void }) {
+export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: () => void }) {
   const { save, update, mode } = useSave();
   const st = save.settings;
   const [task, setTask] = useState('');
-  const [tag, setTag] = useState(TAGS[0]);
+  // 標籤預設沿用上一段專注的（標籤被刪掉的話回到第一個）
+  const [tag, setTag] = useState(() => {
+    const last = [...save.sessions].reverse().find((s) => s.userId === save.profile.id)?.tag;
+    return last && (TAGS.includes(last) || st.customTags.includes(last)) ? last : TAGS[0];
+  });
   const [timerMode, setTimerMode] = useState<TimerMode>(st.lastTimerMode);
   // 舊存檔可能記著 5 分鐘：收進 10～180 分鐘（示範的 10 秒例外）
   const [seconds, setSeconds] = useState(mode === 'demo' && st.lastTargetSeconds === 10 ? 10 : clampMinutes(st.lastTargetSeconds / 60) * 60);
@@ -62,7 +66,18 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
     const next = update((s) => startFocus(s, { taskTitle: task, tag, habitatId: habitat, mode: timerMode, targetSeconds: timerMode === 'countdown' ? seconds : null, animalId: egg, deep: useDeep }, Date.now()));
     if (next) onStarted();
   };
+  // 深度專注要先等原生端回覆權限：連點兩下不要跑兩次
+  const starting = useRef(false);
   const start = async () => {
+    if (starting.current) return;
+    starting.current = true;
+    try {
+      await startInner();
+    } finally {
+      starting.current = false;
+    }
+  };
+  const startInner = async () => {
     // 深度專注需要「使用情況存取權」才知道有沒有離開小島
     if (deep && !(await TimeGuard.status().catch(() => ({ usage: false }))).usage) return setSheet('usage');
     // 「快回到小島」的提醒要通知權限（Android 13 起要問）；不允許也照常進行
@@ -133,7 +148,7 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
       </div>
       <button className="lobby-mode" onClick={() => setSheet('time')}>
         {timerMode === 'countdown' ? '倒數' : '正向計時'}
-        {deep ? ' · 深度專注' : ''} · 點時間或左右箭頭調整 ▾
+        {deep ? ' · 深度專注' : ''} · {timerMode === 'countdown' ? '點時間或左右箭頭調整' : '點這裡切換'} ▾
       </button>
 
       <button className="pill start" onClick={() => void start()}>
@@ -242,7 +257,7 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
                 <strong>深度專注</strong>
               </label>
               <p className="small muted">
-                專注時離開棲光小島超過 {graceSec} 秒，植物就會枯萎。鎖定螢幕、接電話、使用下面允許的 App 都不算離開。
+                專注時離開棲光小島超過 {graceSec} 秒，這顆蛋就不會孵化。鎖定螢幕、接電話、使用下面允許的 App 都不算離開。
                 {firstTime && st.deepFocus ? '（第一段專注先不開，下次開始生效）' : ''}
               </p>
               <button className="link" onClick={() => setSheet('allow')}>
@@ -299,11 +314,13 @@ export function Lobby({ onStarted }: { onStarted: () => void }) {
                   key={a.id}
                   role="radio"
                   aria-checked={egg === a.id}
-                  disabled={!ok}
+                  // 商店買得到的蛋：點了直接去商店；修工程解鎖的只能等
+                  disabled={!ok && a.unlock.kind === 'project'}
                   className={egg === a.id ? 'plant-option on' : 'plant-option'}
                   onClick={() => {
-                    setEgg(a.id);
                     setSheet(null);
+                    if (ok) setEgg(a.id);
+                    else onShop();
                   }}
                 >
                   {ok ? <EggArt id={a.id} size={56} /> : <AnimalArt id={a.id} size={56} hidden />}

@@ -104,7 +104,9 @@ export function AppPicker({ selected, onToggle }: { selected: GuardApp[]; onTogg
   const [apps, setApps] = useState<GuardApp[] | null>(null);
   const [query, setQuery] = useState('');
   useEffect(() => {
-    void TimeGuard.listApps().then((r) => setApps(r.apps.sort((a, b) => a.label.localeCompare(b.label, 'zh-Hant'))));
+    void TimeGuard.listApps()
+      .then((r) => setApps(r.apps.sort((a, b) => a.label.localeCompare(b.label, 'zh-Hant'))))
+      .catch(() => setApps([])); // 讀不到 App 清單時顯示空清單，不要一直停在讀取中
   }, []);
   const shown = (apps ?? []).filter((a) => a.label.toLowerCase().includes(query.trim().toLowerCase()));
   return (
@@ -136,7 +138,9 @@ export function GuardPage() {
 
   useEffect(() => {
     if (!isAndroid) return;
-    void TimeGuard.getConfig().then((r) => setCfg(r.config ?? defaultGuardConfig()));
+    void TimeGuard.getConfig()
+      .then((r) => setCfg(r.config ?? defaultGuardConfig()))
+      .catch(() => setCfg(defaultGuardConfig()));
     const refresh = () => void TimeGuard.status().then(setPerm);
     refresh();
     return onResume(refresh); // 從系統設定開好權限回來

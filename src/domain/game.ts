@@ -53,7 +53,10 @@ export function startFocus(save: SaveFile, p: { taskTitle: string; tag: string; 
 
 const animalKey = (save: SaveFile, animalId: string) => `animal:${islandId(save)}:${animalId}`;
 /** 商店用金幣解鎖過。 */
-export const animalBought = (save: SaveFile, animalId: string) => save.transactions.some((t) => t.idempotencyKey === animalKey(save, animalId));
+export function animalBought(save: SaveFile, animalId: string) {
+  const key = animalKey(save, animalId);
+  return save.transactions.some((t) => t.idempotencyKey === key);
+}
 
 /** 這種動物的蛋能不能選：一開始就有、工程完成、或商店解鎖過（真錢品種上架後才開放）。 */
 export function animalUnlocked(save: SaveFile, a: AnimalDef) {

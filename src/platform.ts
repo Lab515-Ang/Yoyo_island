@@ -116,10 +116,20 @@ interface TimeGuardNative {
   clearFocusEvents(): Promise<void>;
 }
 
-/** 深度專注：離開小島超過這麼久，植物就枯萎。 */
+/** 深度專注：離開小島超過這麼久，蛋就不會孵化。 */
 export const DEEP_GRACE_MS = 10_000;
 
 export const TimeGuard = registerPlugin<TimeGuardNative>('TimeGuard');
+
+/** Android 返回鍵：有監聽時系統不會直接關掉 App，由 cb 決定怎麼回上一步。網頁版不處理。 */
+export function onBack(cb: () => void): () => void {
+  if (!isAndroid) return () => undefined;
+  const handle = App.addListener('backButton', cb);
+  return () => void handle.then((h) => h.remove());
+}
+
+/** 回到桌面但不結束 App（返回鍵在大廳時）。 */
+export const minimizeApp = () => void App.minimizeApp().catch(() => undefined);
 
 /** App 進到背景時呼叫 cb。回傳取消監聽的函式。 */
 export function onPause(cb: () => void): () => void {

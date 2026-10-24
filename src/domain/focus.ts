@@ -94,12 +94,14 @@ export function dueAt(s: FocusSession) {
  * 通話區間當成暫停；通話還沒結束就停在暫停；離開太久就在離開的那一刻放棄（之前已經完成的照算完成）。
  */
 export function applyDeepFocus(s: FocusSession, ev: { calls: [number, number][]; callStart: number | null; failedAt: number | null }): FocusSession {
-  for (const [a, b] of [...ev.calls].sort((x, y) => x[0] - y[0])) {
+  // 放棄之後才發生的通話不算（不然會把放棄後的時間也算進專注）
+  const fail = ev.failedAt ?? Infinity;
+  for (const [a, b] of [...ev.calls].filter(([a]) => a < fail).sort((x, y) => x[0] - y[0])) {
     if (s.status !== 'running') break;
     s = pause(s, a);
-    s = resume(s, b);
+    s = resume(s, Math.min(b, fail));
   }
-  if (ev.callStart && s.status === 'running') s = pause(s, ev.callStart);
+  if (ev.callStart && ev.callStart < fail && s.status === 'running') s = pause(s, ev.callStart);
   if (ev.failedAt && isOpen(s)) s = finish(s, ev.failedAt, 'abandoned');
   return s;
 }

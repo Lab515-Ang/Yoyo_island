@@ -37,6 +37,13 @@ export function SettingsPage() {
     else setNotifyMsg(isNative ? '通知被關閉了。請到手機的「設定 → 通知 → 棲光小島」允許通知後再開啟。' : '瀏覽器封鎖了通知。請到瀏覽器的網站設定允許「通知」後再開啟。');
   };
   const st = save.settings;
+  // 拖動音量時只改畫面，放開才存檔（不然每移動一格就整份存檔寫一次）
+  const [vol, setVol] = useState<number | null>(null);
+  const volume = vol ?? st.soundVolume;
+  const commitVol = () => {
+    if (vol !== null) set({ soundVolume: vol });
+    setVol(null);
+  };
   const set = (patch: Partial<SaveFile['settings']>) => update((s) => ({ ...s, settings: { ...s.settings, ...patch } }));
 
   const saveNames = () => {
@@ -123,13 +130,13 @@ export function SettingsPage() {
         </label>
         <label>
           音量
-          <input type="range" min={0} max={1} step={0.05} value={st.soundVolume} onChange={(e) => set({ soundVolume: Number(e.target.value) })} />
+          <input type="range" min={0} max={1} step={0.05} value={volume} onChange={(e) => setVol(Number(e.target.value))} onPointerUp={commitVol} onKeyUp={commitVol} onBlur={commitVol} />
         </label>
         <label className="toggle">
           <input type="checkbox" checked={st.endChime} onChange={(e) => set({ endChime: e.target.checked })} />
           倒數結束提示音（柔和鐘聲）
         </label>
-        <button onClick={() => playChime(st.soundVolume)} disabled={st.soundVolume <= 0}>
+        <button onClick={() => playChime(volume)} disabled={volume <= 0}>
           🔔 試聽鐘聲
         </button>
         <label className="toggle">

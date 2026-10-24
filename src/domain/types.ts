@@ -29,7 +29,7 @@ export interface Settings {
   customTags: string[];
   keepAwake: boolean; // 專注時保持螢幕開啟（讓倒數結束能準時提醒）
   eggId: string; // 上次選的蛋（要孵化的動物）
-  deepFocus: boolean; // 深度專注：專注中離開小島超過 10 秒植物會枯萎（Android）
+  deepFocus: boolean; // 深度專注：專注中離開小島超過 10 秒蛋就不會孵化（Android）
   focusAllow: { pkg: string; label: string }[]; // 深度專注時可以使用的 App
 }
 

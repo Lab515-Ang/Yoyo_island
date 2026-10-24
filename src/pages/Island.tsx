@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useSave } from '../app/store';
 import { ANIMALS, COPY, habitatName, HABITATS, PROJECTS } from '../content/config';
 import { AnimalCard, Progress } from '../components/ui';
@@ -168,6 +168,8 @@ function HabitatView({ id, onBack }: { id: HabitatId; onBack: () => void }) {
   const { save } = useSave();
   const [card, setCard] = useState<string | null>(null);
   const shown = sceneAnimals(save);
+  // 固定的函式：打開動物卡時場景不用整個重畫
+  const pick = useCallback((sid: string) => setCard(sceneAnimals(save).find((x) => x.id === sid)?.animalId ?? null), [save]);
   useAmbient(save.settings.soundEnabled, save.settings.soundVolume, habitatSound(save, id));
   const h = HABITATS.find((x) => x.id === id)!;
   const reduced = save.settings.reducedMotion || prefersReducedMotion();
@@ -181,7 +183,7 @@ function HabitatView({ id, onBack }: { id: HabitatId; onBack: () => void }) {
       </div>
       <h1>{h.name}</h1>
       <section className="card flush">
-        <HabitatScene habitatId={id} onSelect={(sid) => setCard(shown.find((x) => x.id === sid)?.animalId ?? null)} />
+        <HabitatScene habitatId={id} onSelect={pick} />
       </section>
       <section className="card">
         <h2>最近孵出的動物</h2>

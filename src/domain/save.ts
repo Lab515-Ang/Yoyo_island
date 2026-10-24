@@ -151,7 +151,7 @@ export function validateSave(input: unknown, now = Date.now()): Validation {
   if (input.mode !== 'personal' && input.mode !== 'demo') return fail('存檔模式不正確。');
   const p = input.profile;
   if (!isObj(p) || !isStr(p.id) || !isStr(p.nickname) || !isStr(p.activeIslandId) || !isStr(p.timezone)) return fail('個人資料不完整。');
-  for (const k of ARRAYS) if (!Array.isArray(input[k])) return fail('存檔缺少必要的紀錄。');
+  for (const k of ARRAYS) if (!Array.isArray(input[k]) || !(input[k] as unknown[]).every(isObj)) return fail('存檔缺少必要的紀錄。');
   if (!input.memberships || !(input.memberships as unknown[]).every(isObj)) return fail('成員紀錄不正確。');
   const raw = migrateForest(input, now);
   const settings = { ...defaultSettings(), ...(isObj(raw.settings) ? raw.settings : {}) };
@@ -181,6 +181,8 @@ export function validateSave(input: unknown, now = Date.now()): Validation {
   }
   if (open > 1) return fail('存檔中有多個未結算的專注。');
 
+  const contribById = new Map(save.contributions.map((c) => [c.id, c]));
+  const spentFor = new Set(save.transactions.map((t) => t.contributionId).filter(isStr));
   const keys = new Set<string>();
   const rewarded = { focus_reward: new Set<string>(), coin_reward: new Set<string>() };
   for (const t of save.transactions) {
@@ -200,25 +202,31 @@ export function validateSave(input: unknown, now = Date.now()): Validation {
       }
     } else if (t.kind === 'animal_unlock') {
       const a = ANIMALS.find((x) => x.id === t.animalId);
-      if (!a || a.unlock.kind !== 'coins' || t.amount !== -a.unlock.price || t.idempotencyKey !== `animal:${t.islandId}:${a.id}`) return fail('動物解鎖紀錄不符。');
+      // 價格之後可能調整：只要是認得的動物、扣的是金幣就接受（不比對當時的價格）
+      if (!a || t.amount >= 0 || t.idempotencyKey !== `animal:${t.islandId}:${a.id}`) return fail('動物解鎖紀錄不符。');
     } else if (t.kind === 'project_spend') {
       if (t.amount > 0) return fail('點數紀錄數值不正確。');
-      const c = save.contributions.find((c) => c.id === t.contributionId);
+      const c = isStr(t.contributionId) ? contribById.get(t.contributionId) : undefined;
       if (!c || c.points !== -t.amount) return fail('工程投入與點數紀錄不符。');
     } else return fail('未知的點數紀錄類型。');
   }
   for (const c of save.contributions) {
-    if (!save.transactions.some((t) => t.contributionId === c.id)) return fail('工程投入缺少對應的點數紀錄。');
+    if (!spentFor.has(c.id)) return fail('工程投入缺少對應的點數紀錄。');
   }
   for (const m of save.memberships) {
     if (balance(save, m.userId) < 0 || coins(save, m.userId) < 0) return fail('錢包餘額不可小於 0。');
   }
+  const sums = new Map<string, number>();
+  for (const c of save.contributions) if (c.islandId === save.profile.activeIslandId) sums.set(c.projectId, (sums.get(c.projectId) ?? 0) + c.points);
+  // 工程需要的點數之後可能調整：已完成的維持完成；投入已經達到新門檻的補記完成（不因為調數值就讀不到存檔）
+  const projects = save.projects.map((r) => {
+    const def = PROJECTS.find((d) => d.id === r.projectId);
+    return def && r.islandId === save.profile.activeIslandId && !r.completedAt && r.contributedPoints >= def.requiredPoints ? { ...r, completedAt: new Date(now).toISOString() } : r;
+  });
   for (const def of PROJECTS) {
-    const row = save.projects.find((r) => r.projectId === def.id && r.islandId === save.profile.activeIslandId);
+    const row = projects.find((r) => r.projectId === def.id && r.islandId === save.profile.activeIslandId);
     if (!row) return fail('工程紀錄不完整。');
-    const sum = save.contributions.filter((c) => c.projectId === def.id && c.islandId === row.islandId).reduce((a, c) => a + c.points, 0);
-    if (sum !== row.contributedPoints || sum > def.requiredPoints) return fail('工程進度與投入紀錄不符。');
-    if (!row.completedAt !== sum < def.requiredPoints) return fail('工程完成狀態不正確。');
+    if ((sums.get(def.id) ?? 0) !== row.contributedPoints) return fail('工程進度與投入紀錄不符。');
   }
-  return { ok: true, save };
+  return { ok: true, save: { ...save, projects } };
 }

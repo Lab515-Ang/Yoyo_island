@@ -771,7 +771,7 @@ fieldset {
     0 8px 24px rgba(40, 70, 50, 0.25);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  animation: bubble-float 6s ease-in-out infinite;
+  /* 不做漂浮動畫：專注最長 3 小時，持續重算模糊很耗電 */
 }
 /* 泡泡左上角的高光 */
 .focus-bubble::before {
@@ -785,14 +785,6 @@ fieldset {
   background: rgba(255, 255, 255, 0.75);
   transform: rotate(-30deg);
   filter: blur(1px);
-}
-.focus-bubble.still {
-  animation: none;
-}
-@keyframes bubble-float {
-  50% {
-    transform: translateY(-6px);
-  }
 }
 .focus-time {
   position: relative;
@@ -1082,7 +1074,8 @@ button.danger-fill {
   gap: 0.5rem;
   padding: 1rem 1rem 1.6rem;
 }
-.lobby button:not(.pill) {
+/* 大廳上的按鈕走透明樣式；大廳裡的彈窗（dialog）維持一般按鈕樣式 */
+.lobby button:not(.pill):not(dialog button) {
   background: none;
   border: none;
   color: inherit;
@@ -1423,7 +1416,7 @@ button.danger-fill {
 .lobby button.lobby-mode {
   font-size: 0.8rem;
   opacity: 0.85;
-  min-height: 28px;
+  min-height: 40px;
 }
 .install-hint {
   background: rgba(255, 255, 255, 0.14);

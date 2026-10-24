@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSave } from '../app/store';
 import { HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, QUICK_MINUTES, TAGS, animalDef, habitatName } from '../content/config';
 import { fmtDateTime, fmtMinutes } from '../components/ui';
@@ -96,11 +96,17 @@ function HatchView() {
 /** 專注紀錄與專注計畫設置：大廳開始專注時的預設值，以及完整紀錄。 */
 export function Records({ initialTag = null }: { initialTag?: string | null }) {
   const [tagFilter, setTagFilter] = useState<string | null>(initialTag);
+  // 從結算頁「查看專注紀錄」進來時，捲到紀錄清單（只在進來時捲一次）
+  const listHead = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (initialTag) listHead.current?.scrollIntoView();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const { save, update } = useSave();
   const st = save.settings;
   const set = (patch: Partial<Settings>) => update((s) => ({ ...s, settings: { ...s.settings, ...patch } }));
   const [custom, setCustom] = useState('');
   const [newTag, setNewTag] = useState('');
+  const [limit, setLimit] = useState(50); // 紀錄多了一次只畫 50 筆
 
   const tz = save.profile.timezone;
   const byDay = minutesByDay(save);
@@ -216,7 +222,7 @@ export function Records({ initialTag = null }: { initialTag?: string | null }) {
 
       <section className="card">
         <div className="row between">
-          <h2 ref={(el) => void (initialTag && el && el.scrollIntoView())}>{tagFilter ? `專注紀錄：「${tagFilter}」` : '全部專注紀錄'}</h2>
+          <h2 ref={listHead}>{tagFilter ? `專注紀錄：「${tagFilter}」` : '全部專注紀錄'}</h2>
           {tagFilter && (
             <button className="link" onClick={() => setTagFilter(null)}>
               顯示全部
@@ -224,7 +230,7 @@ export function Records({ initialTag = null }: { initialTag?: string | null }) {
           )}
         </div>
         <ul className="list">
-          {sessions.map((s) => (
+          {sessions.slice(0, limit).map((s) => (
             <li key={s.id}>
               <span className="small muted">
                 {fmtDateTime(s.endedAt!)} · {habitatName(s.habitatId)}
@@ -235,6 +241,11 @@ export function Records({ initialTag = null }: { initialTag?: string | null }) {
           ))}
           {!sessions.length && <li className="muted">還沒有專注紀錄。回到大廳開始第一段吧。</li>}
         </ul>
+        {sessions.length > limit && (
+          <button className="link" onClick={() => setLimit((n) => n + 50)}>
+            顯示更多（還有 {sessions.length - limit} 筆）
+          </button>
+        )}
       </section>
     </div>
   );

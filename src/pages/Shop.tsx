@@ -94,13 +94,12 @@ function BuySheet({ animal: a, wallet, onClose, onDone }: { animal: AnimalDef; w
         </p>
       )}
       {iap ? (
-        confirming ? (
-          <p className="confirm-box">付費購買會在 App 上架後開放，到時候這裡會接上 App Store／Google Play 的付款。</p>
-        ) : (
-          <button className="primary wide" onClick={() => setConfirming(true)}>
-            {a.unlock.kind === 'iap' && a.unlock.price} 購買
+        <>
+          <button className="primary wide" disabled>
+            {a.unlock.kind === 'iap' && a.unlock.price} · 即將推出
           </button>
-        )
+          <p className="small muted">付費購買會在 App 上架後開放，到時候會使用 App Store／Google Play 的付款。</p>
+        </>
       ) : confirming ? (
         <div className="confirm-box">
           <p>

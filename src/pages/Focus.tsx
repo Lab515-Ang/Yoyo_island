@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNow, useSave } from '../app/store';
 import { APP_NAME, MIN_FOCUS_MINUTES, SOUNDS, TEST_TOOLS } from '../content/config';
 import { Modal } from '../components/ui';
@@ -6,7 +6,7 @@ import { EggArt } from '../components/Animal';
 import { completeNow, dueAt, elapsedMs, finish, pause, remainingMs, resume } from '../domain/focus';
 import { applyFocusRewards, cancelSession, closeSession, focusSoundFor, graceLeftMs, putSession } from '../domain/game';
 import type { FocusSession, SaveFile } from '../domain/types';
-import { HabitatScene, prefersReducedMotion } from '../scenes/HabitatScene';
+import { HabitatScene } from '../scenes/HabitatScene';
 import { useAmbient } from '../sound';
 import { DEEP_GRACE_MS, TimeGuard, cancelFocusEnd, isAndroid, scheduleFocusEnd } from '../platform';
 
@@ -27,12 +27,16 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   const countdown = session.mode === 'countdown';
   const shown = countdown ? remainingMs(session, now) : elapsedMs(session, now);
   const paused = session.status === 'paused';
-  useAmbient(save.settings.soundEnabled && !paused, save.settings.soundVolume, focusSoundFor(save, session.habitatId));
+  // 每 250ms 重繪一次：環境音只在存檔變了才重算
+  const sound = useMemo(() => focusSoundFor(save, session.habitatId), [save, session.habitatId]);
+  useAmbient(save.settings.soundEnabled && !paused, save.settings.soundVolume, sound);
 
+  // 只在顯示的秒數變了才改分頁標題；離開專注畫面時還原
+  const label = clock(shown);
   useEffect(() => {
-    document.title = `${clock(shown)} · ${APP_NAME}`;
-    return () => void (document.title = APP_NAME);
-  }, [shown]);
+    document.title = `${label} · ${APP_NAME}`;
+  }, [label]);
+  useEffect(() => () => void (document.title = APP_NAME), []);
 
   // 結束一律依實際有效時間結算點數
   // 正向計時結束＝完成；倒數提前結束＝放棄（沒有點數與金幣）
@@ -42,14 +46,25 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   };
   // 一律以存檔中的最新狀態為準，重複點擊不會重複結算
   const cur = (s: SaveFile) => s.sessions.find((x) => x.id === session.id)!;
+  // 暫停：剛好已經到時間的話，pause 會直接回傳「已完成」，這時要照常結算（給獎勵、孵化、進結算畫面）
+  const pauseNow = () => {
+    const t = Date.now();
+    let finished = false;
+    const ok = update((s) => {
+      const n = pause(cur(s), t);
+      if (n.status !== 'completed') return putSession(s, n);
+      finished = true;
+      return applyFocusRewards(closeSession(s, n, t), n.id, t);
+    });
+    if (ok && finished) onFinished(session.id);
+  };
 
   const elapsedMin = Math.floor(elapsedMs(session, now) / 60000);
   // 正向計時未滿 10 分鐘就結束＝放棄；滿了才算完成
   const tooShort = !countdown && elapsedMin < MIN_FOCUS_MINUTES;
-  const reduced = save.settings.reducedMotion || prefersReducedMotion();
   const grace = Math.ceil(graceLeftMs(session, now) / 1000);
   const soundOn = save.settings.soundEnabled;
-  const soundName = SOUNDS.find((x) => x.id === focusSoundFor(save, session.habitatId))?.name;
+  const soundName = SOUNDS.find((x) => x.id === sound)?.name;
 
   // 保持螢幕開啟：鎖屏時網頁會暫停，開著螢幕倒數結束才能準時響鈴
   useEffect(() => {
@@ -126,7 +141,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
         <div className="focus-plant">
           <EggArt id={session.animalId} crack={crack} size="100%" />
         </div>
-        <div className={reduced ? 'focus-bubble still' : 'focus-bubble'}>
+        <div className="focus-bubble">
           <div className="focus-time" role="timer" aria-live="off" aria-label={countdown ? '剩餘時間' : '已專注時間'}>
             {clock(shown)}
           </div>
@@ -153,7 +168,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
                   ▶
                 </button>
               ) : (
-                <button className="icon-round big on" onClick={() => update((s) => putSession(s, pause(cur(s), Date.now())))} aria-label="暫停">
+                <button className="icon-round big on" onClick={pauseNow} aria-label="暫停">
                   ❚❚
                 </button>
               )}
