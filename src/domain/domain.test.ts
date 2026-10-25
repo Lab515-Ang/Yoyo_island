@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyDeepFocus, dueAt, completeNow, createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, weekStartKey } from './focus';
+import { applyDeepFocus, dueAt, completeNow, createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, addSegmentsByHour, weekStartKey } from './focus';
 import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote, isDone, projectQuarter, remainingFor, applyFocusRewards, focusOutcome, animalUnlocked, chosenAnimal, endedSessions, hatchCounts, newAnimals, sceneAnimals, unlockAnimal } from './game';
 import { ANIMALS, CONTENT_VERSION, SOUNDS, animalDef, projectDef, sizeTier } from '../content/config';
 import { newSave, newDemoSave, validateSave, demoGrant } from './save';
@@ -67,6 +67,21 @@ describe('專注計時', () => {
     const days = addSegmentsByDay(new Map(), s.segments, 'Asia/Taipei');
     expect(days.get('2026-10-22')).toBe(10 * MIN);
     expect(days.get('2026-10-23')).toBe(10 * MIN);
+  });
+
+  it('依本地小時分配（專注紀錄分布圖）：跨小時、跨日、暫停不計；半小時時差的時區也正確', () => {
+    const start = Date.parse('2026-10-22T15:50:00Z'); // 台北 23:50
+    let s = createSession({ id: 'x', userId: 'u', islandId: 'i', taskTitle: '', tag: '', habitatId: 'forest', mode: 'stopwatch', targetSeconds: null }, start);
+    s = pause(s, start + 10 * MIN);
+    s = resume(s, start + 30 * MIN);
+    s = finish(s, start + 75 * MIN, 'completed'); // 00:20～01:05
+    const hours = addSegmentsByHour(new Map(), s.segments, 'Asia/Taipei');
+    expect(hours.get('2026-10-22 23')).toBe(10 * MIN);
+    expect(hours.get('2026-10-23 00')).toBe(40 * MIN);
+    expect(hours.get('2026-10-23 01')).toBe(5 * MIN);
+    const india = addSegmentsByHour(new Map(), [{ startedAt: '2026-10-22T04:00:00.000Z', endedAt: '2026-10-22T05:00:00.000Z' }], 'Asia/Kolkata'); // 09:30～10:30
+    expect(india.get('2026-10-22 09')).toBe(30 * MIN);
+    expect(india.get('2026-10-22 10')).toBe(30 * MIN);
   });
 
   it('跨日分配可處理日光節約時間（紐約 2026-03-08 只有 23 小時）', () => {

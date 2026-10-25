@@ -135,6 +135,12 @@ export function localDateKey(t: number, tz: string) {
   return `${p.year}-${pad(p.month)}-${pad(p.day)}`;
 }
 
+/** `YYYY-MM-DD HH`（本地時區），和 addSegmentsByHour 的 key 一樣。 */
+export function localHourKey(t: number, tz: string) {
+  const p = parts(t, tz);
+  return `${p.year}-${pad(p.month)}-${pad(p.day)} ${pad(p.hour)}`;
+}
+
 function offsetAt(t: number, tz: string) {
   const p = parts(t, tz);
   return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - Math.floor(t / 1000) * 1000;
@@ -163,6 +169,22 @@ export function addSegmentsByDay(totals: Map<string, number>, segments: FocusSeg
     while (a < b) {
       const cut = Math.min(b, nextLocalMidnight(a, tz));
       const key = localDateKey(a, tz);
+      totals.set(key, (totals.get(key) ?? 0) + (cut - a));
+      a = cut;
+    }
+  }
+  return totals;
+}
+
+/** 依本地「日期＋小時」分配有效時間，key 是 `YYYY-MM-DD HH`（專注紀錄的分布圖用）；暫停時間不計。 */
+export function addSegmentsByHour(totals: Map<string, number>, segments: FocusSegment[], tz: string) {
+  for (const seg of segments) {
+    let a = ms(seg.startedAt);
+    const b = ms(seg.endedAt);
+    while (a < b) {
+      const p = parts(a, tz);
+      const cut = Math.min(b, a + ((59 - p.minute) * 60 + (60 - p.second)) * 1000 - (a % 1000));
+      const key = `${p.year}-${pad(p.month)}-${pad(p.day)} ${pad(p.hour)}`;
       totals.set(key, (totals.get(key) ?? 0) + (cut - a));
       a = cut;
     }
