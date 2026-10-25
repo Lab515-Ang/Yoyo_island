@@ -85,7 +85,11 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
     begin(deep);
   };
 
-  const addTag = () => {
+  const removeTag = (t: string) => {
+    update((s) => ({ ...s, settings: { ...s.settings, customTags: s.settings.customTags.filter((x) => x !== t) } }));
+    if (tag === t) setTag(TAGS[0]);
+  };
+    const addTag = () => {
     const t = newTag.trim();
     setNewTag('');
     if (!t || tags.includes(t)) return;
@@ -161,19 +165,26 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
         <Modal title="標籤" onClose={() => setSheet(null)}>
           <div className="sheet-list" role="radiogroup" aria-label="標籤">
             {tags.map((t) => (
-              <button
-                key={t}
-                role="radio"
-                aria-checked={tag === t}
-                className={tag === t ? 'sheet-row on' : 'sheet-row'}
-                onClick={() => {
-                  setTag(t);
-                  setSheet(null);
-                }}
-              >
-                <span className="tag-dot" style={{ background: tagColor(t) }} aria-hidden="true" />
-                {t}
-              </button>
+              <div key={t} className="tag-row">
+                <button
+                  role="radio"
+                  aria-checked={tag === t}
+                  className={tag === t ? 'sheet-row on' : 'sheet-row'}
+                  onClick={() => {
+                    setTag(t);
+                    setSheet(null);
+                  }}
+                >
+                  <span className="tag-dot" style={{ background: tagColor(t) }} aria-hidden="true" />
+                  {t}
+                </button>
+                {/* 自訂標籤可以刪除（舊紀錄的標籤不受影響）；內建標籤不能刪 */}
+                {!TAGS.includes(t) && (
+                  <button className="icon-btn" onClick={() => removeTag(t)} aria-label={`刪除標籤 ${t}`}>
+                    ✕
+                  </button>
+                )}
+              </div>
             ))}
           </div>
           <div className="row">
@@ -182,6 +193,7 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
               ＋ 新增
             </button>
           </div>
+          <p className="small muted">自訂標籤最多 8 個；刪除後，用過這個標籤的紀錄仍會保留。</p>
         </Modal>
       )}
 

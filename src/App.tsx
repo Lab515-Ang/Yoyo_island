@@ -29,7 +29,7 @@ type View = 'lobby' | 'island' | 'quests' | 'records' | 'guard' | 'sounds' | 'jo
 const NAV: { id: View; label: string; icon: string; soon?: boolean }[] = [
   { id: 'island', label: '我的小島', icon: '🏝️' },
   { id: 'quests', label: '任務', icon: '📋' },
-  { id: 'records', label: '專注紀錄與專注計畫設置', icon: '⏱️' },
+  { id: 'records', label: '專注紀錄', icon: '⏱️' },
   { id: 'guard', label: '時間守護', icon: '🛡️' },
   { id: 'sounds', label: '大自然交響樂', icon: '🎵' },
   { id: 'journey', label: '我的歷程', icon: '📖' },

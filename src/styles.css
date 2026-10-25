@@ -2082,3 +2082,11 @@ button.wallet {
   border-radius: 14px;
   box-shadow: var(--shadow);
 }
+.tag-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.tag-row .sheet-row {
+  flex: 1;
+}

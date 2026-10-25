@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSave } from '../app/store';
-import { HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, QUICK_MINUTES, TAGS, animalDef, habitatName, tagColor } from '../content/config';
+import { TAGS, animalDef, habitatName, tagColor } from '../content/config';
 import { fmtDateTime, fmtMinutes, Modal } from '../components/ui';
 import { renderShareCard } from '../components/ShareCard';
 import { saveImage, shareImage } from '../platform';
 import { AnimalArt, HatchPlot } from '../components/Animal';
 import { addSegmentsByHour, localDateKey, localHourKey, shiftDateKey, weekStartKey } from '../domain/focus';
-import { endedSessions, habitatOpen, rewardFor } from '../domain/game';
-import type { FocusSession, SaveFile, Settings } from '../domain/types';
+import { endedSessions, rewardFor } from '../domain/game';
+import type { FocusSession, SaveFile } from '../domain/types';
 
 export function sessionLine(s: FocusSession) {
   const min = Math.floor(s.accumulatedMs / 60000);
@@ -387,7 +387,7 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
   );
 }
 
-/** 專注紀錄與專注計畫設置：統計、完整紀錄、大廳開始專注時的預設值。 */
+/** 專注紀錄：統計與完整紀錄。（計時方式、時間、標籤都在大廳設定，大廳會記住上次的選擇） */
 export function Records({ initialTag = null }: { initialTag?: string | null }) {
   const [tagFilter, setTagFilter] = useState<string[] | null>(initialTag ? [initialTag] : null);
   // 從結算頁「查看專注紀錄」進來時，捲到紀錄清單（只在進來時捲一次）
@@ -395,26 +395,13 @@ export function Records({ initialTag = null }: { initialTag?: string | null }) {
   useEffect(() => {
     if (initialTag) listHead.current?.scrollIntoView();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const { save, update } = useSave();
-  const st = save.settings;
-  const set = (patch: Partial<Settings>) => update((s) => ({ ...s, settings: { ...s.settings, ...patch } }));
-  const [custom, setCustom] = useState('');
-  const [newTag, setNewTag] = useState('');
+  const { save } = useSave();
   const [limit, setLimit] = useState(50); // 紀錄多了一次只畫 50 筆
 
   const sessions = [...save.sessions].reverse().filter((s) => s.endedAt && s.userId === save.profile.id && (!tagFilter || tagFilter.includes(s.tag)));
-  const customMin = Number(custom);
-  const customValid = Number.isInteger(customMin) && customMin >= MIN_FOCUS_MINUTES && customMin <= MAX_FOCUS_MINUTES;
-
-  const addTag = () => {
-    const t = newTag.trim();
-    setNewTag('');
-    if (t && ![...TAGS, ...st.customTags].includes(t)) set({ customTags: [...st.customTags, t].slice(-8) });
-  };
-
   return (
     <div className="page">
-      <h1>專注紀錄與專注計畫設置</h1>
+      <h1>專注紀錄</h1>
 
       <Overview tags={tagFilter} onTags={setTagFilter} />
 
@@ -446,76 +433,6 @@ export function Records({ initialTag = null }: { initialTag?: string | null }) {
         )}
       </section>
 
-      <section className="card">
-        <h2>專注計畫設置</h2>
-        <p className="muted small">大廳開始專注時預先帶入這些設定；在大廳改過的選擇也會被記住。</p>
-
-        <div className="field-label">預設計時方式</div>
-        <div className="segmented" role="radiogroup" aria-label="預設計時方式">
-          {(
-            [
-              ['countdown', '倒數'],
-              ['stopwatch', '正向計時'],
-            ] as const
-          ).map(([k, l]) => (
-            <button key={k} role="radio" aria-checked={st.lastTimerMode === k} className={st.lastTimerMode === k ? 'on' : ''} onClick={() => set({ lastTimerMode: k })}>
-              {l}
-            </button>
-          ))}
-        </div>
-
-        <div className="field-label">預設倒數時間</div>
-        <div className="chips" role="radiogroup" aria-label="預設倒數時間">
-          {QUICK_MINUTES.map((m) => (
-            <button key={m} role="radio" aria-checked={st.lastTargetSeconds === m * 60} className={st.lastTargetSeconds === m * 60 ? 'chip on' : 'chip'} onClick={() => set({ lastTargetSeconds: m * 60 })}>
-              {m} 分
-            </button>
-          ))}
-          <form
-            className="chip-add"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (customValid) set({ lastTargetSeconds: customMin * 60 }), setCustom('');
-            }}
-          >
-            <input inputMode="numeric" value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^\d]/g, ''))} placeholder="自訂" aria-label={`自訂分鐘（${MIN_FOCUS_MINUTES}～${MAX_FOCUS_MINUTES}）`} />
-            <button className="chip" type="submit" disabled={!customValid}>
-              設定
-            </button>
-          </form>
-        </div>
-        <p className="small muted">目前預設：{Math.round(st.lastTargetSeconds / 60) || '<1'} 分鐘</p>
-
-        {/* 開放兩個以上的場景才需要選預設背景 */}
-        {HABITATS.filter((h) => habitatOpen(save, h.id)).length > 1 && (
-          <>
-            <div className="field-label">預設專注背景</div>
-            <div className="chips" role="radiogroup" aria-label="預設專注背景">
-              {HABITATS.filter((h) => habitatOpen(save, h.id)).map((h) => (
-                <button key={h.id} role="radio" aria-checked={st.preferredHabitatId === h.id} className={st.preferredHabitatId === h.id ? 'chip on' : 'chip'} onClick={() => set({ preferredHabitatId: h.id })}>
-                  {h.name}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-
-        <div className="field-label">自訂標籤</div>
-        <div className="chips">
-          {st.customTags.map((t) => (
-            <button key={t} className="chip" aria-label={`移除標籤 ${t}`} onClick={() => set({ customTags: st.customTags.filter((x) => x !== t) })}>
-              {t} ✕
-            </button>
-          ))}
-          <span className="chip-add">
-            <input value={newTag} onChange={(e) => setNewTag(e.target.value)} maxLength={8} placeholder="新標籤" aria-label="新增自訂標籤" onKeyDown={(e) => e.key === 'Enter' && addTag()} />
-            <button className="chip" onClick={addTag} disabled={!newTag.trim()} aria-label="加入標籤">
-              ＋
-            </button>
-          </span>
-        </div>
-        <p className="small muted">內建標籤：{TAGS.join('、')}</p>
-      </section>
     </div>
   );
 }
