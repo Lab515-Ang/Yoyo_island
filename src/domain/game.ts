@@ -370,6 +370,36 @@ export function weekRecap(save: SaveFile, weekStart: string) {
   };
 }
 
+/**
+ * 一週專注時間在所有玩家中的排名（超越幾 % 的玩家、前幾 %）。
+ * ponytail: 假資料——還沒有伺服器，先用固定的分布表（每週分鐘數 → 超越的百分比）內插；
+ * 之後由伺服器回傳真正的排名，只要換掉這個函式。
+ */
+const FAKE_WEEK_CURVE: [number, number][] = [
+  [0, 0],
+  [30, 15],
+  [120, 40],
+  [300, 60],
+  [600, 72],
+  [960, 80],
+  [1500, 90],
+  [2400, 97],
+  [4000, 99],
+];
+export function communityRank(weekMs: number) {
+  const min = weekMs / 60000;
+  let beat = 99;
+  for (let i = 1; i < FAKE_WEEK_CURVE.length; i++) {
+    const [m0, p0] = FAKE_WEEK_CURVE[i - 1];
+    const [m1, p1] = FAKE_WEEK_CURVE[i];
+    if (min <= m1) {
+      beat = Math.floor(p0 + ((p1 - p0) * (min - m0)) / (m1 - m0));
+      break;
+    }
+  }
+  return { beat, top: Math.max(1, 100 - beat) };
+}
+
 export function contributionsByUser(save: SaveFile) {
   const m = new Map<ID, number>();
   for (const c of save.contributions) if (c.islandId === islandId(save)) m.set(c.userId, (m.get(c.userId) ?? 0) + c.points);

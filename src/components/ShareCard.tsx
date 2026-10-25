@@ -151,7 +151,7 @@ async function toPng(svg: string, w: number, h: number) {
 
 export const renderSessionCard = (d: SessionCardData) => toPng(sessionSvg(d), 540, 640);
 
-export type RecapCardData = ReturnType<typeof weekRecap> & { range: string; bestName: string; topStage: number };
+export type RecapCardData = ReturnType<typeof weekRecap> & { range: string; bestName: string; topStage: number; rankTop: number };
 
 /** 上週回顧的總結卡：最常遇見的動物、四個數字、日期。 */
 function recapSvg(d: RecapCardData) {
@@ -175,7 +175,7 @@ function recapSvg(d: RecapCardData) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif">
 <rect width="${w}" height="${h}" fill="#dcecf3"/>
 <rect x="16" y="16" width="${w - 32}" height="${h - 32}" rx="24" fill="#f4f9fb" stroke="#c9dfe8"/>
-<text x="${w / 2}" y="66" font-size="24" font-weight="700" fill="#2f4a36" text-anchor="middle">我的上週回顧</text>
+<text x="${w / 2}" y="66" font-size="21" font-weight="700" fill="#2f4a36" text-anchor="middle">我的專注表現進入棲光小島前 ${d.rankTop}%！</text>
 <circle cx="${w / 2}" cy="178" r="88" fill="#cfe6d0"/>
 ${art}
 ${tiles.map(tile).join('')}

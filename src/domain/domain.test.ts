@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyDeepFocus, dueAt, completeNow, createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, addSegmentsByHour, weekStartKey } from './focus';
-import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote, isDone, projectQuarter, remainingFor, applyFocusRewards, focusOutcome, animalUnlocked, chosenAnimal, endedSessions, hatchCounts, newAnimals, sceneAnimals, unlockAnimal, growthOf, sightings, weekRecap } from './game';
+import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote, isDone, projectQuarter, remainingFor, applyFocusRewards, focusOutcome, animalUnlocked, chosenAnimal, endedSessions, hatchCounts, newAnimals, sceneAnimals, unlockAnimal, growthOf, sightings, weekRecap, communityRank } from './game';
 import { ANIMALS, CONTENT_VERSION, GROWTH_AT, SOUNDS, animalDef, projectDef, stageName } from '../content/config';
 import { newSave, newDemoSave, validateSave, demoGrant } from './save';
 import type { SaveFile } from './types';
@@ -429,6 +429,13 @@ describe('上週回顧', () => {
     expect(r.species).toBe(2);
     expect(r.newSpecies).toBe(1); // 藍鵲前一週就遇過
     expect(weekRecap(save, '2026-09-07')).toMatchObject({ total: 0, best: -1, top: null });
+  });
+
+  it('玩家排名（假資料）：時間越多排名越前面，前幾 % 最少是 1', () => {
+    expect(communityRank(0)).toEqual({ beat: 0, top: 100 });
+    expect(communityRank(961 * MIN).top).toBe(20); // 和 Forest 錄影裡 961 分鐘差不多（前 19%）
+    expect(communityRank(300 * MIN).beat).toBeGreaterThan(communityRank(120 * MIN).beat);
+    expect(communityRank(99999 * MIN)).toEqual({ beat: 99, top: 1 });
   });
 });
 

@@ -2372,6 +2372,16 @@ label.toggle input.switch:checked::after {
 .recap-sky {
   --recap-top: #8ec5e6;
 }
+.recap-gold {
+  --recap-top: #7aa7e8;
+}
+.recap-rank {
+  font-size: clamp(4.6rem, 26vw, 7rem);
+  -webkit-text-stroke: 3px #3d6fc0;
+}
+.recap-rank small {
+  -webkit-text-stroke: 1px #3d6fc0;
+}
 .recap-summary {
   --recap-top: #a9d3ea;
   background: linear-gradient(180deg, #a9d3ea, #e6f3f9);

@@ -6,7 +6,7 @@ import { AnimalArt } from '../components/Animal';
 import { ShareModal, renderRecapCard } from '../components/ShareCard';
 import { Modal } from '../components/ui';
 import { localDateKey, shiftDateKey, weekStartKey } from '../domain/focus';
-import { growthOf, weekRecap } from '../domain/game';
+import { communityRank, growthOf, weekRecap } from '../domain/game';
 
 const SEEN_KEY = 'qiguang-ui:recapSeen'; // 介面偏好：最後一次邀請回顧的是哪一週
 const DAY_NAMES = ['週一', '週二', '週三', '週四', '週五', '週六', '週日'];
@@ -89,6 +89,7 @@ export function WeekRecap({ weekStart, onClose }: { weekStart: string; onClose: 
   const pct = r.prevTotal ? Math.round(((r.total - r.prevTotal) / r.prevTotal) * 100) : null;
   const times = r.prevTotal ? (r.total / r.prevTotal).toFixed(1) : ''; // 大幅成長時用「幾倍」比較好懂
   const peak = Math.max(1, ...r.days);
+  const rank = communityRank(r.total);
 
   const slides: { tone: string; art: ReactNode; text: ReactNode }[] = [
     {
@@ -225,6 +226,26 @@ export function WeekRecap({ weekStart, onClose }: { weekStart: string; onClose: 
         ),
     },
     {
+      tone: 'gold',
+      art: (
+        <p className="recap-big recap-rank">
+          {rank.top}
+          <small>%</small>
+        </p>
+      ),
+      text: (
+        <>
+          <p>
+            你的專注表現進入棲光小島前 <b>{rank.top}%</b>！
+          </p>
+          <p>
+            你專注了 <b>{min}</b> 分鐘，超越了 <b>{rank.beat}%</b> 的玩家
+          </p>
+          <p>{rank.top <= 20 ? '這成就太厲害了！' : rank.top <= 50 ? '已經比一半的人更專注了！' : '每一週都是新的起點，加油！'}</p>
+        </>
+      ),
+    },
+    {
       tone: 'summary',
       art: (
         <div className="recap-card">
@@ -233,7 +254,7 @@ export function WeekRecap({ weekStart, onClose }: { weekStart: string; onClose: 
               <AnimalArt key={id} id={id} stage={growthOf(save, id).stage} size={72} />
             ))}
           </div>
-          <p className="recap-card-title">我的上週回顧</p>
+          <p className="recap-card-title">我的專注表現進入棲光小島前 {rank.top}%！</p>
           <div className="recap-tiles">
             <span>
               ⏱️ <b>{min}</b>
@@ -317,7 +338,7 @@ export function WeekRecap({ weekStart, onClose }: { weekStart: string; onClose: 
         <ShareModal
           title="分享上週回顧"
           fileName={`棲光小島-上週回顧-${weekStart}.png`}
-          make={() => renderRecapCard({ ...r, range: weekRange(weekStart), bestName: r.best >= 0 ? DAY_NAMES[r.best] : '—', topStage: top ? growthOf(save, top.id).stage : 2 })}
+          make={() => renderRecapCard({ ...r, rankTop: rank.top, range: weekRange(weekStart), bestName: r.best >= 0 ? DAY_NAMES[r.best] : '—', topStage: top ? growthOf(save, top.id).stage : 2 })}
           onClose={() => setSharing(false)}
         />
       )}
