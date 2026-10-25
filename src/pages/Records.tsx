@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSave } from '../app/store';
 import { HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, QUICK_MINUTES, TAGS, animalDef, habitatName, tagColor } from '../content/config';
 import { fmtDateTime, fmtMinutes, Modal } from '../components/ui';
+import { renderShareCard } from '../components/ShareCard';
+import { saveImage, shareImage } from '../platform';
 import { AnimalArt, HatchPlot } from '../components/Animal';
 import { addSegmentsByHour, localDateKey, localHourKey, shiftDateKey, weekStartKey } from '../domain/focus';
 import { endedSessions, habitatOpen, rewardFor } from '../domain/game';
@@ -49,12 +51,51 @@ const shortTime = (ms: number) => {
 };
 
 /** 每小時的有效專注時間（含提前結束的那幾段；暫停不算），可依標籤篩選。 */
-function useHourly(save: SaveFile, tag: string | null) {
+function useHourly(save: SaveFile, tags: string[] | null) {
+  const key = tags?.join('|') ?? '';
   return useMemo(() => {
     const m = new Map<string, number>();
-    for (const s of endedSessions(save)) if (!tag || s.tag === tag) addSegmentsByHour(m, s.segments, save.profile.timezone);
+    for (const s of endedSessions(save)) if (!tags || tags.includes(s.tag)) addSegmentsByHour(m, s.segments, save.profile.timezone);
     return m;
-  }, [save, tag]);
+  }, [save, key]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+/** 標籤篩選（多選，可搜尋）：按確認才套用。全部勾選＝總覽。 */
+function TagPicker({ all, selected, onApply, onClose }: { all: string[]; selected: string[] | null; onApply: (t: string[] | null) => void; onClose: () => void }) {
+  const [picked, setPicked] = useState<string[]>(selected ?? all);
+  const [q, setQ] = useState('');
+  const shown = all.filter((t) => t.toLowerCase().includes(q.trim().toLowerCase()));
+  const allOn = picked.length === all.length;
+  const toggle = (t: string) => setPicked((p) => (p.includes(t) ? p.filter((x) => x !== t) : [...p, t]));
+  return (
+    <Modal title="標籤" onClose={onClose}>
+      <div className="row between">
+        <input type="search" className="tag-search" placeholder="尋找標籤" value={q} onChange={(e) => setQ(e.target.value)} aria-label="尋找標籤" />
+        <button className="link" onClick={() => setPicked(allOn ? [] : all)}>
+          {allOn ? '取消全選' : '全選'}
+        </button>
+      </div>
+      <ul className="tag-pick">
+        {shown.map((t) => (
+          <li key={t}>
+            <label className="toggle">
+              <span className="tag-dot" style={{ background: tagColor(t) }} aria-hidden="true" />
+              <span className="tag-pick-name">{t}</span>
+              <input type="checkbox" checked={picked.includes(t)} onChange={() => toggle(t)} />
+            </label>
+          </li>
+        ))}
+        {!shown.length && <li className="muted small">找不到這個標籤。</li>}
+      </ul>
+      <p className="small muted center-text">已選取 {picked.length} 項</p>
+      <div className="row editor-actions">
+        <button onClick={onClose}>取消</button>
+        <button className="primary" disabled={!picked.length} onClick={() => onApply(allOn ? null : picked)}>
+          確認
+        </button>
+      </div>
+    </Modal>
+  );
 }
 
 /** 長條圖：點一下顯示那一格的時間。 */
@@ -65,6 +106,11 @@ function Bars({ values, labels, names }: { values: number[]; labels: string[]; n
     <>
       <p className="small muted bar-pick">{sel !== null ? `${names(sel)}：${shortTime(values[sel])}` : '點長條看時間'}</p>
       <div className="focus-chart" role="img" aria-label="專注時間分布">
+        <span className="focus-grid top" aria-hidden="true">
+          {values.some(Boolean) ? shortTime(peak) : ''}
+        </span>
+        <span className="focus-grid mid" aria-hidden="true" />
+        {!values.some(Boolean) && <span className="focus-empty">無資料</span>}
         {values.map((v, i) => (
           <button key={i} className={sel === i ? 'focus-bar on' : 'focus-bar'} onClick={() => setSel(sel === i ? null : i)} aria-label={`${names(i)} ${shortTime(v)}`}>
             <span style={{ height: `${(v / peak) * 100}%` }} />
@@ -81,19 +127,23 @@ function Bars({ values, labels, names }: { values: number[]; labels: string[]; n
 }
 
 /** 專注紀錄（參考 Forest）：孵化格子、專注時間統計、項目分布、最常孵出的動物、專注習慣。 */
-function Overview({ tag, onTag }: { tag: string | null; onTag: (t: string | null) => void }) {
+function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t: string[] | null) => void }) {
   const { save } = useSave();
   const tz = save.profile.timezone;
   const today = localDateKey(Date.now(), tz);
   const [range, setRange] = useState<Range>('day');
   const [cursor, setCursor] = useState(today);
   const [info, setInfo] = useState(false);
-  const hourly = useHourly(save, tag);
+  const [picking, setPicking] = useState(false);
+  const [card, setCard] = useState<string | null>(null); // 專注成果統計圖（PNG data URL）
+  const [cardMsg, setCardMsg] = useState<string | null>(null);
+  const hourly = useHourly(save, picked);
+  const inTags = (t: string) => !picked || picked.includes(t);
   // 選單：內建、自訂，加上紀錄裡出現過的標籤（自訂標籤刪掉後，舊紀錄還是篩得到）
   const tags = [...new Set([...TAGS, ...save.settings.customTags, ...endedSessions(save).map((s) => s.tag)])].filter(Boolean);
 
   const shown = endedSessions(save)
-    .filter((s) => (!tag || s.tag === tag) && inRange(range, cursor, localDateKey(Date.parse(s.endedAt!), tz)))
+    .filter((s) => inTags(s.tag) && inRange(range, cursor, localDateKey(Date.parse(s.endedAt!), tz)))
     .sort((a, b) => a.endedAt!.localeCompare(b.endedAt!));
   const hatched = shown.filter((s) => s.status === 'completed');
   const isNow = inRange(range, cursor, today);
@@ -137,9 +187,7 @@ function Overview({ tag, onTag }: { tag: string | null; onTag: (t: string | null
 
   const label =
     range === 'day'
-      ? cursor === today
-        ? '今天'
-        : `${cursor.slice(0, 4) === today.slice(0, 4) ? '' : `${cursor.slice(0, 4)}/`}${md(cursor)}`
+      ? `${cursor.slice(0, 4) === today.slice(0, 4) ? '' : `${cursor.slice(0, 4)}/`}${md(cursor)}${cursor === today ? '（今天）' : cursor === shiftDateKey(today, -1) ? '（昨天）' : ''}`
       : range === 'week'
         ? `${md(weekStartKey(cursor))} – ${md(shiftDateKey(weekStartKey(cursor), 6))}`
         : range === 'month'
@@ -153,28 +201,41 @@ function Overview({ tag, onTag }: { tag: string | null; onTag: (t: string | null
         : range === 'month'
           ? ['1', '10', '20', String(n)]
           : ['1', '3', '6', '9', '12'];
+  const tagLabel = !picked ? '總覽' : picked.length === 1 ? picked[0] : `${picked.length} 個標籤`;
+  const makeCard = async () => {
+    setCardMsg(null);
+    setCard('');
+    try {
+      setCard(
+        await renderShareCard({
+          title: label,
+          subtitle: !picked ? '全部標籤' : picked.join('、'),
+          total: fmtMinutes(total),
+          counts: `孵出 ${hatched.length} 隻・沒孵化 ${shown.length - hatched.length} 顆`,
+          sessions: shown,
+          cols: PLOT[range].cols,
+          bars: buckets,
+          axis,
+        }),
+      );
+    } catch {
+      setCard(null);
+      setCardMsg('統計圖做不出來，請再試一次。');
+    }
+  };
+  const fileName = `棲光小島-${cursor}`;
   const names = (i: number) => (range === 'day' ? hourName(i) : range === 'week' ? dayName(i) : range === 'month' ? `${i + 1} 日` : `${i + 1} 月`);
 
   return (
     <>
       <section className="card garden-card">
         <div className="row between">
-          <label className="tag-select">
-            <span className="sr-only">只看某個標籤</span>
-            <select value={tag ?? ''} onChange={(e) => onTag(e.target.value || null)}>
-              <option value="">總覽（全部標籤）</option>
-              {tags.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </label>
-          {!isNow && (
-            <button className="link" onClick={() => setCursor(today)}>
-              ↺ 回到今天
-            </button>
-          )}
+          <button className="tag-select" onClick={() => setPicking(true)} aria-label={`標籤篩選：${tagLabel}`}>
+            {tagLabel} ▾
+          </button>
+          <button className="icon-btn" onClick={() => void makeCard()} aria-label="分享專注成果統計圖">
+            ⤴
+          </button>
         </div>
         <div className="segmented" role="radiogroup" aria-label="紀錄範圍">
           {RANGES.map(([k, l]) => (
@@ -187,7 +248,14 @@ function Overview({ tag, onTag }: { tag: string | null; onTag: (t: string | null
           <button className="time-step" onClick={() => setCursor(shiftRange(range, cursor, -1))} aria-label="上一段">
             ‹
           </button>
-          <strong>{label}</strong>
+          <strong>
+            {label}
+            {!isNow && (
+              <button className="back-today" onClick={() => setCursor(today)} aria-label="回到今天">
+                ↺
+              </button>
+            )}
+          </strong>
           <button className="time-step" onClick={() => setCursor(shiftRange(range, cursor, 1))} disabled={isNow} aria-label="下一段">
             ›
           </button>
@@ -227,7 +295,7 @@ function Overview({ tag, onTag }: { tag: string | null; onTag: (t: string | null
 
       {total > 0 && (
         <>
-          {!tag && tagRows.length > 0 && (
+          {tagRows.length > 1 && (
             <section className="card">
               <h2>專注項目分布</h2>
               <div className="tag-donut" style={{ background: `conic-gradient(${donut})` }} role="img" aria-label="各標籤的專注時間比例" />
@@ -284,6 +352,29 @@ function Overview({ tag, onTag }: { tag: string | null; onTag: (t: string | null
         </>
       )}
 
+      {picking && <TagPicker all={tags} selected={picked} onApply={(t) => (onTags(t), setPicking(false))} onClose={() => setPicking(false)} />}
+      {card !== null && (
+        <Modal title="專注成果統計圖" onClose={() => setCard(null)}>
+          {card ? <img className="share-card" src={card} alt={`${label}的專注成果統計圖`} /> : <p className="muted center-text">製作中…</p>}
+          {cardMsg && <p className="small muted">{cardMsg}</p>}
+          <div className="row editor-actions">
+            <button
+              disabled={!card}
+              onClick={() =>
+                void saveImage(card!, fileName)
+                  .then(() => setCardMsg('已存到相簿。'))
+                  .catch(() => setCardMsg('存不進相簿，可以改用分享。'))
+              }
+            >
+              儲存
+            </button>
+            <button className="primary" disabled={!card} onClick={() => void shareImage(card!, fileName, '我的專注成果').catch(() => setCardMsg('無法分享，請再試一次。'))}>
+              分享
+            </button>
+          </div>
+        </Modal>
+      )}
+      {cardMsg && card === null && <p className="small muted">{cardMsg}</p>}
       {info && (
         <Modal title="累積專注時長" onClose={() => setInfo(false)}>
           <p>只計算真正在專注的時間：暫停的時間不算；提前結束的那幾段，專注過的時間會算進來，但蛋不會孵化。</p>
@@ -298,7 +389,7 @@ function Overview({ tag, onTag }: { tag: string | null; onTag: (t: string | null
 
 /** 專注紀錄與專注計畫設置：統計、完整紀錄、大廳開始專注時的預設值。 */
 export function Records({ initialTag = null }: { initialTag?: string | null }) {
-  const [tagFilter, setTagFilter] = useState<string | null>(initialTag);
+  const [tagFilter, setTagFilter] = useState<string[] | null>(initialTag ? [initialTag] : null);
   // 從結算頁「查看專注紀錄」進來時，捲到紀錄清單（只在進來時捲一次）
   const listHead = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
@@ -311,7 +402,7 @@ export function Records({ initialTag = null }: { initialTag?: string | null }) {
   const [newTag, setNewTag] = useState('');
   const [limit, setLimit] = useState(50); // 紀錄多了一次只畫 50 筆
 
-  const sessions = [...save.sessions].reverse().filter((s) => s.endedAt && s.userId === save.profile.id && (!tagFilter || s.tag === tagFilter));
+  const sessions = [...save.sessions].reverse().filter((s) => s.endedAt && s.userId === save.profile.id && (!tagFilter || tagFilter.includes(s.tag)));
   const customMin = Number(custom);
   const customValid = Number.isInteger(customMin) && customMin >= MIN_FOCUS_MINUTES && customMin <= MAX_FOCUS_MINUTES;
 
@@ -325,11 +416,11 @@ export function Records({ initialTag = null }: { initialTag?: string | null }) {
     <div className="page">
       <h1>專注紀錄與專注計畫設置</h1>
 
-      <Overview tag={tagFilter} onTag={setTagFilter} />
+      <Overview tags={tagFilter} onTags={setTagFilter} />
 
       <section className="card">
         <div className="row between">
-          <h2 ref={listHead}>{tagFilter ? `專注紀錄：「${tagFilter}」` : '全部專注紀錄'}</h2>
+          <h2 ref={listHead}>{tagFilter ? `專注紀錄：「${tagFilter.join('、')}」` : '全部專注紀錄'}</h2>
           {tagFilter && (
             <button className="link" onClick={() => setTagFilter(null)}>
               顯示全部

@@ -130,6 +130,31 @@ export const DEEP_GRACE_MS = 10_000;
 
 export const TimeGuard = registerPlugin<TimeGuardNative>('TimeGuard');
 
+// ---------- 圖片：存到相簿、分享（專注成果統計圖） ----------
+
+const ImageShare = registerPlugin<{ save(o: { dataUrl: string; name: string }): Promise<void>; share(o: { dataUrl: string; title: string }): Promise<void> }>('ImageShare');
+const toFile = async (dataUrl: string, name: string) => new File([await (await fetch(dataUrl)).blob()], `${name}.png`, { type: 'image/png' });
+const download = (dataUrl: string, name: string) => {
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = `${name}.png`;
+  a.click();
+};
+
+/** 存圖：App 版存到相簿「棲光小島」；網頁版下載。 */
+export async function saveImage(dataUrl: string, name: string) {
+  if (isAndroid) return ImageShare.save({ dataUrl, name });
+  download(dataUrl, name);
+}
+
+/** 分享圖：App 版用系統分享選單；網頁版（iPhone Safari 等）用瀏覽器分享，不支援就下載。 */
+export async function shareImage(dataUrl: string, name: string, title: string) {
+  if (isAndroid) return ImageShare.share({ dataUrl, title });
+  const file = await toFile(dataUrl, name);
+  if (navigator.canShare?.({ files: [file] })) return navigator.share({ files: [file], title }).catch(() => undefined);
+  download(dataUrl, name);
+}
+
 /** Android 返回鍵：有監聽時系統不會直接關掉 App，由 cb 決定怎麼回上一步。網頁版不處理。 */
 export function onBack(cb: () => void): () => void {
   if (!isAndroid) return () => undefined;
