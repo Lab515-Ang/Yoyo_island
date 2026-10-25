@@ -1,8 +1,11 @@
 // 專注成果統計圖：把這段期間的孵化格子與時間分布畫成一張圖（先組 SVG，再轉成 PNG 給存檔／分享用）
+import { useEffect, useState } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { animalDef, sizeTier } from '../content/config';
 import type { FocusSession } from '../domain/types';
 import { AnimalArt, EggArt } from './Animal';
+import { Modal } from './ui';
+import { saveImage, shareImage } from '../platform';
 
 export interface ShareCardData {
   title: string; // 例如「10/24（昨天）」
@@ -86,8 +89,49 @@ ${axis}
 }
 
 /** 回傳 PNG data URL（2 倍解析度）。 */
-export async function renderShareCard(d: ShareCardData) {
-  const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(cardSvg(d))}`;
+export const renderShareCard = (d: ShareCardData) => toPng(cardSvg(d), W, H);
+
+// ---------- 單次專注的孵化卡（時間歷程的「分享」） ----------
+
+/** 依字數換行（SVG 文字不會自動換行），最多 maxLines 行。 */
+const wrap = (text: string, per: number, maxLines: number) => {
+  const chars = [...text.replace(/\s+/g, ' ').trim()];
+  const lines: string[] = [];
+  for (let i = 0; i < chars.length && lines.length < maxLines; i += per) lines.push(chars.slice(i, i + per).join(''));
+  if (chars.length > per * maxLines) lines[maxLines - 1] = lines[maxLines - 1].slice(0, -1) + '…';
+  return lines;
+};
+
+export interface SessionCardData {
+  session: FocusSession;
+  when: string; // 例如「10/24 22:24–01:24」
+  title: string; // 例如「孵出了台灣藍鵲」
+}
+
+function sessionSvg({ session: s, when, title }: SessionCardData) {
+  const w = 540;
+  const h = 640;
+  const done = s.status === 'completed';
+  const a = animalDef(s.animalId);
+  const min = Math.floor(s.accumulatedMs / 60000);
+  const art = done ? renderToStaticMarkup(<AnimalArt id={a.id} tier={3} size={220} />) : renderToStaticMarkup(<EggArt id={a.id} cold size={170} />);
+  const meta = [s.taskTitle && s.taskTitle !== '一段專注' ? s.taskTitle : '', s.tag].filter(Boolean).join('・');
+  const note = s.note ? wrap(s.note, 22, 3) : [];
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif">
+<rect width="${w}" height="${h}" fill="#f6f1e4"/>
+<rect x="16" y="16" width="${w - 32}" height="${h - 32}" rx="24" fill="#fffbf2" stroke="#e7dcc5"/>
+<circle cx="${w / 2}" cy="200" r="130" fill="${done ? '#dcebc9' : '#e6e1d6'}"/>
+${place(art, done ? w / 2 - 110 : w / 2 - 85, done ? 90 : 115, done ? 220 : 170)}
+<text x="${w / 2}" y="378" font-size="28" font-weight="700" fill="#2f4a36" text-anchor="middle">${esc(title)}</text>
+<text x="${w / 2}" y="414" font-size="17" fill="#6d7f6f" text-anchor="middle">${esc(when)}・${min} 分鐘</text>
+${meta ? `<text x="${w / 2}" y="446" font-size="16" fill="#4f7a55" text-anchor="middle">${esc(meta)}</text>` : ''}
+${note.map((l, i) => `<text x="${w / 2}" y="${490 + i * 26}" font-size="16" fill="#2f4a36" text-anchor="middle">${esc(l)}</text>`).join('')}
+<text x="${w / 2}" y="${h - 36}" font-size="15" fill="#8fb38a" text-anchor="middle">🌿 棲光小島</text>
+</svg>`;
+}
+
+async function toPng(svg: string, w: number, h: number) {
+  const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const i = new Image();
     i.onload = () => resolve(i);
@@ -95,8 +139,46 @@ export async function renderShareCard(d: ShareCardData) {
     i.src = url;
   });
   const c = document.createElement('canvas');
-  c.width = W * 2;
-  c.height = H * 2;
+  c.width = w * 2;
+  c.height = h * 2;
   c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
   return c.toDataURL('image/png');
+}
+
+export const renderSessionCard = (d: SessionCardData) => toPng(sessionSvg(d), 540, 640);
+
+/** 分享圖視窗：製作圖片 → 預覽 → 儲存／分享。 */
+export function ShareModal({ title, fileName, make, onClose }: { title: string; fileName: string; make: () => Promise<string>; onClose: () => void }) {
+  const [img, setImg] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    make()
+      .then((d) => alive && setImg(d))
+      .catch(() => alive && setMsg('圖片做不出來，請再試一次。'));
+    return () => {
+      alive = false;
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <Modal title={title} onClose={onClose}>
+      {img ? <img className="share-card" src={img} alt={title} /> : !msg && <p className="muted center-text">製作中…</p>}
+      {msg && <p className="small muted">{msg}</p>}
+      <div className="row editor-actions">
+        <button
+          disabled={!img}
+          onClick={() =>
+            void saveImage(img!, fileName)
+              .then(() => setMsg('已存到相簿。'))
+              .catch(() => setMsg('存不進相簿，可以改用分享。'))
+          }
+        >
+          儲存
+        </button>
+        <button className="primary" disabled={!img} onClick={() => void shareImage(img!, fileName, title).catch(() => setMsg('無法分享，請再試一次。'))}>
+          分享
+        </button>
+      </div>
+    </Modal>
+  );
 }

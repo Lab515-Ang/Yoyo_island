@@ -2,8 +2,7 @@ import { useMemo, useState } from 'react';
 import { useSave } from '../app/store';
 import { TAGS, animalDef, tagColor } from '../content/config';
 import { fmtMinutes, Modal } from '../components/ui';
-import { renderShareCard } from '../components/ShareCard';
-import { saveImage, shareImage } from '../platform';
+import { renderShareCard, ShareModal } from '../components/ShareCard';
 import { AnimalArt, HatchPlot } from '../components/Animal';
 import { addSegmentsByHour, localDateKey, localHourKey, shiftDateKey, weekStartKey } from '../domain/focus';
 import { endedSessions } from '../domain/game';
@@ -130,8 +129,7 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
   const [cursor, setCursor] = useState(today);
   const [info, setInfo] = useState(false);
   const [picking, setPicking] = useState(false);
-  const [card, setCard] = useState<string | null>(null); // 專注成果統計圖（PNG data URL）
-  const [cardMsg, setCardMsg] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
   const hourly = useHourly(save, picked);
   const inTags = (t: string) => !picked || picked.includes(t);
   // 選單：內建、自訂，加上紀錄裡出現過的標籤（自訂標籤刪掉後，舊紀錄還是篩得到）
@@ -197,27 +195,17 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
           ? ['1', '10', '20', String(n)]
           : ['1', '3', '6', '9', '12'];
   const tagLabel = !picked ? '總覽' : picked.length === 1 ? picked[0] : `${picked.length} 個標籤`;
-  const makeCard = async () => {
-    setCardMsg(null);
-    setCard('');
-    try {
-      setCard(
-        await renderShareCard({
-          title: label,
-          subtitle: !picked ? '全部標籤' : picked.join('、'),
-          total: fmtMinutes(total),
-          counts: `孵出 ${hatched.length} 隻・沒孵化 ${shown.length - hatched.length} 顆`,
-          sessions: shown,
-          cols: PLOT[range].cols,
-          bars: buckets,
-          axis,
-        }),
-      );
-    } catch {
-      setCard(null);
-      setCardMsg('統計圖做不出來，請再試一次。');
-    }
-  };
+  const makeCard = () =>
+    renderShareCard({
+      title: label,
+      subtitle: !picked ? '全部標籤' : picked.join('、'),
+      total: fmtMinutes(total),
+      counts: `孵出 ${hatched.length} 隻・沒孵化 ${shown.length - hatched.length} 顆`,
+      sessions: shown,
+      cols: PLOT[range].cols,
+      bars: buckets,
+      axis,
+    });
   const fileName = `棲光小島-${cursor}`;
   const names = (i: number) => (range === 'day' ? hourName(i) : range === 'week' ? dayName(i) : range === 'month' ? `${i + 1} 日` : `${i + 1} 月`);
 
@@ -228,7 +216,7 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
           <button className="tag-select" onClick={() => setPicking(true)} aria-label={`標籤篩選：${tagLabel}`}>
             {tagLabel} ▾
           </button>
-          <button className="icon-btn" onClick={() => void makeCard()} aria-label="分享專注成果統計圖">
+          <button className="icon-btn" onClick={() => setSharing(true)} aria-label="分享專注成果統計圖">
             ⤴
           </button>
         </div>
@@ -348,28 +336,7 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
       )}
 
       {picking && <TagPicker all={tags} selected={picked} onApply={(t) => (onTags(t), setPicking(false))} onClose={() => setPicking(false)} />}
-      {card !== null && (
-        <Modal title="專注成果統計圖" onClose={() => setCard(null)}>
-          {card ? <img className="share-card" src={card} alt={`${label}的專注成果統計圖`} /> : <p className="muted center-text">製作中…</p>}
-          {cardMsg && <p className="small muted">{cardMsg}</p>}
-          <div className="row editor-actions">
-            <button
-              disabled={!card}
-              onClick={() =>
-                void saveImage(card!, fileName)
-                  .then(() => setCardMsg('已存到相簿。'))
-                  .catch(() => setCardMsg('存不進相簿，可以改用分享。'))
-              }
-            >
-              儲存
-            </button>
-            <button className="primary" disabled={!card} onClick={() => void shareImage(card!, fileName, '我的專注成果').catch(() => setCardMsg('無法分享，請再試一次。'))}>
-              分享
-            </button>
-          </div>
-        </Modal>
-      )}
-      {cardMsg && card === null && <p className="small muted">{cardMsg}</p>}
+      {sharing && <ShareModal title="專注成果統計圖" fileName={fileName} make={makeCard} onClose={() => setSharing(false)} />}
       {info && (
         <Modal title="累積專注時長" onClose={() => setInfo(false)}>
           <p>只計算真正在專注的時間：暫停的時間不算；提前結束的那幾段，專注過的時間會算進來，但蛋不會孵化。</p>
