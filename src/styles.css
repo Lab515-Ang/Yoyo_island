@@ -517,23 +517,6 @@ legend {
   padding-bottom: 0.45rem;
   overflow-wrap: anywhere;
 }
-.list.days li {
-  display: grid;
-  grid-template-columns: 3.2em 1fr 6.5em;
-  align-items: center;
-  gap: 0.6rem;
-}
-.day-bar {
-  height: 10px;
-  background: #ece3cf;
-  border-radius: 999px;
-  overflow: hidden;
-}
-.day-bar span {
-  display: block;
-  height: 100%;
-  background: var(--sage);
-}
 
 .route {
   list-style: none;
@@ -1375,11 +1358,6 @@ button.danger-fill {
 .note-count {
   opacity: 0.7;
   margin: 0;
-}
-.note-line {
-  color: var(--muted);
-  white-space: pre-wrap;
-  margin-top: 0.2rem;
 }
 .break-time {
   font-size: clamp(3.6rem, 16vw, 5rem);

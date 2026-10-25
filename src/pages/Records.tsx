@@ -1,18 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useSave } from '../app/store';
-import { TAGS, animalDef, habitatName, tagColor } from '../content/config';
-import { fmtDateTime, fmtMinutes, Modal } from '../components/ui';
+import { TAGS, animalDef, tagColor } from '../content/config';
+import { fmtMinutes, Modal } from '../components/ui';
 import { renderShareCard } from '../components/ShareCard';
 import { saveImage, shareImage } from '../platform';
 import { AnimalArt, HatchPlot } from '../components/Animal';
 import { addSegmentsByHour, localDateKey, localHourKey, shiftDateKey, weekStartKey } from '../domain/focus';
-import { endedSessions, rewardFor } from '../domain/game';
-import type { FocusSession, SaveFile } from '../domain/types';
-
-export function sessionLine(s: FocusSession) {
-  const min = Math.floor(s.accumulatedMs / 60000);
-  return `${s.taskTitle} · ${s.tag} · ${min} 分鐘${s.status === 'abandoned' ? '（提前結束，蛋沒有孵化）' : ` · 孵出${animalDef(s.animalId).name} · +${rewardFor(s)} 點 +${rewardFor(s)} 金幣`}`;
-}
+import { endedSessions } from '../domain/game';
+import type { SaveFile } from '../domain/types';
 
 type Range = 'day' | 'week' | 'month' | 'year';
 const RANGES: [Range, string][] = [
@@ -387,52 +382,13 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
   );
 }
 
-/** 專注紀錄：統計與完整紀錄。（計時方式、時間、標籤都在大廳設定，大廳會記住上次的選擇） */
+/** 專注紀錄：孵化格子與統計。從結算頁「查看專注紀錄」進來時先篩選那個標籤。 */
 export function Records({ initialTag = null }: { initialTag?: string | null }) {
   const [tagFilter, setTagFilter] = useState<string[] | null>(initialTag ? [initialTag] : null);
-  // 從結算頁「查看專注紀錄」進來時，捲到紀錄清單（只在進來時捲一次）
-  const listHead = useRef<HTMLHeadingElement>(null);
-  useEffect(() => {
-    if (initialTag) listHead.current?.scrollIntoView();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const { save } = useSave();
-  const [limit, setLimit] = useState(50); // 紀錄多了一次只畫 50 筆
-
-  const sessions = [...save.sessions].reverse().filter((s) => s.endedAt && s.userId === save.profile.id && (!tagFilter || tagFilter.includes(s.tag)));
   return (
     <div className="page">
       <h1>專注紀錄</h1>
-
       <Overview tags={tagFilter} onTags={setTagFilter} />
-
-      <section className="card">
-        <div className="row between">
-          <h2 ref={listHead}>{tagFilter ? `專注紀錄：「${tagFilter.join('、')}」` : '全部專注紀錄'}</h2>
-          {tagFilter && (
-            <button className="link" onClick={() => setTagFilter(null)}>
-              顯示全部
-            </button>
-          )}
-        </div>
-        <ul className="list">
-          {sessions.slice(0, limit).map((s) => (
-            <li key={s.id}>
-              <span className="small muted">
-                {fmtDateTime(s.endedAt!)} · {habitatName(s.habitatId)}
-              </span>
-              <div>{sessionLine(s)}</div>
-              {s.note && <div className="small note-line">✎ {s.note}</div>}
-            </li>
-          ))}
-          {!sessions.length && <li className="muted">還沒有專注紀錄。回到大廳開始第一段吧。</li>}
-        </ul>
-        {sessions.length > limit && (
-          <button className="link" onClick={() => setLimit((n) => n + 50)}>
-            顯示更多（還有 {sessions.length - limit} 筆）
-          </button>
-        )}
-      </section>
-
     </div>
   );
 }
