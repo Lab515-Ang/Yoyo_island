@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyDeepFocus, dueAt, completeNow, createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, addSegmentsByHour, weekStartKey } from './focus';
-import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote, isDone, projectQuarter, remainingFor, applyFocusRewards, focusOutcome, animalUnlocked, chosenAnimal, endedSessions, hatchCounts, newAnimals, sceneAnimals, unlockAnimal } from './game';
-import { ANIMALS, CONTENT_VERSION, SOUNDS, animalDef, projectDef, sizeTier } from '../content/config';
+import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote, isDone, projectQuarter, remainingFor, applyFocusRewards, focusOutcome, animalUnlocked, chosenAnimal, endedSessions, hatchCounts, newAnimals, sceneAnimals, unlockAnimal, growthOf, sightings } from './game';
+import { ANIMALS, CONTENT_VERSION, GROWTH_AT, SOUNDS, animalDef, projectDef, stageName } from '../content/config';
 import { newSave, newDemoSave, validateSave, demoGrant } from './save';
 import type { SaveFile } from './types';
 
@@ -371,6 +371,34 @@ describe('第二輪審查修正', () => {
   });
 });
 
+describe('族群成長（探索）', () => {
+  /** 完成一次探索：遇見 animalId，專注 minutes 分鐘。 */
+  const meet = (save: SaveFile, animalId: string, minutes: number, at: number) => {
+    const started = startFocus(save, { taskTitle: '', tag: '讀書', habitatId: 'forest', mode: 'countdown', targetSeconds: minutes * 60, animalId }, at);
+    const done = completeNow(started.sessions[started.sessions.length - 1], at + minutes * MIN, minutes);
+    return applyFocusRewards(closeSession(started, done, at + minutes * MIN), done.id, at + minutes * MIN);
+  };
+
+  it('同一種遇見越多次越成熟：幼年 → 亞成年 → 成年；60 分鐘以上算 2 點；放棄不算', () => {
+    let save = fresh();
+    save = meet(save, 'blue_magpie', 25, T0); // 1
+    expect(growthOf(save, 'blue_magpie')).toEqual({ growth: 1, stage: 0 });
+    save = meet(save, 'blue_magpie', 60, T0 + 60 * MIN); // 3 → 亞成年
+    const last = save.sessions[save.sessions.length - 1].id;
+    expect(sightings(save).get(last)).toEqual({ stage: 1, growth: 3, grew: true });
+    const quit = finish(session(save, 'countdown', 25, T0 + 200 * MIN), T0 + 210 * MIN, 'abandoned');
+    save = closeSession(save, { ...quit, animalId: 'blue_magpie' }, T0 + 210 * MIN);
+    expect(growthOf(save, 'blue_magpie').growth).toBe(3); // 被嚇跑不算
+    for (let i = 0; i < GROWTH_AT[1] - 3; i++) save = meet(save, 'blue_magpie', 25, T0 + (300 + i * 40) * MIN);
+    expect(growthOf(save, 'blue_magpie').stage).toBe(2);
+    expect(sceneAnimals(save)[0].stage).toBe(2); // 場景裡的同種動物跟著長大
+    expect(growthOf(save, 'scops_owl')).toEqual({ growth: 0, stage: 0 }); // 各物種分開算
+    expect(stageName(animalDef('blue_magpie'), 0)).toBe('雛鳥');
+    expect(stageName(animalDef('black_bear'), 2)).toBe('成獸');
+    expect(validateSave(JSON.parse(JSON.stringify(save))).ok).toBe(true);
+  });
+});
+
 describe('孵化動物', () => {
   it('開始時記下要孵的蛋；沒解鎖的蛋改用預設；完成才算孵出，放棄的蛋不算', () => {
     let save = startFocus(fresh(), { taskTitle: '', tag: '讀書', habitatId: 'forest', mode: 'countdown', targetSeconds: 25 * 60, animalId: 'black_bear' }, T0);
@@ -387,7 +415,7 @@ describe('孵化動物', () => {
     save = closeSession(save, quit, T0 + 70 * MIN);
     expect(endedSessions(save)).toHaveLength(2);
     expect([...hatchCounts(save).values()].reduce((a, b) => a + b, 0)).toBe(1);
-    expect(sceneAnimals(save)).toEqual([{ id: done.id, animalId: 'scops_owl', tier: sizeTier(25) }]);
+    expect(sceneAnimals(save)).toEqual([{ id: done.id, animalId: 'scops_owl', stage: 0 }]); // 第一次遇見：幼年
     expect(validateSave(JSON.parse(JSON.stringify(save))).ok).toBe(true);
   });
 

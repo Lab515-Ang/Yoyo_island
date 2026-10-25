@@ -69,10 +69,10 @@ export const PROJECTS: ProjectDef[] = [
 ];
 export const projectDef = (id: string) => PROJECTS.find((p) => p.id === id);
 
-// ---------- 動物：每段專注孵化一隻（台灣陸地保育類動物） ----------
+// ---------- 動物：每段專注是一次探索，完成就遇見一隻（台灣陸地保育類動物） ----------
 
 /**
- * 開始前選一顆蛋，專注時蛋慢慢裂開，完成就孵出來（大小依專注時間）；放棄的話蛋沒有孵化。
+ * 開始前選要找的動物，專注時牠慢慢靠近，完成就遇見牠（族群成長見下方）；放棄的話牠被嚇跑了。
  * 取得方式：一開始就有、修好工程解鎖、商店用金幣解鎖、商店特別品種（真錢，上架後開放）。
  * 介紹保持簡單、保守，不宣稱保育等級或精確生態；上線前請內容夥伴再核對。
  */
@@ -82,7 +82,7 @@ export interface AnimalDef {
   id: string;
   name: string;
   shape: AnimalShape; // 臨時圖用的外形
-  color: string; // 臨時圖主色（也是蛋的斑點色）
+  color: string; // 臨時圖主色
   accent: string;
   unlock: AnimalUnlock;
   blurb: string;
@@ -105,8 +105,19 @@ export const ANIMALS: AnimalDef[] = [
   { id: 'black_eagle', name: '林鵰', shape: 'raptor', color: '#2b2622', accent: '#f2c230', unlock: { kind: 'iap', price: 'NT$60' }, blurb: '全身深色的大型猛禽，常貼著樹冠緩緩滑翔。' },
 ];
 export const animalDef = (id: string | undefined) => ANIMALS.find((a) => a.id === id) ?? ANIMALS[0];
-/** 孵出來的大小（0～3）依專注分鐘：10～24、25～59、60～119、120 以上。 */
-export const sizeTier = (min: number) => (min < 25 ? 0 : min < 60 ? 1 : min < 120 ? 2 : 3);
+// ---------- 探索與族群成長 ----------
+// 每段專注是一次「探索」：開始前選想找的動物，完成就遇見牠（留下一筆觀察紀錄），提前放棄牠就被嚇跑了。
+// 同一種動物觀察越多次，族群在森林裡越穩定，看到的個體也越成熟：幼年 → 亞成年 → 成年。
+/** 族群成長值達到幾點進入：亞成年、成年。 */
+export const GROWTH_AT = [3, 8] as const;
+export const GROWTH_MAX = GROWTH_AT[GROWTH_AT.length - 1];
+/** 一次探索帶來的成長：60 分鐘以上算 2 點（鼓勵長時間專注）。 */
+export const growthFor = (minutes: number) => (minutes >= 60 ? 2 : 1);
+/** 成長值 → 階段（0 幼年、1 亞成年、2 成年）。 */
+export const stageOfGrowth = (g: number) => (g >= GROWTH_AT[1] ? 2 : g >= GROWTH_AT[0] ? 1 : 0);
+const BIRD_SHAPES: AnimalShape[] = ['bird', 'owl', 'pheasant', 'raptor'];
+/** 階段名稱：鳥類「雛鳥／幼鳥／成鳥」，哺乳類「幼獸／亞成獸／成獸」。 */
+export const stageName = (a: AnimalDef, stage: number) => (BIRD_SHAPES.includes(a.shape) ? ['雛鳥', '幼鳥', '成鳥'] : ['幼獸', '亞成獸', '成獸'])[Math.max(0, Math.min(2, stage))];
 
 // ---------- 大自然交響樂：可收集的環境音 ----------
 
@@ -132,7 +143,7 @@ export const SOUNDS: SoundDef[] = [
 /** 測試工具（專注畫面的「立即完成」）。上線前改成 false。 */
 export const TEST_TOOLS = true;
 
-/** 內容版本：3 = 陸地森林＋孵化動物（舊的溫室／溪流、植物、寵物存檔載入時轉換，見 save.ts migrateForest）。 */
+/** 內容版本：3 = 陸地森林＋探索動物（舊的溫室／溪流、植物、寵物存檔載入時轉換，見 save.ts migrateForest）。 */
 export const CONTENT_VERSION = 3;
 
 export const COPY = {

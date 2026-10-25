@@ -1,9 +1,9 @@
-// 專注成果統計圖：把這段期間的孵化格子與時間分布畫成一張圖（先組 SVG，再轉成 PNG 給存檔／分享用）
+// 專注成果統計圖：把這段期間的觀察格子與時間分布畫成一張圖（先組 SVG，再轉成 PNG 給存檔／分享用）
 import { useEffect, useState } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { animalDef, sizeTier } from '../content/config';
+import { animalDef } from '../content/config';
 import type { FocusSession } from '../domain/types';
-import { AnimalArt, EggArt } from './Animal';
+import { AnimalArt, TrackArt } from './Animal';
 import { Modal } from './ui';
 import { saveImage, shareImage } from '../platform';
 
@@ -11,8 +11,9 @@ export interface ShareCardData {
   title: string; // 例如「10/24（昨天）」
   subtitle: string; // 例如「全部標籤」
   total: string; // 例如「1 小時 24 分」
-  counts: string; // 例如「孵出 4 隻・沒孵化 0 顆」
+  counts: string; // 例如「遇見 4 次・被嚇跑 0 次」
   sessions: FocusSession[];
+  stages: Map<string, number>; // 每次遇見時的成長階段
   cols: number;
   bars: number[];
   axis: string[];
@@ -26,7 +27,7 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 const place = (markup: string, x: number, y: number, size: number) => markup.replace('<svg ', `<svg x="${x}" y="${y}" `).replace(/width="[^"]*"/, `width="${size}"`).replace(/height="[^"]*"/, `height="${size}"`);
 
 function cardSvg(d: ShareCardData) {
-  // 孵化格子：最多畫 6 行，超過的在角落寫「另外 N 隻」
+  // 觀察格子：最多畫 6 行，超過的在角落寫「另外 N 次」
   const plotX = 40;
   const plotY = 210;
   const plotW = W - 80;
@@ -39,8 +40,7 @@ function cardSvg(d: ShareCardData) {
     .map((s, i) => {
       const x = plotX + (i % d.cols) * cell;
       const y = plotY + 8 + Math.floor(i / d.cols) * cell;
-      const min = Math.floor(s.accumulatedMs / 60000);
-      const art = s.status === 'completed' ? <AnimalArt id={animalDef(s.animalId).id} tier={sizeTier(min)} size={cell} /> : <EggArt id={animalDef(s.animalId).id} cold size={cell * 0.7} />;
+      const art = s.status === 'completed' ? <AnimalArt id={animalDef(s.animalId).id} stage={d.stages.get(s.id) ?? 2} size={cell} /> : <TrackArt id={animalDef(s.animalId).id} fled size={cell * 0.7} />;
       const off = s.status === 'completed' ? 0 : cell * 0.15;
       return place(renderToStaticMarkup(art), x + off, y + off, s.status === 'completed' ? cell : cell * 0.7);
     })
@@ -78,8 +78,8 @@ function cardSvg(d: ShareCardData) {
 <text x="${W - 40}" y="166" font-size="16" fill="#6d7f6f" text-anchor="end">${esc(d.counts)}</text>
 <rect x="${plotX - 8}" y="${plotY - 8}" width="${plotW + 16}" height="${plotH + 16}" rx="18" fill="#a9cc8f"/>
 ${cells}
-${more > 0 ? `<text x="${plotX + plotW - 6}" y="${plotY + plotH - 4}" font-size="14" fill="#2f4a36" text-anchor="end">另外 ${more} 隻</text>` : ''}
-${d.sessions.length ? '' : `<text x="${W / 2}" y="${plotY + plotH / 2 + 6}" font-size="16" fill="#2f4a36" text-anchor="middle">這段時間還沒有孵出動物</text>`}
+${more > 0 ? `<text x="${plotX + plotW - 6}" y="${plotY + plotH - 4}" font-size="14" fill="#2f4a36" text-anchor="end">另外 ${more} 次</text>` : ''}
+${d.sessions.length ? '' : `<text x="${W / 2}" y="${plotY + plotH / 2 + 6}" font-size="16" fill="#2f4a36" text-anchor="middle">這段時間還沒有遇見動物</text>`}
 <text x="40" y="${chartY - 12}" font-size="16" fill="#2f4a36">專注時間分布</text>
 ${bars}
 <line x1="${plotX}" y1="${chartY + chartH}" x2="${plotX + plotW}" y2="${chartY + chartH}" stroke="#e7dcc5"/>
@@ -91,7 +91,7 @@ ${axis}
 /** 回傳 PNG data URL（2 倍解析度）。 */
 export const renderShareCard = (d: ShareCardData) => toPng(cardSvg(d), W, H);
 
-// ---------- 單次專注的孵化卡（時間歷程的「分享」） ----------
+// ---------- 單次探索的觀察卡（時間歷程的「分享」） ----------
 
 /** 依字數換行（SVG 文字不會自動換行），最多 maxLines 行。 */
 const wrap = (text: string, per: number, maxLines: number) => {
@@ -105,16 +105,17 @@ const wrap = (text: string, per: number, maxLines: number) => {
 export interface SessionCardData {
   session: FocusSession;
   when: string; // 例如「10/24 22:24–01:24」
-  title: string; // 例如「孵出了台灣藍鵲」
+  title: string; // 例如「遇見了台灣藍鵲（幼鳥）」
+  stage: number;
 }
 
-function sessionSvg({ session: s, when, title }: SessionCardData) {
+function sessionSvg({ session: s, when, title, stage }: SessionCardData) {
   const w = 540;
   const h = 640;
   const done = s.status === 'completed';
   const a = animalDef(s.animalId);
   const min = Math.floor(s.accumulatedMs / 60000);
-  const art = done ? renderToStaticMarkup(<AnimalArt id={a.id} tier={3} size={220} />) : renderToStaticMarkup(<EggArt id={a.id} cold size={170} />);
+  const art = done ? renderToStaticMarkup(<AnimalArt id={a.id} stage={stage} size={220} />) : renderToStaticMarkup(<TrackArt id={a.id} fled size={170} />);
   const meta = [s.taskTitle && s.taskTitle !== '一段專注' ? s.taskTitle : '', s.tag].filter(Boolean).join('・');
   const note = s.note ? wrap(s.note, 22, 3) : [];
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif">

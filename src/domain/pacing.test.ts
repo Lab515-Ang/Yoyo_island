@@ -2,7 +2,7 @@
 // 調整 config.ts 的數值後執行 npm test，就能看到節奏有沒有跑掉（結果也會印出來）。
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, PROJECTS } from '../content/config';
-import { activeProject, animalUnlocked, applyFocusRewards, coins, hatchCounts, isDone, settleOpenSessions, startFocus, unlockAnimal } from './game';
+import { activeProject, animalUnlocked, applyFocusRewards, coins, growthOf, hatchCounts, isDone, settleOpenSessions, startFocus, unlockAnimal } from './game';
 import { newSave } from './save';
 import type { SaveFile } from './types';
 
@@ -15,7 +15,7 @@ interface Habit {
   daysPerWeek: number;
 }
 
-/** 模擬玩家：每段倒數都完成；點數自動投入工程；輪流孵已解鎖的動物；金幣夠就解鎖商店裡最便宜的動物。 */
+/** 模擬玩家：每段倒數都完成；點數自動投入工程；輪流探索已解鎖的動物；金幣夠就解鎖商店裡最便宜的動物。 */
 function simulate(h: Habit, days: number) {
   let save: SaveFile = newSave('personal', { nickname: '模擬', islandName: '模擬島', avatarId: 'leaf', timezone: 'Asia/Taipei' }, T0);
   const firstDay: Record<string, number> = {};
@@ -42,19 +42,24 @@ function simulate(h: Habit, days: number) {
     }
     for (const p of PROJECTS) if (isDone(save, p.id)) mark(`完成 ${p.title}`, d + 1);
     if (!activeProject(save)) mark('全部工程完成', d + 1);
-    if (ANIMALS.filter((a) => a.unlock.kind !== 'iap').every((a) => hatchCounts(save).get(a.id))) mark('孵齊所有可取得的動物', d + 1);
+    const free = ANIMALS.filter((a) => a.unlock.kind !== 'iap');
+    if (free.every((a) => hatchCounts(save).get(a.id))) mark('遇見所有可取得的動物', d + 1);
+    if (free.every((a) => growthOf(save, a.id).stage === 2)) mark('所有可取得的動物都看到成年', d + 1);
   }
   return { save, firstDay };
 }
 
 describe('節奏模擬', () => {
-  it('每天 2 小時：第一天就有步道與第一隻動物；約 3 個月修完森林；動物收集跟得上', () => {
+  it('每天 2 小時：第一天就有步道與第一隻動物；約 3 個月修完森林；動物收集與族群成長跟得上', () => {
     const { save, firstDay } = simulate({ sessionsPerDay: 4, minutes: 30, daysPerWeek: 7 }, 120);
     console.table(firstDay);
     expect(firstDay['完成 清出林間步道']).toBe(1);
     expect(firstDay['全部工程完成']).toBeGreaterThanOrEqual(70);
     expect(firstDay['全部工程完成']).toBeLessThanOrEqual(100);
-    expect(firstDay['孵齊所有可取得的動物']).toBeLessThanOrEqual(110);
+    expect(firstDay['遇見所有可取得的動物']).toBeLessThanOrEqual(110);
+    // 族群成長要和修復森林差不多同時走完，後期才有事可做
+    expect(firstDay['所有可取得的動物都看到成年']).toBeGreaterThanOrEqual(60);
+    expect(firstDay['所有可取得的動物都看到成年']).toBeLessThanOrEqual(120);
     expect(coins(save)).toBeGreaterThanOrEqual(0);
   });
 

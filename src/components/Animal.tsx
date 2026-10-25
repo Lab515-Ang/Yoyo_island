@@ -1,5 +1,7 @@
-import type { ReactNode } from 'react';
-import { animalDef, sizeTier, type AnimalDef } from '../content/config';
+import { useMemo, type ReactNode } from 'react';
+import { useSave } from '../app/store';
+import { animalDef, stageName, type AnimalDef } from '../content/config';
+import { sightings } from '../domain/game';
 import type { FocusSession } from '../domain/types';
 
 // 臨時動物圖（程式畫的，依外形與主色區分）：美術圖到位後換成圖片。畫布 100×100，地面在 y = 92。
@@ -136,12 +138,27 @@ function body(a: AnimalDef): ReactNode {
   }
 }
 
-const SCALE = [0.62, 0.76, 0.9, 1];
+/** 混一點白色（幼年個體的毛色比較淡）。 */
+function lighten(hex: string, t: number) {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = (v: number) => Math.round(v + (255 - v) * t);
+  return `#${[(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => ch(v).toString(16).padStart(2, '0')).join('')}`;
+}
 
-/** 一隻動物（100×100，地面在 y = 92）。tier 0～3：專注越久孵出來越大。 */
-export function AnimalArt({ id, tier = 3, size = 64, hidden = false }: { id: string | undefined; tier?: number; size?: number | string; hidden?: boolean }) {
-  const a = animalDef(id);
-  const k = SCALE[Math.max(0, Math.min(3, tier))];
+// 族群成長階段（0 幼年、1 亞成年、2 成年）：臨時圖用大小與毛色深淺表現，美術圖到位後換成各階段的圖
+const STAGE_SCALE = [0.6, 0.8, 1];
+const STAGE_LIGHT = [0.35, 0.15, 0];
+const staged = (a: AnimalDef, stage: number) => {
+  const t = STAGE_LIGHT[stage];
+  return t ? { ...a, color: lighten(a.color, t), accent: lighten(a.accent, t) } : a;
+};
+const clampStage = (stage: number) => Math.max(0, Math.min(2, stage));
+
+/** 一隻動物（100×100，地面在 y = 92）。stage：族群成長階段，預設成年。 */
+export function AnimalArt({ id, stage = 2, size = 64, hidden = false }: { id: string | undefined; stage?: number; size?: number | string; hidden?: boolean }) {
+  const st = clampStage(stage);
+  const a = staged(animalDef(id), st);
+  const k = STAGE_SCALE[st];
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width={size} height={size} className={hidden ? 'animal-art silhouette' : 'animal-art'} aria-hidden="true">
       <ellipse cx="50" cy="93" rx={30 * k} ry={4 * k} fill="#00000022" />
@@ -151,48 +168,60 @@ export function AnimalArt({ id, tier = 3, size = 64, hidden = false }: { id: str
 }
 
 /**
- * 蛋：斑點顏色跟著動物。crack 0～3 是專注時慢慢出現的裂痕；cold 是放棄後沒有孵化的蛋。
+ * 探索中的動物：一開始只看得到灰色剪影，專注越久（progress 0～1）牠越靠近、顏色越清楚；
+ * fled 是提前放棄、牠被嚇跑了（只剩淡淡的剪影和跑走的線條）。
  */
-export function EggArt({ id, crack = 0, cold = false, size = 64 }: { id: string | undefined; crack?: number; cold?: boolean; size?: number | string }) {
-  const a = animalDef(id);
-  const shell = cold ? '#d6d2c8' : '#fbf5e6';
-  const spot = cold ? '#b4aea2' : a.color;
+export function TrackArt({ id, progress = 0, fled = false, stage = 2, size = 64 }: { id: string | undefined; progress?: number; fled?: boolean; stage?: number; size?: number | string }) {
+  const st = clampStage(stage);
+  const a = staged(animalDef(id), st);
+  const k = STAGE_SCALE[st] * (fled ? 0.85 : 0.85 + 0.15 * progress); // 慢慢走近：變大一點
+  const p = Math.max(0, Math.min(1, progress));
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width={size} height={size} className="egg-art" aria-hidden="true">
-      <ellipse cx="50" cy="93" rx="22" ry="3.5" fill="#00000022" />
-      <path d="M50 18 C70 18 78 52 78 66 C78 82 66 92 50 92 C34 92 22 82 22 66 C22 52 30 18 50 18 Z" fill={shell} stroke={cold ? '#a39e93' : '#e2d5b8'} strokeWidth="2" />
-      <circle cx="40" cy="48" r="5" fill={spot} opacity="0.75" />
-      <circle cx="60" cy="40" r="3.5" fill={spot} opacity="0.75" />
-      <circle cx="58" cy="66" r="6" fill={spot} opacity="0.75" />
-      <circle cx="38" cy="74" r="3.5" fill={spot} opacity="0.75" />
-      {crack >= 1 && <path d="M40 34 L46 42 L42 48" stroke="#7a6a52" strokeWidth="2" fill="none" strokeLinecap="round" />}
-      {crack >= 2 && <path d="M60 52 L54 58 L62 64 L56 70" stroke="#7a6a52" strokeWidth="2" fill="none" strokeLinecap="round" />}
-      {crack >= 3 && <path d="M28 60 L36 58 L34 66 L44 64" stroke="#7a6a52" strokeWidth="2" fill="none" strokeLinecap="round" />}
-      {cold && <path d="M36 50 Q50 42 64 50" stroke="#a39e93" strokeWidth="2" fill="none" />}
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width={size} height={size} className="track-art" aria-hidden="true">
+      <defs>
+        <filter id="qg-silhouette">
+          <feColorMatrix type="matrix" values="0 0 0 0 0.45 0 0 0 0 0.5 0 0 0 0 0.44 0 0 0 1 0" />
+        </filter>
+      </defs>
+      <ellipse cx="50" cy="93" rx={30 * k} ry={4 * k} fill="#00000022" />
+      <g transform={`translate(${50 - 50 * k} ${92 - 92 * k}) scale(${k})`}>
+        <g filter="url(#qg-silhouette)" opacity={fled ? 0.3 : 0.75}>
+          {body(a)}
+        </g>
+        {!fled && p > 0 && <g opacity={p}>{body(a)}</g>}
+      </g>
+      {fled && <path d="M8 60 H26 M4 70 H24 M10 80 H28" stroke="#9a9488" strokeWidth="2.5" strokeLinecap="round" />}
+      {!fled && p === 0 && (
+        <text x="50" y="58" fontSize="22" textAnchor="middle" fill="#fffdf6" fontWeight="700">
+          ?
+        </text>
+      )}
     </svg>
   );
 }
 
-/** 一段專注在每日紀錄裡的樣子：孵出的動物（大小依分鐘）或沒孵化的蛋。 */
-export function HatchCell({ s, fresh = false }: { s: FocusSession; fresh?: boolean }) {
+/** 一次探索在紀錄裡的樣子：遇見的動物（當時的成長階段），或被嚇跑的剪影。 */
+export function HatchCell({ s, stage = 2, fresh = false }: { s: FocusSession; stage?: number; fresh?: boolean }) {
   const min = Math.floor(s.accumulatedMs / 60000);
   const a = animalDef(s.animalId);
   const done = s.status === 'completed';
-  const label = `${a.name}・${s.tag}・${min} 分鐘${done ? '' : '（提前結束，蛋沒有孵化）'}`;
+  const label = `${done ? `遇見${a.name}（${stageName(a, stage)}）` : `${a.name}被嚇跑了`}・${s.tag}・${min} 分鐘`;
   return (
     <div className={fresh ? 'hatch-cell filled fresh' : 'hatch-cell filled'} role="img" aria-label={label} title={label}>
-      {done ? <AnimalArt id={a.id} tier={sizeTier(min)} size="100%" /> : <EggArt id={a.id} cold size="70%" />}
+      {done ? <AnimalArt id={a.id} stage={stage} size="100%" /> : <TrackArt id={a.id} fled size="80%" />}
     </div>
   );
 }
 
-/** 每日紀錄：一格一隻，空格是還沒孵的草地。 */
+/** 觀察紀錄格子：一格一次探索，空格是還沒走過的草地。 */
 export function HatchPlot({ sessions, cols, minCells, freshId }: { sessions: FocusSession[]; cols: number; minCells: number; freshId?: string }) {
+  const { save } = useSave();
+  const stages = useMemo(() => sightings(save), [save]);
   const total = Math.max(minCells, Math.ceil(sessions.length / cols) * cols);
   return (
     <div className="hatch-plot" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
       {sessions.map((s) => (
-        <HatchCell key={s.id} s={s} fresh={s.id === freshId} />
+        <HatchCell key={s.id} s={s} stage={stages.get(s.id)?.stage ?? 2} fresh={s.id === freshId} />
       ))}
       {Array.from({ length: total - sessions.length }, (_, i) => (
         <div key={`e${i}`} className="hatch-cell" aria-hidden="true" />

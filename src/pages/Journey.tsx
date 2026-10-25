@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useSave } from '../app/store';
-import { TAGS, animalDef, projectDef, sizeTier, tagColor } from '../content/config';
-import { AnimalArt, EggArt } from '../components/Animal';
+import { TAGS, animalDef, projectDef, stageName, tagColor } from '../content/config';
+import { AnimalArt, TrackArt } from '../components/Animal';
 import { Modal } from '../components/ui';
 import { renderSessionCard, ShareModal } from '../components/ShareCard';
 import { localDateKey, shiftDateKey } from '../domain/focus';
-import { animalsUnlockedBy, editSessionNote, endedSessions, islandId, NOTE_MAX } from '../domain/game';
+import { animalsUnlockedBy, editSessionNote, endedSessions, islandId, NOTE_MAX, sightings } from '../domain/game';
 import type { FocusSession, SaveFile } from '../domain/types';
 import { Codex } from './Codex';
 
@@ -14,6 +14,7 @@ import { Codex } from './Codex';
 type Entry =
   | { t: number; kind: 'start'; s: FocusSession }
   | { t: number; kind: 'end'; s: FocusSession }
+  | { t: number; kind: 'grow'; s: FocusSession; stage: number }
   | { t: number; kind: 'project'; projectId: string }
   | { t: number; kind: 'shop'; animalId: string };
 
@@ -22,16 +23,18 @@ const WEEK = ['週日', '週一', '週二', '週三', '週四', '週五', '週�
 const hm = (t: number, tz: string) => new Date(t).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz });
 const minutesOf = (s: FocusSession) => Math.floor(s.accumulatedMs / 60000);
 
-function entriesOf(save: SaveFile): Entry[] {
+function entriesOf(save: SaveFile, sights: ReturnType<typeof sightings>): Entry[] {
   const out: Entry[] = [];
   for (const s of endedSessions(save)) {
     out.push({ t: Date.parse(s.startedAt), kind: 'start', s });
     out.push({ t: Date.parse(s.endedAt!), kind: 'end', s });
+    const sight = sights.get(s.id);
+    if (sight?.grew) out.push({ t: Date.parse(s.endedAt!), kind: 'grow', s, stage: sight.stage });
   }
   for (const p of save.projects) if (p.islandId === islandId(save) && p.completedAt) out.push({ t: Date.parse(p.completedAt), kind: 'project', projectId: p.projectId });
   for (const x of save.transactions) if (x.kind === 'animal_unlock' && x.userId === save.profile.id && x.animalId) out.push({ t: Date.parse(x.createdAt), kind: 'shop', animalId: x.animalId });
-  // 同一時間：結束的事（孵出、解鎖）排在開始前面（時間軸由新到舊）
-  const order = { project: 0, shop: 1, end: 2, start: 3 };
+  // 同一時間：結束的事（解鎖、長大、遇見）排在開始前面（時間軸由新到舊）
+  const order = { project: 0, shop: 1, grow: 2, end: 3, start: 4 };
   return out.sort((a, b) => b.t - a.t || order[a.kind] - order[b.kind]);
 }
 
@@ -42,8 +45,8 @@ function dayLabel(key: string, today: string) {
   return `${head} / ${y === Number(today.slice(0, 4)) ? '' : `${y}年`}${m}月${d}日`;
 }
 
-/** 這段專注的卡片：時間、分鐘、孵出的動物（或沒孵化的蛋）、標題／標籤／筆記；⋯ 可以編輯或分享。 */
-function SessionCard({ s, tz, onMenu }: { s: FocusSession; tz: string; onMenu: () => void }) {
+/** 這次探索的卡片：時間、分鐘、遇見的動物（當時的成長階段）或跑走的剪影、標題／標籤／筆記；⋯ 可以編輯或分享。 */
+function SessionCard({ s, stage, tz, onMenu }: { s: FocusSession; stage: number; tz: string; onMenu: () => void }) {
   const done = s.status === 'completed';
   const a = animalDef(s.animalId);
   const title = s.taskTitle && s.taskTitle !== '一段專注' ? s.taskTitle : '';
@@ -57,7 +60,7 @@ function SessionCard({ s, tz, onMenu }: { s: FocusSession; tz: string; onMenu: (
           ⋯
         </button>
       </div>
-      <div className="tl-art">{done ? <AnimalArt id={a.id} tier={sizeTier(minutesOf(s))} size={110} /> : <EggArt id={a.id} cold size={80} />}</div>
+      <div className="tl-art">{done ? <AnimalArt id={a.id} stage={stage} size={110} /> : <TrackArt id={a.id} fled size={90} />}</div>
       <div className="tl-card-foot">
         {title && <strong>{title}</strong>}
         <span className="small">
@@ -70,7 +73,7 @@ function SessionCard({ s, tz, onMenu }: { s: FocusSession; tz: string; onMenu: (
 }
 
 /** 編輯這段專注：標籤、標題、筆記。 */
-function EntryEditor({ s, onClose }: { s: FocusSession; onClose: () => void }) {
+function EntryEditor({ s, stage, onClose }: { s: FocusSession; stage: number; onClose: () => void }) {
   const { save, update } = useSave();
   const [tag, setTag] = useState(s.tag);
   const [title, setTitle] = useState(s.taskTitle === '一段專注' ? '' : s.taskTitle);
@@ -81,7 +84,7 @@ function EntryEditor({ s, onClose }: { s: FocusSession; onClose: () => void }) {
   };
   return (
     <Modal title="編輯這段專注" onClose={onClose}>
-      <div className="tl-art">{s.status === 'completed' ? <AnimalArt id={animalDef(s.animalId).id} size={90} /> : <EggArt id={animalDef(s.animalId).id} cold size={70} />}</div>
+      <div className="tl-art">{s.status === 'completed' ? <AnimalArt id={animalDef(s.animalId).id} stage={stage} size={90} /> : <TrackArt id={animalDef(s.animalId).id} fled size={80} />}</div>
       <label>
         標籤
         <select value={tag} onChange={(e) => setTag(e.target.value)}>
@@ -122,19 +125,23 @@ function Timeline() {
   const [editing, setEditing] = useState<FocusSession | null>(null);
   const [sharing, setSharing] = useState<FocusSession | null>(null);
 
+  const sights = sightings(save);
+  const stageAt = (s: FocusSession) => sights.get(s.id)?.stage ?? 2;
   const groups: { key: string; items: Entry[] }[] = [];
-  for (const e of entriesOf(save)) {
+  for (const e of entriesOf(save, sights)) {
     const key = localDateKey(e.t, tz);
     if (groups[groups.length - 1]?.key !== key) groups.push({ key, items: [] });
     groups[groups.length - 1].items.push(e);
   }
-  if (!groups.length) return <p className="card muted">還沒有紀錄。完成第一段專注，時間歷程就會從這裡開始。</p>;
+  if (!groups.length) return <p className="card muted">還沒有紀錄。完成第一次探索，時間歷程就會從這裡開始。</p>;
 
   const line = (e: Entry) => {
-    if (e.kind === 'start') return { icon: '🥚', text: `開始孵${animalDef(e.s.animalId).name}的蛋` };
-    if (e.kind === 'end') return e.s.status === 'completed' ? { icon: '🐣', text: `孵出了一隻${animalDef(e.s.animalId).name}（${minutesOf(e.s)} 分鐘）` } : { icon: '🥶', text: `${animalDef(e.s.animalId).name}的蛋沒有孵化` };
+    const name = (id: string | undefined) => animalDef(id).name;
+    if (e.kind === 'start') return { icon: '🧭', text: `出發去找${name(e.s.animalId)}` };
+    if (e.kind === 'end') return e.s.status === 'completed' ? { icon: '🔭', text: `遇見了${name(e.s.animalId)}（${stageName(animalDef(e.s.animalId), stageAt(e.s))}，${minutesOf(e.s)} 分鐘）` } : { icon: '💨', text: `${name(e.s.animalId)}被嚇跑了` };
+    if (e.kind === 'grow') return { icon: '🌱', text: `${name(e.s.animalId)}的族群長大了，現在看得到${stageName(animalDef(e.s.animalId), e.stage)}` };
     if (e.kind === 'project') return { icon: '🌲', text: `修好了「${projectDef(e.projectId)?.title ?? '工程'}」` };
-    return { icon: '🛍️', text: `在商店解鎖了${animalDef(e.animalId).name}的蛋` };
+    return { icon: '🛍️', text: `在商店解鎖了${name(e.animalId)}的探索路線` };
   };
   const whenOf = (s: FocusSession) => `${localDateKey(Date.parse(s.endedAt!), tz).slice(5).replace('-', '/')} ${hm(Date.parse(s.startedAt), tz)}–${hm(Date.parse(s.endedAt!), tz)}`;
 
@@ -155,13 +162,13 @@ function Timeline() {
                     </span>
                     <span className="small muted">{hm(e.t, tz)}</span>
                     <div>{text}</div>
-                    {e.kind === 'end' && <SessionCard s={e.s} tz={tz} onMenu={() => setMenu(e.s)} />}
+                    {e.kind === 'end' && <SessionCard s={e.s} stage={stageAt(e.s)} tz={tz} onMenu={() => setMenu(e.s)} />}
                     {unlocked.length > 0 && (
                       <div className="tl-card unlock">
                         {unlocked.map((a) => (
                           <span key={a.id} className="tl-unlock">
                             <AnimalArt id={a.id} size={72} />
-                            <span className="small">{e.kind === 'project' ? `解鎖新的蛋：${a.name}` : a.name}</span>
+                            <span className="small">{e.kind === 'project' ? `發現新的足跡：${a.name}` : a.name}</span>
                           </span>
                         ))}
                       </div>
@@ -191,16 +198,17 @@ function Timeline() {
           </div>
         </Modal>
       )}
-      {editing && <EntryEditor s={editing} onClose={() => setEditing(null)} />}
+      {editing && <EntryEditor s={editing} stage={stageAt(editing)} onClose={() => setEditing(null)} />}
       {sharing && (
         <ShareModal
-          title={sharing.status === 'completed' ? '孵化紀錄' : '這段專注'}
+          title={sharing.status === 'completed' ? '觀察紀錄' : '這次探索'}
           fileName={`棲光小島-${sharing.id.slice(0, 8)}`}
           make={() =>
             renderSessionCard({
               session: sharing,
               when: whenOf(sharing),
-              title: sharing.status === 'completed' ? `孵出了${animalDef(sharing.animalId).name}` : `${animalDef(sharing.animalId).name}的蛋沒有孵化`,
+              title: sharing.status === 'completed' ? `遇見了${animalDef(sharing.animalId).name}（${stageName(animalDef(sharing.animalId), stageAt(sharing))}）` : `${animalDef(sharing.animalId).name}被嚇跑了`,
+              stage: stageAt(sharing),
             })
           }
           onClose={() => setSharing(null)}
@@ -210,7 +218,7 @@ function Timeline() {
   );
 }
 
-/** 我的歷程：時間歷程與動物圖鑑。 */
+/** 我的歷程：時間歷程與觀察圖鑑。 */
 export function Journey() {
   const [tab, setTab] = useState<'timeline' | 'codex'>('timeline');
   return (
@@ -220,7 +228,7 @@ export function Journey() {
         {(
           [
             ['timeline', '時間歷程'],
-            ['codex', '動物圖鑑'],
+            ['codex', '觀察圖鑑'],
           ] as const
         ).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>

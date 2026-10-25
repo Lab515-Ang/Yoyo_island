@@ -28,8 +28,8 @@ export interface Settings {
   lastTargetSeconds: number;
   customTags: string[];
   keepAwake: boolean; // 專注時保持螢幕開啟（讓倒數結束能準時提醒）
-  eggId: string; // 上次選的蛋（要孵化的動物）
-  deepFocus: boolean; // 深度專注：專注中離開小島超過 10 秒蛋就不會孵化（Android）
+  eggId: string; // 上次選的探索目標（要找的動物；欄位名沿用舊稱）
+  deepFocus: boolean; // 深度專注：專注中離開小島超過 10 秒動物就會被嚇跑（Android）
   focusAllow: { pkg: string; label: string }[]; // 深度專注時可以使用的 App
 }
 
@@ -72,7 +72,7 @@ export interface FocusSession {
   startedAt: ISODate;
   endedAt: ISODate | null;
   outcome: Outcome | null;
-  animalId?: string; // 這段專注孵化的動物；舊紀錄（植物時代）沒有時當作第一種
+  animalId?: string; // 這段專注要找（遇見）的動物；舊紀錄（植物時代）沒有時當作第一種
   deep?: boolean; // 深度專注（離開太久會放棄）
   note?: string; // 專注筆記（只存在自己的裝置，不分享）
   applied?: boolean; // 已經把這段的點數自動投入工程（避免重複）
@@ -127,6 +127,6 @@ export interface SaveFile {
   projects: IslandProject[];
   contributions: Contribution[];
   weeklyGoals: WeeklyGoal[];
-  content?: number; // 內容版本（CONTENT_VERSION）：3 = 陸地森林＋孵化動物
+  content?: number; // 內容版本（CONTENT_VERSION）：3 = 陸地森林＋探索動物
   savedAt: ISODate;
 }

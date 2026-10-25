@@ -2198,3 +2198,70 @@ label.toggle input.switch:checked::after {
   align-items: center;
   gap: 0.4rem;
 }
+
+/* ---------- 族群成長階段 ---------- */
+.stage-strip {
+  list-style: none;
+  display: flex;
+  justify-content: center;
+  gap: 0.8rem;
+  padding: 0;
+  margin: 0 0 0.6rem;
+}
+.stage-strip li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--muted);
+}
+.stage-strip li.on {
+  color: var(--sage-deep);
+  font-weight: 600;
+}
+
+/* ---------- 我的小島 ---------- */
+.island-sub {
+  margin: -0.3rem 0 0.6rem;
+}
+.route-track {
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.25rem;
+  padding: 0;
+  margin: 0.8rem 0 0.2rem;
+}
+.route-track li {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  height: 30px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  background: #eee6d4;
+  color: var(--muted);
+}
+.route-track li.done {
+  background: var(--sage);
+  color: #fff;
+}
+.route-track li.current {
+  background: var(--warm);
+  color: #3d2e10;
+  font-weight: 700;
+}
+.next-back {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+  padding: 0.4rem 0.6rem;
+  border-radius: 14px;
+  background: #fbf1d8;
+}
+/* 圖鑑卡片是置中排列的按鈕：成長條要給寬度才看得到 */
+.codex-card .bar {
+  align-self: stretch;
+  height: 6px;
+  margin-top: 0.2rem;
+}

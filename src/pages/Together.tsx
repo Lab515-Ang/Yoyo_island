@@ -30,7 +30,7 @@ export function Together() {
         const r = contribute(next, next.profile.id, p.id, need, Date.now());
         if (r.ok) next = r.save;
       }
-      // 金幣解鎖全部動物，再每種孵一隻（示範用的完成紀錄），讓森林裡看得到牠們
+      // 金幣解鎖全部動物，再每種遇見一次（示範用的完成紀錄），讓森林裡看得到牠們
       for (const an of ANIMALS) {
         if (an.unlock.kind === 'coins' && !animalUnlocked(next, an)) {
           next = demoGrant(next, next.profile.id, an.unlock.price, Date.now(), 'coins');
@@ -45,7 +45,7 @@ export function Together() {
         next = closeSession(next, completeNow(sess, t, 25), t);
       }
       return next;
-    }) && notify('示範路線已全部完成，每種動物都孵了一隻。到「我的小島」看看吧。');
+    }) && notify('示範路線已全部完成，每種動物都遇見了一次。到「我的小島」看看吧。');
 
   return (
     <div className="page">
@@ -116,7 +116,7 @@ export function Together() {
             <div className="row wrap">
               <button onClick={() => update((s) => demoGrant(s, s.profile.id, 30, Date.now())) && notify('已在示範存檔加入 30 點。')}>＋30 點（示範）</button>
               <button onClick={() => update((s) => demoGrant(s, s.profile.id, 50, Date.now(), 'coins')) && notify('已在示範存檔加入 50 金幣。')}>＋50 金幣（示範）</button>
-              <button onClick={fastForward}>完成全部工程、解鎖並孵出全部動物（示範）</button>
+              <button onClick={fastForward}>完成全部工程、解鎖並遇見全部動物（示範）</button>
               <button
                 className="danger"
                 onClick={() => {

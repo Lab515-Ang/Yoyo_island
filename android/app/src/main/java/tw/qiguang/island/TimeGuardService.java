@@ -231,12 +231,12 @@ public class TimeGuardService extends Service {
         long grace = w.optLong("graceMs", 10_000);
         if (awayAt == 0) {
             p.edit().putLong("awayAt", now).apply();
-            alert(ID_AWAY, "快回到棲光小島", (grace / 1000) + " 秒內回來，蛋就能繼續孵化。");
+            alert(ID_AWAY, "快回到棲光小島", (grace / 1000) + " 秒內回來，動物就不會被嚇跑。");
         } else if (now - awayAt >= grace) {
             // 從離開的那一刻算放棄
             p.edit().putLong("failedAt", awayAt).putBoolean("watchActive", false).apply();
             cancel(ID_AWAY);
-            alert(ID_FAILED, "這顆蛋沒有孵化", "離開棲光小島超過 " + (grace / 1000) + " 秒，這次專注沒有完成。");
+            alert(ID_FAILED, "動物被嚇跑了", "離開棲光小島超過 " + (grace / 1000) + " 秒，這次專注沒有完成。");
         }
     }
 

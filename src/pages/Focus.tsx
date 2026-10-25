@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNow, useSave } from '../app/store';
-import { APP_NAME, MIN_FOCUS_MINUTES, SOUNDS, TEST_TOOLS } from '../content/config';
+import { APP_NAME, MIN_FOCUS_MINUTES, SOUNDS, TEST_TOOLS, animalDef } from '../content/config';
 import { Modal } from '../components/ui';
-import { EggArt } from '../components/Animal';
+import { TrackArt } from '../components/Animal';
 import { completeNow, dueAt, elapsedMs, finish, pause, remainingMs, resume } from '../domain/focus';
-import { applyFocusRewards, cancelSession, closeSession, focusSoundFor, graceLeftMs, putSession } from '../domain/game';
+import { applyFocusRewards, cancelSession, closeSession, focusSoundFor, graceLeftMs, growthOf, putSession } from '../domain/game';
 import type { FocusSession, SaveFile } from '../domain/types';
 import { HabitatScene } from '../scenes/HabitatScene';
 import { useAmbient } from '../sound';
@@ -46,7 +46,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   };
   // 一律以存檔中的最新狀態為準，重複點擊不會重複結算
   const cur = (s: SaveFile) => s.sessions.find((x) => x.id === session.id)!;
-  // 暫停：剛好已經到時間的話，pause 會直接回傳「已完成」，這時要照常結算（給獎勵、孵化、進結算畫面）
+  // 暫停：剛好已經到時間的話，pause 會直接回傳「已完成」，這時要照常結算（給獎勵、遇見動物、進結算畫面）
   const pauseNow = () => {
     const t = Date.now();
     let finished = false;
@@ -98,9 +98,9 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
     if (update((s) => applyFocusRewards(closeSession(s, completeNow(cur(s), t, minutes), t), session.id, t))) onFinished(session.id);
   };
 
-  // 蛋跟著專注慢慢裂開：倒數依進度；正向計時依已專注的分鐘（每 15 分鐘多一道裂痕）
-  const progress = countdown && session.targetSeconds ? elapsedMs(session, now) / (session.targetSeconds * 1000) : Math.min(1, elapsedMin / 45);
-  const crack = Math.min(3, Math.floor(progress * 4));
+  // 探索中：動物從剪影慢慢走近、現出顏色。倒數依進度；正向計時以 45 分鐘為一輪（分 20 段，避免每次重繪都變）
+  const progress = Math.floor(Math.min(1, countdown && session.targetSeconds ? elapsedMs(session, now) / (session.targetSeconds * 1000) : elapsedMin / 45) * 20) / 20;
+  const stage = useMemo(() => growthOf(save, session.animalId ?? '').stage, [save, session.animalId]);
 
   // 深度專注：進行中請原生端看守；暫停或結束就停止（暫停時離開不算）
   // key 相同（同一段、同一次開始計時）時原生端會保留背景期間的紀錄，App 重開也不會洗掉
@@ -139,7 +139,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
           </button>
         </div>
         <div className="focus-plant">
-          <EggArt id={session.animalId} crack={crack} size="100%" />
+          <TrackArt id={session.animalId} progress={progress} stage={stage} size="100%" />
         </div>
         <div className="focus-bubble">
           <div className="focus-time" role="timer" aria-live="off" aria-label={countdown ? '剩餘時間' : '已專注時間'}>
@@ -178,7 +178,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
       </div>
       {testing && (
         <Modal title="測試：立即完成" onClose={() => setTesting(false)}>
-          <p className="small muted">測試階段用：把這段專注當作已專注指定的分鐘並正常結算（點數、金幣、工程、孵化都照算）。上線前會移除。</p>
+          <p className="small muted">測試階段用：把這段專注當作已專注指定的分鐘並正常結算（點數、金幣、工程、遇見動物都照算）。上線前會移除。</p>
           <div className="chips">
             {countdown && session.targetSeconds && session.targetSeconds >= 60 && (
               <button className="chip on" onClick={() => finishNow(Math.round(session.targetSeconds! / 60))}>
@@ -196,7 +196,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
       {ending && (
         <Modal title="要放棄這次專注嗎？" onClose={() => setEnding(false)}>
           <p>
-            {tooShort ? `還不到 ${MIN_FOCUS_MINUTES} 分鐘。` : ''}已專注的 {elapsedMin} 分鐘不會獲得成長點數和金幣，蛋也不會孵化，只會留下時間紀錄。
+            {tooShort ? `還不到 ${MIN_FOCUS_MINUTES} 分鐘。` : ''}已專注的 {elapsedMin} 分鐘不會獲得成長點數和金幣，{animalDef(session.animalId).name}也會被嚇跑，只會留下時間紀錄。
           </p>
           <div className="row">
             <button className="ghost wide" onClick={() => setEnding(false)}>

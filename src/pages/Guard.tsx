@@ -4,7 +4,7 @@ import { AnimalArt } from '../components/Animal';
 import { Modal, fmtMinutes } from '../components/ui';
 import { animalDef } from '../content/config';
 import { localDateKey } from '../domain/focus';
-import { openSession, sceneAnimals } from '../domain/game';
+import { growthOf, openSession, sceneAnimals } from '../domain/game';
 import type { SaveFile } from '../domain/types';
 import { TimeGuard, defaultGuardConfig, isAndroid, onResume, type GuardApp, type GuardConfig, type UsageReport } from '../platform';
 
@@ -34,7 +34,7 @@ function logChoice(choice: 'resisted' | 'unlocked', tz: string) {
   }
 }
 
-/** 攔截畫面的角色：最近孵出的動物；還沒孵過就沒有角色。 */
+/** 攔截畫面的角色：最近遇見的動物（目前的成長階段）；還沒遇見過就沒有角色。 */
 const guardPet = (save: SaveFile) => {
   const id = sceneAnimals(save, 1)[0]?.animalId;
   return id ? animalDef(id) : null;
@@ -69,7 +69,7 @@ export function GuardScreen({ app, onClose }: { app: GuardApp; onClose: () => vo
 
   return (
     <div className="guard-screen" role="dialog" aria-modal="true" aria-labelledby="guard-title">
-      <div className="guard-pet">{pet ? <AnimalArt id={pet.id} size={180} /> : <span aria-hidden="true">🌱</span>}</div>
+      <div className="guard-pet">{pet ? <AnimalArt id={pet.id} stage={growthOf(save, pet.id).stage} size={180} /> : <span aria-hidden="true">🌱</span>}</div>
       <h1 id="guard-title">先停一下</h1>
       <p>
         嘿，{save.profile.nickname}！<strong>{app.label}</strong> 是你想減少使用的 App。
@@ -428,7 +428,7 @@ export function GuardPage() {
   const hero = (
     <div className="guard-hero">
       <div className="guard-hero-pet" aria-hidden="true">
-        {pet ? <AnimalArt id={pet.id} size={88} /> : '🌱'}
+        {pet ? <AnimalArt id={pet.id} stage={growthOf(save, pet.id).stage} size={88} /> : '🌱'}
       </div>
       <div>
         <h1>時間守護</h1>

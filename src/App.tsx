@@ -146,7 +146,7 @@ function Main() {
         });
         if (ended) {
           setSummaryId(ended);
-          if (withered) notify('離開棲光小島超過 10 秒，這顆蛋沒有孵化。');
+          if (withered) notify('離開棲光小島超過 10 秒，動物被嚇跑了。');
         }
       }
       deepChecked.current = at;
@@ -249,7 +249,6 @@ function Main() {
     setNavOpen(false);
     window.scrollTo(0, 0);
   };
-  const enter = (h: HabitatId) => go('island', h);
 
   let body;
   if (open) body = <Focus session={open} onFinished={setSummaryId} />;
@@ -308,7 +307,7 @@ function Main() {
         <main className="content" key={mode}>
           {view === 'lobby' && <Lobby onStarted={() => setSummaryId(null)} onShop={() => go('shop')} />}
           {view === 'lobby' && save.sessions.filter((s) => s.endedAt).length === 1 && <FirstTour />}
-          {view === 'island' && <IslandPage habitat={habitat} setHabitat={setHabitat} />}
+          {view === 'island' && <IslandPage onLobby={() => go('lobby')} />}
           {view === 'quests' && <Quests onIsland={() => go('island')} onShop={() => go('shop')} />}
           {view === 'records' && <Records key={recordsTag ?? 'all'} initialTag={recordsTag} />}
           {view === 'guard' && <GuardPage />}

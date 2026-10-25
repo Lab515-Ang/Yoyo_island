@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { animalDef, projectDef, type AnimalDef } from '../content/config';
-import { animalUnlocked, hatchCounts } from '../domain/game';
+import { GROWTH_MAX, animalDef, projectDef, stageName, type AnimalDef } from '../content/config';
+import { animalUnlocked, growthOf, hatchCounts } from '../domain/game';
 import type { SaveFile } from '../domain/types';
 import { AnimalArt } from './Animal';
 
@@ -43,30 +43,53 @@ export const fmtMinutes = (ms: number) => {
   return m >= 60 ? `${Math.floor(m / 60)} 小時 ${m % 60} 分` : `${m} 分鐘`;
 };
 
-/** 這種動物怎麼取得（還沒解鎖時顯示）。 */
+/** 這種動物怎麼才能去找（還沒解鎖時顯示）。 */
 export function unlockText(a: AnimalDef) {
   const u = a.unlock;
-  if (u.kind === 'start') return '一開始就有';
-  if (u.kind === 'project') return `修好「${projectDef(u.id)?.title}」後解鎖`;
-  if (u.kind === 'coins') return `商店用 ${u.price} 金幣解鎖`;
-  return `商店特別品種（${u.price}）`;
+  if (u.kind === 'start') return '一開始就能去找';
+  if (u.kind === 'project') return `完成「${projectDef(u.id)?.title}」後，牠會回到森林`;
+  if (u.kind === 'coins') return `商店用 ${u.price} 金幣解鎖探索路線`;
+  return `商店特別探索（${u.price}）`;
 }
 
-/** 動物圖鑑卡：孵過的顯示介紹與數量；還沒孵過的顯示剪影與取得方式。 */
+/** 三個成長階段的小圖（看得到的階段上色，還沒看到的是剪影）。 */
+export function StageStrip({ animalId, stage, seen }: { animalId: string; stage: number; seen: boolean }) {
+  const a = animalDef(animalId);
+  return (
+    <ol className="stage-strip" aria-label="成長階段">
+      {[0, 1, 2].map((i) => (
+        <li key={i} className={seen && i <= stage ? 'on' : ''}>
+          <AnimalArt id={a.id} stage={i} size={48} hidden={!seen || i > stage} />
+          <span className="small">{stageName(a, i)}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** 動物卡：遇見過的顯示族群成長與介紹；還沒遇見的顯示剪影與怎麼找到牠。 */
 export function AnimalCard({ save, animalId, onClose }: { save: SaveFile; animalId: string; onClose: () => void }) {
   const a = animalDef(animalId);
   const n = hatchCounts(save).get(a.id) ?? 0;
   const ok = animalUnlocked(save, a);
+  const g = growthOf(save, a.id);
   return (
-    <Modal title={n ? a.name : ok ? `${a.name}（還沒孵過）` : '尚未解鎖'} onClose={onClose}>
+    <Modal title={n ? a.name : ok ? `${a.name}（還沒遇見）` : '還不知道是誰'} onClose={onClose}>
       <div className="species-hero">
-        <AnimalArt id={a.id} size={140} hidden={!n} />
+        <AnimalArt id={a.id} stage={n ? g.stage : 2} size={140} hidden={!n} />
       </div>
+      {n > 0 && <StageStrip animalId={a.id} stage={g.stage} seen />}
       <dl className="facts">
-        <dt>孵過</dt>
-        <dd>{n} 隻</dd>
-        <dt>取得</dt>
-        <dd>{ok ? '已解鎖，大廳選這顆蛋就能孵化' : unlockText(a)}</dd>
+        <dt>遇見</dt>
+        <dd>{n} 次</dd>
+        {n > 0 && (
+          <>
+            <dt>族群</dt>
+            <dd>{g.stage === 2 ? `穩定了，看得到${stageName(a, 2)}` : `成長 ${g.growth} / ${GROWTH_MAX}・現在看得到${stageName(a, g.stage)}`}</dd>
+          </>
+        )}
+        <dt>探索</dt>
+        <dd>{ok ? '大廳選牠當探索目標就能去找' : unlockText(a)}</dd>
       </dl>
       {(n > 0 || ok) && <p className="muted">{a.blurb}</p>}
     </Modal>

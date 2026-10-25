@@ -10,7 +10,7 @@ const SPOTS: [number, number][] = [
   [176, 230],
   [196, 168],
 ];
-const SIZE = [34, 40, 46, 52];
+const SIZE = [36, 44, 52];
 
 function Tree2D({ x, y, s = 1 }: { x: number; y: number; s?: number }) {
   return (
@@ -62,11 +62,11 @@ export default function Scene2D({ done, prog, reducedMotion, onSelect, backdrop,
       {/* 動物 */}
       {animals.slice(0, SPOTS.length).map((a, i) => {
         const [x, y] = SPOTS[i];
-        const s = SIZE[Math.max(0, Math.min(3, a.tier))];
+        const s = SIZE[Math.max(0, Math.min(2, a.stage))];
         return (
           <g key={a.id} transform={`translate(${x - s / 2} ${y - s})`} onClick={() => onSelect?.(a.id)} style={{ cursor: onSelect ? 'pointer' : undefined }}>
             <foreignObject width={s} height={s}>
-              <AnimalArt id={a.animalId} size={s} />
+              <AnimalArt id={a.animalId} stage={a.stage} size={s} />
             </foreignObject>
           </g>
         );

@@ -1,5 +1,5 @@
-// 經濟、工程、孵化動物與統計：全部是對 SaveFile 的純函式
-import { ANIMALS, HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, PROJECTS, SOUNDS, animalDef, projectDef, sizeTier, type AnimalDef, type ProjectDef, type SoundUnlock } from '../content/config';
+// 經濟、工程、探索動物與統計：全部是對 SaveFile 的純函式
+import { ANIMALS, HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, PROJECTS, SOUNDS, animalDef, growthFor, projectDef, stageOfGrowth, type AnimalDef, type ProjectDef, type SoundUnlock } from '../content/config';
 import { addSegmentsByDay, createSession, isOpen, settle } from './focus';
 import type { FocusSession, HabitatId, ID, SaveFile, TimerMode } from './types';
 
@@ -49,7 +49,7 @@ export function startFocus(save: SaveFile, p: { taskTitle: string; tag: string; 
   };
 }
 
-// ---------- 動物（每段專注孵化一隻） ----------
+// ---------- 動物（每段專注是一次探索，完成就遇見一隻） ----------
 
 const animalKey = (save: SaveFile, animalId: string) => `animal:${islandId(save)}:${animalId}`;
 /** 商店用金幣解鎖過。 */
@@ -58,7 +58,7 @@ export function animalBought(save: SaveFile, animalId: string) {
   return save.transactions.some((t) => t.idempotencyKey === key);
 }
 
-/** 這種動物的蛋能不能選：一開始就有、工程完成、或商店解鎖過（真錢品種上架後才開放）。 */
+/** 這種動物能不能當探索目標：一開始就有、工程完成、或商店解鎖過（真錢品種上架後才開放）。 */
 export function animalUnlocked(save: SaveFile, a: AnimalDef) {
   const u = a.unlock;
   if (u.kind === 'start') return true;
@@ -67,37 +67,66 @@ export function animalUnlocked(save: SaveFile, a: AnimalDef) {
   return false;
 }
 
-/** 大廳預設的蛋：上次選的；還沒解鎖（例如從示範模式帶來的）就用第一種。 */
+/** 大廳預設的探索目標：上次選的；還沒解鎖（例如從示範模式帶來的）就用第一種。 */
 export const chosenAnimal = (save: SaveFile) => {
   const a = animalDef(save.settings.eggId);
   return animalUnlocked(save, a) ? a : ANIMALS[0];
 };
 
-/** 自己的專注中，有結果（完成或放棄）的才算孵過蛋。 */
+/** 自己的專注中，有結果（完成＝遇見、放棄＝被嚇跑）的探索。 */
 export const endedSessions = (save: SaveFile) => save.sessions.filter((s) => s.userId === save.profile.id && s.endedAt && (s.status === 'completed' || s.status === 'abandoned'));
 
-/** 每種動物孵出幾隻（完成的專注才算）。 */
+/** 每種動物遇見幾次（完成的專注才算）。 */
 export function hatchCounts(save: SaveFile) {
   const m = new Map<string, number>();
   for (const s of endedSessions(save)) if (s.status === 'completed') m.set(animalDef(s.animalId).id, (m.get(animalDef(s.animalId).id) ?? 0) + 1);
   return m;
 }
 
-/** 解鎖了、但還沒孵過的動物（大廳標示「新」）。一開始就有的不算新。 */
+/** 可以去找、但還沒遇見過的動物（大廳標示「新」）。一開始就有的不算新。 */
 export const newAnimals = (save: SaveFile) => {
   const counts = hatchCounts(save);
   return ANIMALS.filter((a) => a.unlock.kind !== 'start' && animalUnlocked(save, a) && !counts.get(a.id));
 };
 
-/** 場景裡出現的動物：最近孵出的，同一種只放一隻，最多 limit 隻。 */
+// ---------- 族群成長 ----------
+
+/** 特別探索（真錢）的動物一遇見就是成年。 */
+const alwaysAdult = (animalId: string) => animalDef(animalId).unlock.kind === 'iap';
+
+/** 每次遇見時的族群成長（依時間順序累計）：當下的階段、成長值，以及這次是否讓族群長大。 */
+export function sightings(save: SaveFile) {
+  const growth = new Map<string, number>();
+  const out = new Map<string, { stage: number; growth: number; grew: boolean }>();
+  for (const s of [...endedSessions(save)].sort((a, b) => a.endedAt!.localeCompare(b.endedAt!))) {
+    if (s.status !== 'completed') continue;
+    const id = animalDef(s.animalId).id;
+    const before = growth.get(id) ?? 0;
+    const after = before + growthFor(Math.floor(s.accumulatedMs / POINT_MS));
+    growth.set(id, after);
+    const stage = alwaysAdult(id) ? 2 : stageOfGrowth(after);
+    out.set(s.id, { stage, growth: after, grew: before > 0 && !alwaysAdult(id) && stage > stageOfGrowth(before) });
+  }
+  return out;
+}
+
+/** 這種動物目前的族群成長值與階段（森林裡同種的動物都用這個階段）。 */
+export function growthOf(save: SaveFile, animalId: string) {
+  const id = animalDef(animalId).id;
+  let g = 0;
+  for (const s of endedSessions(save)) if (s.status === 'completed' && animalDef(s.animalId).id === id) g += growthFor(Math.floor(s.accumulatedMs / POINT_MS));
+  return { growth: g, stage: alwaysAdult(id) ? 2 : stageOfGrowth(g) };
+}
+
+/** 場景裡出現的動物：最近遇見的，同一種只放一隻，最多 limit 隻；大小依族群目前的階段。 */
 export function sceneAnimals(save: SaveFile, limit = 6) {
   const seen = new Set<string>();
-  const out: { id: string; animalId: string; tier: number }[] = [];
+  const out: { id: string; animalId: string; stage: number }[] = [];
   for (const s of [...endedSessions(save)].reverse()) {
     const a = animalDef(s.animalId).id;
     if (s.status !== 'completed' || seen.has(a)) continue;
     seen.add(a);
-    out.push({ id: s.id, animalId: a, tier: sizeTier(Math.floor(s.accumulatedMs / POINT_MS)) });
+    out.push({ id: s.id, animalId: a, stage: growthOf(save, a).stage });
     if (out.length >= limit) break;
   }
   return out;
@@ -105,7 +134,7 @@ export function sceneAnimals(save: SaveFile, limit = 6) {
 
 export type ActionResult = { ok: true; save: SaveFile } | { ok: false; error: string };
 
-/** 商店：用金幣解鎖一種動物的蛋（之後每段專注都能選它）。 */
+/** 商店：用金幣解鎖一種動物的探索路線（之後每段專注都能選擇去找牠）。 */
 export function unlockAnimal(save: SaveFile, userId: ID, animalId: string, now: number): ActionResult {
   const a = ANIMALS.find((x) => x.id === animalId);
   if (!a || a.unlock.kind !== 'coins') return { ok: false, error: '這種動物不能用金幣解鎖。' };

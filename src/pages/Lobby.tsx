@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
 import { useSave } from '../app/store';
-import { ANIMALS, HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, QUICK_MINUTES, TAGS, animalDef, clampMinutes, habitatName, tagColor } from '../content/config';
+import { ANIMALS, HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, QUICK_MINUTES, TAGS, GROWTH_MAX, animalDef, clampMinutes, habitatName, stageName, tagColor } from '../content/config';
 import { Modal } from '../components/ui';
-import { AnimalArt, EggArt } from '../components/Animal';
+import { AnimalArt, TrackArt } from '../components/Animal';
 import { unlockText } from '../components/ui';
-import { animalUnlocked, chosenAnimal, habitatOpen, newAnimals, startFocus } from '../domain/game';
+import { animalUnlocked, chosenAnimal, growthOf, habitatOpen, hatchCounts, newAnimals, startFocus } from '../domain/game';
 import type { HabitatId, TimerMode } from '../domain/types';
 import { HabitatScene } from '../scenes/HabitatScene';
 import { DEEP_GRACE_MS, TimeGuard, isAndroid, isNative, requestNotifyPermission, type GuardApp } from '../platform';
@@ -26,7 +26,7 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
   // 舊存檔可能記著 5 分鐘：收進 10～180 分鐘（示範的 10 秒例外）
   const [seconds, setSeconds] = useState(mode === 'demo' && st.lastTargetSeconds === 10 ? 10 : clampMinutes(st.lastTargetSeconds / 60) * 60);
   const [habitat, setHabitat] = useState<HabitatId>(habitatOpen(save, st.preferredHabitatId) ? st.preferredHabitatId : 'forest');
-  // 選的蛋直接記進設定：去商店或其他頁再回來也不會跑掉
+  // 選的探索目標直接記進設定：去商店或其他頁再回來也不會跑掉
   const egg = chosenAnimal(save).id;
   const setEgg = (id: string) => update((s) => ({ ...s, settings: { ...s.settings, eggId: id } }));
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -47,8 +47,9 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
     if (next) setSeconds(next * 60);
   };
 
-  // 解鎖了還沒孵過的動物：標「新」，孵過一次就消失
+  // 可以去找、但還沒遇見過的動物：標「新」，遇見一次就消失
   const fresh = newAnimals(save);
+  const counts = hatchCounts(save);
   // 目前只有一個場景：開放兩個以上才顯示場景選擇
   const openHabitats = HABITATS.filter((h) => habitatOpen(save, h.id));
 
@@ -117,15 +118,15 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
 
       <div className="lobby-bubble">
         <HabitatScene habitatId={habitat} bubble />
-        {/* 準備孵化的蛋：專注越久，孵出來越大 */}
-        <button className="bubble-plant" onClick={() => setSheet('egg')} aria-label={`要孵化的蛋：${animalDef(egg).name}，點一下更換`}>
-          <EggArt id={egg} size="100%" />
+        {/* 這次的探索目標：還沒出發，只看得到剪影 */}
+        <button className="bubble-plant" onClick={() => setSheet('egg')} aria-label={`探索目標：${animalDef(egg).name}，點一下更換`}>
+          <TrackArt id={egg} stage={growthOf(save, egg).stage} size="100%" />
         </button>
       </div>
       <div className="row center">
         <button className="habitat-chip" onClick={() => setSheet('egg')}>
-          🥚 {animalDef(egg).name}的蛋
-          {fresh.length > 0 && !fresh.some((a) => a.id === egg) && <span className="new-badge">{fresh.length} 顆新蛋</span>}
+          🔍 尋找{animalDef(egg).name}
+          {fresh.length > 0 && !fresh.some((a) => a.id === egg) && <span className="new-badge">{fresh.length} 個新足跡</span>}
           {fresh.some((a) => a.id === egg) && <span className="new-badge">新</span>} ›
         </button>
         {openHabitats.length > 1 && (
@@ -269,7 +270,7 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
                 <strong>深度專注</strong>
               </label>
               <p className="small muted">
-                專注時離開棲光小島超過 {graceSec} 秒，這顆蛋就不會孵化。鎖定螢幕、接電話、使用下面允許的 App 都不算離開。
+                專注時離開棲光小島超過 {graceSec} 秒，動物就會被嚇跑。鎖定螢幕、接電話、使用下面允許的 App 都不算離開。
                 {firstTime && st.deepFocus ? '（第一段專注先不開，下次開始生效）' : ''}
               </p>
               <button className="link" onClick={() => setSheet('allow')}>
@@ -316,17 +317,19 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
       )}
 
       {sheet === 'egg' && (
-        <Modal title="要孵化哪一顆蛋？" onClose={() => setSheet(null)}>
-          <p className="small muted">專注時蛋會慢慢裂開，完成就孵出來，專注越久孵出來越大。提前放棄的話蛋不會孵化。</p>
+        <Modal title="這次想去找誰？" onClose={() => setSheet(null)}>
+          <p className="small muted">專注時牠會慢慢靠近，完成就遇見牠，留下一筆觀察紀錄；提前放棄牠就被嚇跑了。同一種動物遇見越多次，族群越穩定，看到的就越成熟（60 分鐘以上的探索算 2 次）。</p>
           <div className="plant-pick" role="radiogroup" aria-label="動物">
             {ANIMALS.map((a) => {
               const ok = animalUnlocked(save, a);
+              const g = growthOf(save, a.id);
+              const met = (counts.get(a.id) ?? 0) > 0;
               return (
                 <button
                   key={a.id}
                   role="radio"
                   aria-checked={egg === a.id}
-                  // 商店買得到的蛋：點了直接去商店；修工程解鎖的只能等
+                  // 商店買得到的探索路線：點了直接去商店；修工程才找得到的只能等
                   disabled={!ok && a.unlock.kind === 'project'}
                   className={egg === a.id ? 'plant-option on' : 'plant-option'}
                   onClick={() => {
@@ -335,12 +338,16 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
                     else onShop();
                   }}
                 >
-                  {ok ? <EggArt id={a.id} size={56} /> : <AnimalArt id={a.id} size={56} hidden />}
+                  {ok && met ? <AnimalArt id={a.id} stage={g.stage} size={56} /> : ok ? <TrackArt id={a.id} size={56} /> : <AnimalArt id={a.id} size={56} hidden />}
                   <span>
                     {a.name}
                     {fresh.includes(a) && <span className="new-badge">新</span>}
                   </span>
-                  {!ok && <span className="small muted">{unlockText(a)}</span>}
+                  {ok ? (
+                    <span className="small muted">{!met ? '還沒遇見過' : g.stage === 2 ? stageName(a, 2) : `${stageName(a, g.stage)}・成長 ${g.growth}/${GROWTH_MAX}`}</span>
+                  ) : (
+                    <span className="small muted">{unlockText(a)}</span>
+                  )}
                 </button>
               );
             })}

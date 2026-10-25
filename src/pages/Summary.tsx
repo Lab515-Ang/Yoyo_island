@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useSave } from '../app/store';
-import { ANIMALS, COPY, animalDef, sizeTier, tagColor, TAGS } from '../content/config';
-import { AnimalArt, EggArt } from '../components/Animal';
+import { ANIMALS, COPY, GROWTH_MAX, animalDef, stageName, tagColor, TAGS } from '../content/config';
+import { AnimalArt, TrackArt } from '../components/Animal';
 import { Coin, Modal, fmtMinutes } from '../components/ui';
 import { localDateKey } from '../domain/focus';
-import { activeProject, animalUnlocked, animalsUnlockedBy, balance, coins, earnedFor, editSessionNote, endedSessions, focusOutcome, minutesByDay, NOTE_MAX, remainingFor } from '../domain/game';
+import { activeProject, animalUnlocked, animalsUnlockedBy, balance, coins, earnedFor, editSessionNote, endedSessions, focusOutcome, minutesByDay, NOTE_MAX, remainingFor, sightings } from '../domain/game';
 import { HabitatScene } from '../scenes/HabitatScene';
 
 const clock = (ms: number) => `${String(Math.floor(ms / 60000)).padStart(2, '0')}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
@@ -46,20 +46,23 @@ export function Summary({
   const todayMin = Math.floor((minutesByDay(save).get(localDateKey(Date.now(), save.profile.timezone)) ?? 0) / 60000);
   const project = activeProject(save);
   const canBuild = project && balance(save) >= remainingFor(save, project);
-  // 下一顆蛋還要多久：目前工程修好會解鎖的動物（1 點＝專注 1 分鐘）
+  // 下一個足跡還要多久：目前工程修好就能去找的動物（1 點＝專注 1 分鐘）
   const nextEgg = project ? animalsUnlockedBy(project.id)[0] : undefined;
   const out = focusOutcome(save, s.id);
   // 下一步：金幣夠解鎖商店裡還沒解鎖的動物時，提示去商店
   const wallet = coins(save);
   const canShop = ANIMALS.some((a) => a.unlock.kind === 'coins' && !animalUnlocked(save, a) && wallet >= a.unlock.price);
   const hasTitle = s.taskTitle && s.taskTitle !== '一段專注';
-  // 今天孵出的第幾隻（只算孵出來的）
+  // 今天第幾次遇見動物（只算完成的探索）
   const tz = save.profile.timezone;
   const dayOf = (iso: string) => localDateKey(Date.parse(iso), tz);
   const todays = s.endedAt ? endedSessions(save).filter((x) => x.status === 'completed' && dayOf(x.endedAt!) === dayOf(s.endedAt!)).sort((a, b) => a.endedAt!.localeCompare(b.endedAt!)) : [];
   const nth = todays.findIndex((x) => x.id === s.id) + 1;
   const animal = animalDef(s.animalId);
-  // 這段專注修好的工程解鎖了哪些動物
+  // 這次遇見時的族群成長（階段、成長值、是否長大了）
+  const sight = sightings(save).get(s.id);
+  const stage = sight?.stage ?? 2;
+  // 這段專注修好的工程，讓哪些動物可以去找了
   const newAnimals = out.projects.filter((p) => p.completed).flatMap((p) => animalsUnlockedBy(p.def.id));
 
   if (!done && !comforted)
@@ -69,9 +72,10 @@ export function Summary({
           <HabitatScene habitatId={s.habitatId} bubble />
         </div>
         <div className="comfort-plant">
-          <EggArt id={s.animalId} cold size={120} />
+          <TrackArt id={s.animalId} fled size={120} />
         </div>
         <p className="result-title">沒關係，下次會更好</p>
+        <p className="small">{animal.name}被嚇跑了，下次安靜地多待一會兒吧。</p>
         <p className="result-time">{clock(s.accumulatedMs)}</p>
         <button className="pill" onClick={() => setComforted(true)}>
           繼續
@@ -98,8 +102,8 @@ export function Summary({
       <div className={done ? 'result-card' : 'result-card faded'}>
         <div className="result-card-scene" aria-hidden="true">
           <HabitatScene habitatId={s.habitatId} bubble hide={s.id} />
-          {/* 這次孵出的動物直接出現在場景裡；放棄的話是沒孵化的蛋。完整紀錄在「專注紀錄」 */}
-          <div className="result-plant">{done ? <AnimalArt id={s.animalId} tier={sizeTier(min)} size="100%" /> : <EggArt id={s.animalId} cold size="100%" />}</div>
+          {/* 這次遇見的動物直接出現在場景裡；放棄的話是跑走的剪影。完整紀錄在「我的歷程」 */}
+          <div className="result-plant">{done ? <AnimalArt id={s.animalId} stage={stage} size="100%" /> : <TrackArt id={s.animalId} fled size="100%" />}</div>
         </div>
         <span className="minute-pill">{min} 分</span>
         <p className="result-tag">
@@ -107,7 +111,7 @@ export function Summary({
           {s.tag}
           {hasTitle && <span className="result-task">・{s.taskTitle}</span>}
         </p>
-        <p className="result-plant-line">{done && nth > 0 ? `🐣 今天孵出的第 ${nth} 隻：${animal.name}` : `🥚 ${animal.name}的蛋沒有孵化`}</p>
+        <p className="result-plant-line">{done && nth > 0 ? `🔭 遇見了${animal.name}（${stageName(animal, stage)}）・今天第 ${nth} 次觀察` : `💨 ${animal.name}被嚇跑了`}</p>
         {s.note ? (
           <button className="result-note" onClick={() => setEditing(true)} aria-label="編輯專注筆記">
             {s.note}
@@ -133,15 +137,21 @@ export function Summary({
               <strong>+{earned.points}</strong>
             </li>
           )}
+          {sight && animal.unlock.kind !== 'iap' && (
+            <li>
+              <span>🌱 {animal.name}族群</span>
+              <strong>{sight.grew ? `長大了！現在看得到${stageName(animal, stage)}` : stage === 2 ? `已經是${stageName(animal, 2)}` : `成長 ${Math.min(sight.growth, GROWTH_MAX)} / ${GROWTH_MAX}`}</strong>
+            </li>
+          )}
           {newAnimals.map((a) => (
             <li key={a.id}>
-              <span>🥚 解鎖新的蛋</span>
-              <strong>{a.name}，下次專注可以孵</strong>
+              <span>🐾 發現新的足跡</span>
+              <strong>{a.name}，下次可以去找牠</strong>
             </li>
           ))}
           {nextEgg && !newAnimals.length && (
             <li>
-              <span>🔜 下一顆蛋</span>
+              <span>🔜 下一個足跡</span>
               <strong>
                 {nextEgg.name}・再專注約 {fmtMinutes(remainingFor(save, project!) * 60000)}
               </strong>

@@ -125,7 +125,7 @@ interface TimeGuardNative {
   usage(o: { start: number; end: number; bucketMs: number; guarded: string[] }): Promise<UsageReport>;
 }
 
-/** 深度專注：離開小島超過這麼久，蛋就不會孵化。 */
+/** 深度專注：離開小島超過這麼久，動物就會被嚇跑。 */
 export const DEEP_GRACE_MS = 10_000;
 
 export const TimeGuard = registerPlugin<TimeGuardNative>('TimeGuard');

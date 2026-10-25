@@ -1,10 +1,10 @@
 import { useSave } from '../app/store';
-import { ANIMALS, COPY } from '../content/config';
+import { ANIMALS, COPY, GROWTH_MAX, stageName } from '../content/config';
 import { Progress } from '../components/ui';
-import { activeProject, animalUnlocked, animalsUnlockedBy, coins, hatchCounts, newAnimals, projectRow } from '../domain/game';
+import { activeProject, animalUnlocked, animalsUnlockedBy, coins, growthOf, hatchCounts, newAnimals, projectRow } from '../domain/game';
 import { WeeklyGoal } from './Together';
 
-/** 任務：目前的修復工程、本週專注時間目標、動物收集。 */
+/** 任務：修復工程（摘要，完整的在「我的小島」）、本週專注時間目標、探索與族群成長。 */
 export function Quests({ onIsland, onShop }: { onIsland: () => void; onShop: () => void }) {
   const { save } = useSave();
   const project = activeProject(save);
@@ -12,8 +12,16 @@ export function Quests({ onIsland, onShop }: { onIsland: () => void; onShop: () 
   const wallet = coins(save);
   const affordable = ANIMALS.filter((a) => a.unlock.kind === 'coins' && !animalUnlocked(save, a) && wallet >= a.unlock.price);
   const fresh = newAnimals(save);
-  const kinds = [...hatchCounts(save).keys()].length;
-  const nextUnlock = project ? animalsUnlockedBy(project.id) : [];
+  const counts = hatchCounts(save);
+  const met = ANIMALS.filter((a) => counts.get(a.id));
+  const adults = met.filter((a) => growthOf(save, a.id).stage === 2).length;
+  // 最快長成成年的：遇見過、還沒成年、成長值最高的
+  const closest = met
+    .map((a) => ({ a, g: growthOf(save, a.id) }))
+    .filter((x) => x.g.stage < 2)
+    .sort((x, y) => y.g.growth - x.g.growth)[0];
+  const returning = project ? animalsUnlockedBy(project.id) : [];
+
   return (
     <div className="page">
       <h1>任務</h1>
@@ -21,17 +29,14 @@ export function Quests({ onIsland, onShop }: { onIsland: () => void; onShop: () 
         <p className="eyebrow">修復工程</p>
         {project ? (
           <>
-            <h2>{project.title}</h2>
-            <p className="muted small">
-              完成後：{project.description}
-              {nextUnlock.length > 0 && `，解鎖${nextUnlock.map((a) => a.name).join('、')}的蛋`}
+            <p>
+              <strong>{project.title}</strong>
+              {returning.length > 0 && <span className="muted small">・修好後{returning.map((a) => a.name).join('、')}會回到森林</span>}
             </p>
             <Progress value={got / project.requiredPoints} label="工程進度" />
-            <p className="small">
-              {got} / {project.requiredPoints} 點 · {COPY.projectNeed(project.requiredPoints - got, project.promise)}
-            </p>
+            <p className="small">{COPY.projectNeed(project.requiredPoints - got, project.promise)}</p>
             <button className="ghost" onClick={onIsland}>
-              前往我的小島看看
+              看完整的修復路線
             </button>
           </>
         ) : (
@@ -42,15 +47,20 @@ export function Quests({ onIsland, onShop }: { onIsland: () => void; onShop: () 
       <WeeklyGoal save={save} />
 
       <section className="card">
-        <p className="eyebrow">動物收集</p>
+        <p className="eyebrow">探索與族群成長</p>
         <p>
-          已孵出 <strong>{kinds}</strong> / {ANIMALS.length} 種動物。
+          遇見過 <strong>{met.length}</strong> / {ANIMALS.length} 種動物，其中 <strong>{adults}</strong> 種已經看得到成年的牠。
         </p>
-        {fresh.length > 0 && <p>還沒孵過：{fresh.map((a) => a.name).join('、')}。回大廳換一顆蛋試試看。</p>}
+        {closest && (
+          <p className="small">
+            {closest.a.name}最接近成年：成長 {closest.g.growth} / {GROWTH_MAX}（現在是{stageName(closest.a, closest.g.stage)}），再遇見幾次就能看到{stageName(closest.a, 2)}。
+          </p>
+        )}
+        {fresh.length > 0 && <p className="small">還沒遇見過：{fresh.map((a) => a.name).join('、')}。回大廳把探索目標換成牠試試看。</p>}
         {affordable.length > 0 && (
           <>
-            <p>
-              金幣夠解鎖了：{affordable.map((a) => `${a.name}（${a.unlock.kind === 'coins' ? a.unlock.price : ''} 金幣）`).join('、')}。你有 {wallet} 金幣。
+            <p className="small">
+              金幣夠解鎖探索路線了：{affordable.map((a) => `${a.name}（${a.unlock.kind === 'coins' ? a.unlock.price : ''} 金幣）`).join('、')}。你有 {wallet} 金幣。
             </p>
             <button className="ghost" onClick={onShop}>
               去商店解鎖

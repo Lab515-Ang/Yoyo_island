@@ -5,7 +5,7 @@ import { fmtMinutes, Modal } from '../components/ui';
 import { renderShareCard, ShareModal } from '../components/ShareCard';
 import { AnimalArt, HatchPlot } from '../components/Animal';
 import { addSegmentsByHour, localDateKey, localHourKey, shiftDateKey, weekStartKey } from '../domain/focus';
-import { endedSessions } from '../domain/game';
+import { endedSessions, sightings } from '../domain/game';
 import type { SaveFile } from '../domain/types';
 
 type Range = 'day' | 'week' | 'month' | 'year';
@@ -15,7 +15,7 @@ const RANGES: [Range, string][] = [
   ['month', '月'],
   ['year', '年'],
 ];
-// 每種範圍的孵化格子：幾欄、至少幾格
+// 每種範圍的觀察格子：幾欄、至少幾格
 const PLOT: Record<Range, { cols: number; min: number }> = { day: { cols: 4, min: 8 }, week: { cols: 6, min: 12 }, month: { cols: 8, min: 24 }, year: { cols: 12, min: 48 } };
 const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日'];
 const RANGE_NAME: Record<Range, string> = { day: '前一天', week: '上一週', month: '上個月', year: '去年' };
@@ -120,7 +120,7 @@ function Bars({ values, labels, names }: { values: number[]; labels: string[]; n
   );
 }
 
-/** 專注紀錄（參考 Forest）：孵化格子、專注時間統計、項目分布、最常孵出的動物、專注習慣。 */
+/** 專注紀錄（參考 Forest）：觀察格子、專注時間統計、項目分布、最常遇見的動物、專注習慣。 */
 function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t: string[] | null) => void }) {
   const { save } = useSave();
   const tz = save.profile.timezone;
@@ -169,7 +169,7 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
   let acc = 0;
   const donut = tagRows.map(([t, v]) => `${tagColor(t)} ${(acc / tagSum) * 360}deg ${((acc += v) / tagSum) * 360}deg`).join(', ');
 
-  // 最常孵出的動物
+  // 最常遇見的動物
   const byAnimal = new Map<string, number>();
   for (const s of hatched) byAnimal.set(animalDef(s.animalId).id, (byAnimal.get(animalDef(s.animalId).id) ?? 0) + 1);
   const animalRows = [...byAnimal].sort((a, b) => b[1] - a[1]).slice(0, 5);
@@ -200,7 +200,8 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
       title: label,
       subtitle: !picked ? '全部標籤' : picked.join('、'),
       total: fmtMinutes(total),
-      counts: `孵出 ${hatched.length} 隻・沒孵化 ${shown.length - hatched.length} 顆`,
+      counts: `遇見 ${hatched.length} 次・被嚇跑 ${shown.length - hatched.length} 次`,
+      stages: new Map([...sightings(save)].map(([id, x]) => [id, x.stage])),
       sessions: shown,
       cols: PLOT[range].cols,
       bars: buckets,
@@ -247,12 +248,12 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
         <p className="small center-text">
           {shown.length ? (
             <>
-              🐣 孵出 <strong>{hatched.length}</strong> 隻{shown.length > hatched.length && ` · 🥚 ${shown.length - hatched.length} 顆沒孵化`}
+              🔭 遇見 <strong>{hatched.length}</strong> 次{shown.length > hatched.length && ` · 💨 被嚇跑 ${shown.length - hatched.length} 次`}
             </>
           ) : isNow ? (
-            '還是空的草地。完成一段專注，就會孵出第一隻。'
+            '還是空的草地。完成一次探索，就會遇見第一隻動物。'
           ) : (
-            '這段時間沒有孵出動物。'
+            '這段時間沒有遇見動物。'
           )}
         </p>
       </section>
@@ -297,7 +298,7 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
 
           {animalRows.length > 0 && (
             <section className="card">
-              <h2>最常孵出的動物</h2>
+              <h2>最常遇見的動物</h2>
               <ul className="rank-list">
                 {animalRows.map(([id, c], i) => (
                   <li key={id} className="row">
@@ -339,7 +340,7 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
       {sharing && <ShareModal title="專注成果統計圖" fileName={fileName} make={makeCard} onClose={() => setSharing(false)} />}
       {info && (
         <Modal title="累積專注時長" onClose={() => setInfo(false)}>
-          <p>只計算真正在專注的時間：暫停的時間不算；提前結束的那幾段，專注過的時間會算進來，但蛋不會孵化。</p>
+          <p>只計算真正在專注的時間：暫停的時間不算；提前結束的那幾次，專注過的時間會算進來，但動物會被嚇跑。</p>
           <button className="primary wide" onClick={() => setInfo(false)}>
             知道了
           </button>
@@ -349,7 +350,7 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
   );
 }
 
-/** 專注紀錄：孵化格子與統計。從結算頁「查看專注紀錄」進來時先篩選那個標籤。 */
+/** 專注紀錄：觀察格子與統計。從結算頁「查看專注紀錄」進來時先篩選那個標籤。 */
 export function Records({ initialTag = null }: { initialTag?: string | null }) {
   const [tagFilter, setTagFilter] = useState<string[] | null>(initialTag ? [initialTag] : null);
   return (

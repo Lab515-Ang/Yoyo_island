@@ -1,4 +1,4 @@
-// 原創低多邊形 3D 森林：場景物件由工程狀態推導；動物是專注孵出來的
+// 原創低多邊形 3D 森林：場景物件由工程狀態推導；動物是專注時遇見的
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as THREE from 'three';
@@ -16,7 +16,7 @@ export interface SceneProps {
   backdrop?: boolean; // 專注畫面的全螢幕背景：場景往上移，留出下方放倒數泡泡
   bubble?: boolean; // 大廳的圓形泡泡：鏡頭拉近
   lowPower?: boolean; // 省電：每秒只畫 12 張、解析度降到 1 倍（專注背景、大廳泡泡用）
-  animals?: SceneAnimal[]; // 最近孵出的動物（點擊回傳 session id）
+  animals?: SceneAnimal[]; // 最近遇見的動物（點擊回傳 session id）
 }
 
 const C = {
@@ -111,12 +111,12 @@ function useAnim(still: boolean, fn: Anim) {
 // ---------- 動物（2D 圖片，永遠面向鏡頭） ----------
 
 export interface SceneAnimal {
-  id: string; // 孵出牠的那段專注
+  id: string; // 遇見牠的那段專注
   animalId: string;
-  tier: number; // 0～3：專注越久越大
+  stage: number; // 族群成長階段：0 幼年、1 亞成年、2 成年
 }
 
-/** 最多 6 隻，依最近孵出的順序放在固定位置。 */
+/** 最多 6 隻，依最近遇見的順序放在固定位置。 */
 const SPOTS: [number, number, number][] = [
   [-1.2, 0.05, 1.9],
   [1.4, 0.05, 1.7],
@@ -135,12 +135,13 @@ const loadImage = (src: string) =>
   });
 
 /** 把動物圖（臨時 SVG；美術圖到位後換成圖片）畫成貼圖。
- *  所有場景共用同一份（最多 15 種動物）：換頁重開場景時不用重畫，也不會一直累積貼圖。 */
+ *  所有場景共用同一份（15 種動物 × 3 個成長階段）：換頁重開場景時不用重畫，也不會一直累積貼圖。 */
 const texCache = new Map<string, Promise<THREE.CanvasTexture>>();
-function animalTexture(animalId: string) {
-  let p = texCache.get(animalId);
+function animalTexture(animalId: string, stage: number) {
+  const key = `${animalId}:${stage}`;
+  let p = texCache.get(key);
   if (!p) {
-    const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(renderToStaticMarkup(<AnimalArt id={animalId} size={256} />))}`;
+    const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(renderToStaticMarkup(<AnimalArt id={animalId} stage={stage} size={256} />))}`;
     p = loadImage(url).then((img) => {
       const c = document.createElement('canvas');
       c.width = c.height = 256;
@@ -149,34 +150,34 @@ function animalTexture(animalId: string) {
       t.colorSpace = THREE.SRGBColorSpace;
       return t;
     });
-    p.catch(() => texCache.delete(animalId)); // 失敗的下次再試
-    texCache.set(animalId, p);
+    p.catch(() => texCache.delete(key)); // 失敗的下次再試
+    texCache.set(key, p);
   }
   return p;
 }
 
-function useAnimalTexture(animalId: string) {
+function useAnimalTexture(animalId: string, stage: number) {
   const [tex, setTex] = useState<THREE.CanvasTexture | null>(null);
   useEffect(() => {
     let alive = true;
-    animalTexture(animalId)
+    animalTexture(animalId, stage)
       .then((t) => alive && setTex(t))
       .catch(() => undefined); // 圖檔缺漏時不顯示，不影響場景
     return () => {
       alive = false;
     };
-  }, [animalId]);
+  }, [animalId, stage]);
   return tex;
 }
 
 function AnimalSprite({ a, spot, still, onSelect }: { a: SceneAnimal; spot: [number, number, number]; still: boolean; onSelect?: (id: string) => void }) {
-  const tex = useAnimalTexture(a.animalId);
+  const tex = useAnimalTexture(a.animalId, a.stage);
   const phase = a.id.length + spot[0];
   const ref = useAnim(still, (g, t) => {
     g.position.y = Math.abs(Math.sin(t * 1.4 + phase)) * 0.05; // 輕輕彈跳
     g.scale.y = 1 + Math.sin(t * 2.2 + phase) * 0.02; // 呼吸
   });
-  const s = [1.0, 1.2, 1.4, 1.6][Math.max(0, Math.min(3, a.tier))];
+  const s = 1.6; // 大小由貼圖裡的成長階段決定（幼年畫得比較小，腳一樣踩在地上）
   return (
     <Pick id={a.id} onSelect={onSelect}>
       <group position={spot}>

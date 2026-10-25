@@ -6,7 +6,7 @@ import { useAmbient } from '../sound';
 
 function unlockText(u: SoundUnlock) {
   if (u.kind === 'project') return `完成「${projectDef(u.id)?.title}」後收集`;
-  if (u.kind === 'hatched') return `孵出${animalDef(u.id).name}後收集`;
+  if (u.kind === 'hatched') return `遇見${animalDef(u.id).name}後收集`;
   return '';
 }
 
@@ -24,7 +24,7 @@ export function Sounds({ onSettings }: { onSettings: () => void }) {
     <div className="page">
       <h1>大自然交響樂</h1>
       <p>
-        已收集 <strong>{got.length}</strong> / {SOUNDS.length} 種聲音。修復森林、孵出動物，小島的聲音會越來越豐富。
+        已收集 <strong>{got.length}</strong> / {SOUNDS.length} 種聲音。修復森林、遇見動物，小島的聲音會越來越豐富。
       </p>
       {!st.soundEnabled && (
         <div className="notice">
