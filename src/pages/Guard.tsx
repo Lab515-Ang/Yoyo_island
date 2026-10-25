@@ -330,8 +330,11 @@ function PlanEditor({ cfg, ready, onSave, onClose }: { cfg: GuardConfig; ready: 
   const toggleApp = (a: GuardApp) => set({ apps: d.apps.some((x) => x.pkg === a.pkg) ? d.apps.filter((x) => x.pkg !== a.pkg) : [...d.apps, { pkg: a.pkg, label: a.label }] });
   const sameTime = !d.always && d.from === d.to;
   const noDays = !d.always && !d.days.some(Boolean);
+  const paused = !d.enabled;
   return (
     <Modal title="時間守護計劃" onClose={onClose}>
+      {/* 暫停時上面的設定全部變灰、不能改（設定會保留，關掉暫停就恢復） */}
+      <fieldset className={paused ? 'plan-fields paused' : 'plan-fields'} disabled={paused} aria-describedby={paused ? 'plan-paused-note' : undefined}>
       <h3>我想要減少使用…</h3>
       <div className="row wrap">
         {d.apps.map((a) => (
@@ -343,7 +346,7 @@ function PlanEditor({ cfg, ready, onSave, onClose }: { cfg: GuardConfig; ready: 
           {picking ? '收起清單' : '＋ 選擇 App'}
         </button>
       </div>
-      {picking && <AppPicker selected={d.apps} onToggle={toggleApp} />}
+      {picking && !paused && <AppPicker selected={d.apps} onToggle={toggleApp} />}
 
       <h3>排程</h3>
       <label className="toggle">
@@ -372,18 +375,24 @@ function PlanEditor({ cfg, ready, onSave, onClose }: { cfg: GuardConfig; ready: 
           {noDays && <p className="error small">至少選一天。</p>}
         </>
       )}
+      </fieldset>
 
       <h3>暫停</h3>
-      <label className="toggle">
-        <input type="checkbox" checked={!d.enabled} onChange={(e) => set({ enabled: !e.target.checked })} />
-        暫停計劃（先不攔，設定保留）
+      <label className="toggle switch-row">
+        暫停計劃
+        <input type="checkbox" role="switch" className="switch" checked={paused} onChange={(e) => set({ enabled: !e.target.checked })} />
       </label>
+      {paused && (
+        <p id="plan-paused-note" className="small muted">
+          計劃暫停中：打開這些 App 不會被攔下。上面的設定都會保留，關掉暫停就恢復。
+        </p>
+      )}
       {d.enabled && !ready && <p className="small muted">還需要開啟兩個權限，計劃才會開始運作。</p>}
       {d.enabled && !d.apps.length && <p className="small muted">還沒選 App：先挑幾個想減少使用的 App 吧。</p>}
 
       <div className="row editor-actions">
         <button onClick={onClose}>取消</button>
-        <button className="primary" disabled={sameTime || noDays} onClick={() => onSave(d)}>
+        <button className="primary" disabled={!paused && (sameTime || noDays)} onClick={() => onSave(d)}>
           儲存
         </button>
       </div>
