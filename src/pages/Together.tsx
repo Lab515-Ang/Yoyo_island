@@ -38,7 +38,9 @@ export function Together() {
           if (r.ok) next = r.save;
         }
       }
-      let t = Date.now() - ANIMALS.length * 30 * 60_000;
+      // 從最後一筆紀錄之後開始排（再按一次也不會和既有紀錄重疊）；太晚的話就排到現在之後
+      const lastEnd = Math.max(0, ...next.sessions.filter((x) => x.endedAt).map((x) => Date.parse(x.endedAt!)));
+      let t = Math.max(lastEnd + 60_000, Date.now() - ANIMALS.length * 30 * 60_000);
       for (const an of ANIMALS.filter((x) => animalUnlocked(next, x))) {
         const sess = createSession({ id: crypto.randomUUID(), userId: next.profile.id, islandId: islandId(next), taskTitle: '示範', tag: '其他', habitatId: 'forest', mode: 'countdown', targetSeconds: 25 * 60, animalId: an.id }, t);
         t += 26 * 60_000;

@@ -9,7 +9,7 @@ import { IslandMap } from '../scenes/IslandMap';
 import { useAmbient } from '../sound';
 
 /** 我的小島：一打開就是正在修復的森林（可以點動物），下面是修復進度、森林裡的動物，以及之後會開放的區域。 */
-export function IslandPage({ onLobby }: { onLobby: () => void }) {
+export function IslandPage({ onLobby, onCodex }: { onLobby: () => void; onCodex: () => void }) {
   const { save } = useSave();
   const [card, setCard] = useState<string | null>(null);
   // 固定的函式：打開動物卡時場景不用整個重畫
@@ -31,7 +31,7 @@ export function IslandPage({ onLobby }: { onLobby: () => void }) {
       <p className="small muted center-text">{hasAnimals ? '點森林裡的動物，看看牠現在長多大了。' : '完成第一次探索，遇見的動物就會出現在這裡。'}</p>
 
       <RestorePanel />
-      <ForestAnimals onCard={setCard} onLobby={onLobby} />
+      <ForestAnimals onCard={setCard} onLobby={onLobby} onCodex={onCodex} />
 
       <section className="card flush">
         <IslandMap save={save} onEnter={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
@@ -96,6 +96,18 @@ function RestorePanel() {
     </>
   );
 
+  if (justDone)
+    return (
+      <section className="card center">
+        <p className="eyebrow">工程完成</p>
+        <h2>「{justDone.title}」完成了！</h2>
+        <p>{justDone.message}</p>
+        <button className="ghost" onClick={() => setJustDone(null)}>
+          下一個工程
+        </button>
+      </section>
+    );
+
   if (!project)
     return (
       <section className="card">
@@ -127,17 +139,6 @@ function RestorePanel() {
     } else notify(COPY.projectNeed(remainingFor(saved, project), project.promise));
   };
 
-  if (justDone)
-    return (
-      <section className="card center">
-        <p className="eyebrow">工程完成</p>
-        <h2>「{justDone.title}」完成了！</h2>
-        <p>{justDone.message}</p>
-        <button className="ghost" onClick={() => setJustDone(null)}>
-          下一個工程
-        </button>
-      </section>
-    );
 
   return (
     <section className="card">
@@ -175,7 +176,7 @@ function RestorePanel() {
 }
 
 /** 森林裡的動物：每種遇見幾次、族群長到哪個階段；點開看動物卡。 */
-function ForestAnimals({ onCard, onLobby }: { onCard: (id: string) => void; onLobby: () => void }) {
+function ForestAnimals({ onCard, onLobby, onCodex }: { onCard: (id: string) => void; onLobby: () => void; onCodex: () => void }) {
   const { save } = useSave();
   const counts = hatchCounts(save);
   const met = ANIMALS.filter((a) => counts.get(a.id));
@@ -212,7 +213,10 @@ function ForestAnimals({ onCard, onLobby }: { onCard: (id: string) => void; onLo
           </button>
         </>
       )}
-      <p className="small muted">同一種動物遇見越多次，族群越穩定，就會從幼年慢慢看到成年的牠。完整的觀察圖鑑在「我的歷程」。</p>
+      <p className="small muted">同一種動物遇見越多次，族群越穩定，就會從幼年慢慢看到成年的牠。</p>
+      <button className="ghost" onClick={onCodex}>
+        📖 看完整觀察圖鑑
+      </button>
     </section>
   );
 }

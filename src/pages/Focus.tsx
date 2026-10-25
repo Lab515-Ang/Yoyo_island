@@ -160,7 +160,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
             </button>
           ) : (
             <>
-              <button className="icon-round big" onClick={() => (countdown || tooShort ? setEnding(true) : end('completed'))} aria-label={countdown ? '提前結束' : '完成這段專注'}>
+              <button className="icon-round big" onClick={() => (countdown || tooShort ? setEnding(true) : end('completed'))} aria-label={countdown || tooShort ? '提前結束' : '完成這段專注'}>
                 ■
               </button>
               {paused ? (

@@ -1457,6 +1457,13 @@ button.wallet {
 .guard-screen {
   position: fixed;
   inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  color: inherit;
   z-index: 40;
   background: var(--bg);
   display: flex;
@@ -2017,7 +2024,7 @@ button.wallet {
   flex: 1;
 }
 .back-today {
-  min-height: 0;
+  min-height: 32px;
   padding: 0 0.3em;
   margin-left: 0.3em;
   border: 0;
@@ -2278,7 +2285,7 @@ label.toggle input.switch:checked::after {
   margin: 0.6rem 0;
 }
 .taiwan-map canvas {
-  touch-action: none;
+  touch-action: pan-y; /* 上下滑還是捲動頁面，左右拖曳才轉地圖 */
 }
 .taiwan-2d {
   width: 100%;

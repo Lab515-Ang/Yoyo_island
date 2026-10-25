@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSave } from '../app/store';
 import { AnimalArt } from '../components/Animal';
 import { Modal, fmtMinutes } from '../components/ui';
@@ -10,7 +10,8 @@ import { TimeGuard, defaultGuardConfig, isAndroid, onResume, type GuardApp, type
 
 const THINK_SECONDS = 5;
 const UNLOCK_MINUTES = 5;
-const DAYS = ['日', '一', '二', '三', '四', '五', '六'];
+const DAYS = ['日', '一', '二', '三', '四', '五', '六']; // 索引同 Date.getDay()
+const WEEK = [1, 2, 3, 4, 5, 6, 0]; // 顯示從週一開始
 
 // 每天「忍住／解鎖」次數：只是給玩家看的小統計，存在介面偏好，不進存檔
 const LOG_KEY = 'qiguang-ui:guardLog';
@@ -67,8 +68,15 @@ export function GuardScreen({ app, onClose }: { app: GuardApp; onClose: () => vo
     else void TimeGuard.goHome();
   };
 
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const d = ref.current!;
+    if (!d.open) d.showModal();
+    return () => d.close();
+  }, []);
+
   return (
-    <div className="guard-screen" role="dialog" aria-modal="true" aria-labelledby="guard-title">
+    <dialog ref={ref} className="guard-screen" aria-labelledby="guard-title" onCancel={(e) => e.preventDefault()}>
       <div className="guard-pet">{pet ? <AnimalArt id={pet.id} stage={growthOf(save, pet.id).stage} size={180} /> : <span aria-hidden="true">🌱</span>}</div>
       <h1 id="guard-title">先停一下</h1>
       <p>
@@ -96,7 +104,7 @@ export function GuardScreen({ app, onClose }: { app: GuardApp; onClose: () => vo
           </div>
         </>
       )}
-    </div>
+    </dialog>
   );
 }
 
@@ -296,7 +304,7 @@ function UsageDashboard({ cfg, tz }: { cfg: GuardConfig; tz: string }) {
   );
 }
 
-const dayList = (days: boolean[]) => (days.every(Boolean) ? '每天' : DAYS.map((d, i) => (days[i] ? d : '')).filter(Boolean).join('、') || '沒有選星期');
+const dayList = (days: boolean[]) => (days.every(Boolean) ? '每天' : WEEK.filter((i) => days[i]).map((i) => DAYS[i]).join('、') || '沒有選星期');
 
 /** 守護計劃摘要：狀態、時段、App；點了編輯。 */
 function PlanCard({ cfg, onEdit }: { cfg: GuardConfig; onEdit: () => void }) {
@@ -366,9 +374,9 @@ function PlanEditor({ cfg, ready, onSave, onClose }: { cfg: GuardConfig; ready: 
           {sameTime && <p className="error small">開始和結束時間不能一樣。</p>}
           {d.from > d.to && <p className="small muted">跨過午夜，到隔天 {hm(d.to)} 結束。</p>}
           <div className="row wrap" role="group" aria-label="星期">
-            {DAYS.map((label, i) => (
-              <button key={label} className={d.days[i] ? 'chip on' : 'chip'} aria-pressed={d.days[i]} onClick={() => set({ days: d.days.map((v, j) => (j === i ? !v : v)) })}>
-                {label}
+            {WEEK.map((i) => (
+              <button key={i} className={d.days[i] ? 'chip on' : 'chip'} aria-pressed={d.days[i]} onClick={() => set({ days: d.days.map((v, j) => (j === i ? !v : v)) })}>
+                {DAYS[i]}
               </button>
             ))}
           </div>
@@ -414,7 +422,7 @@ export function GuardPage() {
     void TimeGuard.getConfig()
       .then((r) => setCfg(r.config ?? defaultGuardConfig()))
       .catch(() => setCfg(defaultGuardConfig()));
-    const refresh = () => void TimeGuard.status().then(setPerm);
+    const refresh = () => void TimeGuard.status().then(setPerm).catch(() => {});
     refresh();
     return onResume(refresh); // 從系統設定開好權限回來
   }, []);

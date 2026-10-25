@@ -4,7 +4,7 @@ import { ANIMALS, COPY, GROWTH_MAX, animalDef, stageName, tagColor, TAGS } from 
 import { AnimalArt, TrackArt } from '../components/Animal';
 import { Coin, Modal, fmtMinutes } from '../components/ui';
 import { localDateKey } from '../domain/focus';
-import { activeProject, animalUnlocked, animalsUnlockedBy, balance, coins, earnedFor, editSessionNote, endedSessions, focusOutcome, minutesByDay, NOTE_MAX, remainingFor, sightings } from '../domain/game';
+import { activeProject, animalUnlocked, animalsUnlockedBy, balance, coins, earnedFor, editSessionNote, endedSessions, focusOutcome, minutesByDay, NOTE_MAX, endedDayKeys, remainingFor, sightings } from '../domain/game';
 import { HabitatScene } from '../scenes/HabitatScene';
 
 const clock = (ms: number) => `${String(Math.floor(ms / 60000)).padStart(2, '0')}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
@@ -43,7 +43,11 @@ export function Summary({
   const done = s.status === 'completed';
   const min = Math.floor(s.accumulatedMs / 60000);
   const earned = earnedFor(save, s.id);
-  const todayMin = Math.floor((minutesByDay(save).get(localDateKey(Date.now(), save.profile.timezone)) ?? 0) / 60000);
+  // 「今天」以這段專注結束的那一天為準（倒數在背景跨過午夜結束、隔天才打開時也一致）
+  const dayKeys = endedDayKeys(save);
+  const sessionDay = (s.endedAt && dayKeys.get(s.id)) || localDateKey(Date.now(), save.profile.timezone);
+  const isToday = sessionDay === localDateKey(Date.now(), save.profile.timezone);
+  const todayMin = Math.floor((minutesByDay(save).get(sessionDay) ?? 0) / 60000);
   const project = activeProject(save);
   const canBuild = project && balance(save) >= remainingFor(save, project);
   // 下一個足跡還要多久：目前工程修好就能去找的動物（1 點＝專注 1 分鐘）
@@ -54,9 +58,7 @@ export function Summary({
   const canShop = ANIMALS.some((a) => a.unlock.kind === 'coins' && !animalUnlocked(save, a) && wallet >= a.unlock.price);
   const hasTitle = s.taskTitle && s.taskTitle !== '一段專注';
   // 今天第幾次遇見動物（只算完成的探索）
-  const tz = save.profile.timezone;
-  const dayOf = (iso: string) => localDateKey(Date.parse(iso), tz);
-  const todays = s.endedAt ? endedSessions(save).filter((x) => x.status === 'completed' && dayOf(x.endedAt!) === dayOf(s.endedAt!)).sort((a, b) => a.endedAt!.localeCompare(b.endedAt!)) : [];
+  const todays = s.endedAt ? endedSessions(save).filter((x) => x.status === 'completed' && dayKeys.get(x.id) === sessionDay).sort((a, b) => a.endedAt!.localeCompare(b.endedAt!)) : [];
   const nth = todays.findIndex((x) => x.id === s.id) + 1;
   const animal = animalDef(s.animalId);
   // 這次遇見時的族群成長（階段、成長值、是否長大了）
@@ -97,7 +99,7 @@ export function Summary({
 
   return (
     <div className="result">
-      {!saved && <p className="result-title">{done ? (min > 0 ? `很棒！你今天已專注 ${todayMin} 分。` : '這段專注已記錄。') : `你今天已專注 ${todayMin} 分。`}</p>}
+      {!saved && <p className="result-title">{done ? (min > 0 ? `很棒！你${isToday ? '今天' : '這天'}已專注 ${todayMin} 分。` : '這段專注已記錄。') : `你${isToday ? '今天' : '這天'}已專注 ${todayMin} 分。`}</p>}
 
       <div className={done ? 'result-card' : 'result-card faded'}>
         <div className="result-card-scene" aria-hidden="true">
@@ -111,7 +113,7 @@ export function Summary({
           {s.tag}
           {hasTitle && <span className="result-task">・{s.taskTitle}</span>}
         </p>
-        <p className="result-plant-line">{done && nth > 0 ? `🔭 遇見了${animal.name}（${stageName(animal, stage)}）・今天第 ${nth} 次觀察` : `💨 ${animal.name}被嚇跑了`}</p>
+        <p className="result-plant-line">{done && nth > 0 ? `🔭 遇見了${animal.name}（${stageName(animal, stage)}）・${isToday ? '今天' : '這天'}第 ${nth} 次觀察` : `💨 ${animal.name}被嚇跑了`}</p>
         {s.note ? (
           <button className="result-note" onClick={() => setEditing(true)} aria-label="編輯專注筆記">
             {s.note}
@@ -220,7 +222,7 @@ function NoteEditor({ sessionId, onClose, onSaved }: { sessionId: string; onClos
   return (
     <div className="result note-editor">
       <div className="note-top">
-        <button className="icon-round" onClick={onClose} aria-label="不儲存，返回">
+        <button className="icon-round" onClick={onClose} aria-label="不儲存，返回" data-back>
           ✕
         </button>
         <button className="icon-round on" onClick={submit} aria-label="儲存筆記">

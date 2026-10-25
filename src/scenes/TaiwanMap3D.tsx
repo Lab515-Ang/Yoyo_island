@@ -18,9 +18,19 @@ export interface MapPin {
  * 地形：四個角都在島內的格子才畫，每個角依高度抬起、上色（平面著色，低多邊形風格）。
  * 海岸線用整個輪廓做一片平地墊在下面，邊緣才是平滑的、不會是鋸齒格子。
  */
+let terrainCache: THREE.BufferGeometry | null = null; // 地形不會變，切換分頁回來不用重算
 function useTerrain() {
-  return useMemo(() => {
+  return useMemo(() => (terrainCache ??= buildTerrain()), []);
+}
+function buildTerrain() {
+  {
     const step = 0.018;
+    // 每個格點只判斷一次在不在島內（四個角共用）
+    const cols = Math.ceil((122.0 - 119.98) / step) + 1;
+    const rows = Math.ceil((25.32 - 21.88) / step) + 1;
+    const ins: boolean[] = [];
+    for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) ins.push(inside(119.98 + i * step, 21.88 + j * step));
+    const at = (i: number, j: number) => ins[i * rows + j];
     const pos: number[] = [];
     const col: number[] = [];
     const c = new THREE.Color();
@@ -31,9 +41,11 @@ function useTerrain() {
       c.setRGB(...colorAt(h), THREE.SRGBColorSpace); // 頂點顏色要換成線性色彩，不然會偏白
       col.push(c.r, c.g, c.b);
     };
-    for (let lon = 119.98; lon < 122.0; lon += step)
-      for (let lat = 21.88; lat < 25.32; lat += step) {
-        if (!(inside(lon, lat) && inside(lon + step, lat) && inside(lon, lat + step) && inside(lon + step, lat + step))) continue;
+    for (let i = 0; i < cols - 1; i++)
+      for (let j = 0; j < rows - 1; j++) {
+        if (!(at(i, j) && at(i + 1, j) && at(i, j + 1) && at(i + 1, j + 1))) continue;
+        const lon = 119.98 + i * step;
+        const lat = 21.88 + j * step;
         // 兩個三角形（逆時針，法線朝上）
         vert(lon, lat);
         vert(lon + step, lat);
@@ -47,7 +59,7 @@ function useTerrain() {
     g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     g.computeVertexNormals();
     return g;
-  }, []);
+  }
 }
 
 /** 平滑的海岸線：整個島的輪廓（平地）。 */
@@ -60,7 +72,7 @@ function useCoast() {
   }, []);
 }
 
-/** 拖曳旋轉（左右轉、上下傾斜）；只在有變化時重畫。 */
+/** 左右拖曳旋轉（上下滑交給頁面捲動）；只在有變化時重畫。 */
 function DragRotate({ target }: { target: React.RefObject<THREE.Group | null> }) {
   const { gl, invalidate } = useThree();
   useEffect(() => {
@@ -71,7 +83,6 @@ function DragRotate({ target }: { target: React.RefObject<THREE.Group | null> })
       const g = target.current;
       if (!last || !g) return;
       g.rotation.y += (e.clientX - last.x) * 0.008;
-      g.rotation.x = Math.max(-0.35, Math.min(0.5, g.rotation.x + (e.clientY - last.y) * 0.004));
       last = { x: e.clientX, y: e.clientY };
       invalidate();
     };
@@ -83,13 +94,14 @@ function DragRotate({ target }: { target: React.RefObject<THREE.Group | null> })
     el.addEventListener('pointerdown', down);
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
-    el.style.touchAction = 'none';
+    window.addEventListener('pointercancel', up); // 瀏覽器接手捲動時
     return () => {
       clearTimeout(first);
       document.removeEventListener('visibilitychange', visible);
       el.removeEventListener('pointerdown', down);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
     };
   }, [gl, invalidate, target]);
   return null;

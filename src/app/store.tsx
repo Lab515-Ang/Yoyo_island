@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as storage from '../data/storage';
 import { newDemoSave } from '../domain/save';
 import type { AppMode, SaveFile } from '../domain/types';
@@ -108,8 +108,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
     toastTimer.current = window.setTimeout(() => setToast(null), 4200);
   }, []);
 
+  const value = useMemo(
+    () => ({ mode, loaded, save: loaded.status === 'ok' ? loaded.save : null, stale, writeError, update, replace, switchMode, resetDemo, resetAll, toast, notify }),
+    [mode, loaded, stale, writeError, update, replace, switchMode, resetDemo, resetAll, toast, notify],
+  );
   return (
-    <Ctx.Provider value={{ mode, loaded, save: loaded.status === 'ok' ? loaded.save : null, stale, writeError, update, replace, switchMode, resetDemo, resetAll, toast, notify }}>
+    <Ctx.Provider value={value}>
       {children}
     </Ctx.Provider>
   );

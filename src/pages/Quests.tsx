@@ -5,8 +5,8 @@ import { activeProject, animalUnlocked, animalsUnlockedBy, coins, growthOf, hatc
 import { WeeklyGoal } from './Together';
 
 /** 任務：修復工程（摘要，完整的在「我的小島」）、本週專注時間目標、探索與族群成長。 */
-export function Quests({ onIsland, onShop }: { onIsland: () => void; onShop: () => void }) {
-  const { save } = useSave();
+export function Quests({ onIsland, onShop, onLobby }: { onIsland: () => void; onShop: () => void; onLobby: () => void }) {
+  const { save, update } = useSave();
   const project = activeProject(save);
   const got = project ? (projectRow(save, project.id)?.contributedPoints ?? 0) : 0;
   const wallet = coins(save);
@@ -56,7 +56,14 @@ export function Quests({ onIsland, onShop }: { onIsland: () => void; onShop: () 
             {closest.a.name}最接近成年：成長 {closest.g.growth} / {GROWTH_MAX}（現在是{stageName(closest.a, closest.g.stage)}），再遇見幾次就能看到{stageName(closest.a, 2)}。
           </p>
         )}
-        {fresh.length > 0 && <p className="small">還沒遇見過：{fresh.map((a) => a.name).join('、')}。回大廳把探索目標換成牠試試看。</p>}
+        {fresh.length > 0 && (
+          <>
+            <p className="small">還沒遇見過：{fresh.map((a) => a.name).join('、')}。</p>
+            <button className="ghost" onClick={() => update((s) => ({ ...s, settings: { ...s.settings, eggId: fresh[0].id } })) && onLobby()}>
+              🔍 去找{fresh[0].name}
+            </button>
+          </>
+        )}
         {affordable.length > 0 && (
           <>
             <p className="small">

@@ -16,7 +16,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
     return () => d.close();
   }, []);
   return (
-    <dialog ref={ref} className="modal" onCancel={(e) => (e.preventDefault(), onClose())} onClick={(e) => e.target === ref.current && onClose()}>
+    <dialog ref={ref} className="modal" onCancel={(e) => (e.preventDefault(), onClose())} onClose={onClose} onClick={(e) => e.target === ref.current && onClose()}>
       <div className="modal-body">
         <header className="modal-head">
           <h2>{title}</h2>

@@ -5,7 +5,7 @@ import { fmtMinutes, Modal } from '../components/ui';
 import { renderShareCard, ShareModal } from '../components/ShareCard';
 import { AnimalArt, HatchPlot } from '../components/Animal';
 import { addSegmentsByHour, localDateKey, localHourKey, shiftDateKey, weekStartKey } from '../domain/focus';
-import { endedSessions, sightings } from '../domain/game';
+import { endedDayKeys, endedSessions, perSave, sightings } from '../domain/game';
 import type { SaveFile } from '../domain/types';
 
 type Range = 'day' | 'week' | 'month' | 'year';
@@ -44,12 +44,30 @@ const shortTime = (ms: number) => {
   return m >= 60 ? `${Math.floor(m / 60)} 時 ${m % 60} 分` : `${m} 分`;
 };
 
-/** 每小時的有效專注時間（含提前結束的那幾段；暫停不算），可依標籤篩選。 */
+/** 每個標籤每小時的有效專注時間（含提前結束的那幾段；暫停不算），依存檔快取。 */
+const tagHourly = perSave((save) => {
+  const m = new Map<string, Map<string, number>>();
+  for (const s of endedSessions(save)) {
+    let h = m.get(s.tag);
+    if (!h) m.set(s.tag, (h = new Map()));
+    addSegmentsByHour(h, s.segments, save.profile.timezone);
+  }
+  return m;
+});
+
+/** 選取標籤合計的每小時專注時間（依存檔和標籤篩選快取：重新打開這頁不用整份紀錄重算）。 */
+const hourlyCache = new WeakMap<SaveFile, Map<string, Map<string, number>>>();
 function useHourly(save: SaveFile, tags: string[] | null) {
   const key = tags?.join('|') ?? '';
   return useMemo(() => {
-    const m = new Map<string, number>();
-    for (const s of endedSessions(save)) if (!tags || tags.includes(s.tag)) addSegmentsByHour(m, s.segments, save.profile.timezone);
+    let byTags = hourlyCache.get(save);
+    if (!byTags) hourlyCache.set(save, (byTags = new Map()));
+    let m = byTags.get(key);
+    if (!m) {
+      m = new Map<string, number>();
+      for (const [t, h] of tagHourly(save)) if (!tags || tags.includes(t)) for (const [k, v] of h) m.set(k, (m.get(k) ?? 0) + v);
+      byTags.set(key, m);
+    }
     return m;
   }, [save, key]); // eslint-disable-line react-hooks/exhaustive-deps
 }
@@ -135,8 +153,9 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
   // 選單：內建、自訂，加上紀錄裡出現過的標籤（自訂標籤刪掉後，舊紀錄還是篩得到）
   const tags = [...new Set([...TAGS, ...save.settings.customTags, ...endedSessions(save).map((s) => s.tag)])].filter(Boolean);
 
+  const dayKeys = endedDayKeys(save);
   const shown = endedSessions(save)
-    .filter((s) => inTags(s.tag) && inRange(range, cursor, localDateKey(Date.parse(s.endedAt!), tz)))
+    .filter((s) => inTags(s.tag) && inRange(range, cursor, dayKeys.get(s.id)!))
     .sort((a, b) => a.endedAt!.localeCompare(b.endedAt!));
   const hatched = shown.filter((s) => s.status === 'completed');
   const isNow = inRange(range, cursor, today);
@@ -162,8 +181,14 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
   }
 
   // 專注項目分布（看全部標籤時才有意義）
+  // 只算落在這個範圍內的時間（跨過午夜等邊界的專注只算一部分，和總計一致）
   const byTag = new Map<string, number>();
-  for (const s of shown) byTag.set(s.tag, (byTag.get(s.tag) ?? 0) + s.accumulatedMs);
+  for (const [t, h] of tagHourly(save)) {
+    if (!inTags(t)) continue;
+    let v = 0;
+    for (const [k, ms] of h) if (inRange(range, cursor, k.slice(0, 10))) v += ms;
+    byTag.set(t, v);
+  }
   const tagRows = [...byTag].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
   const tagSum = tagRows.reduce((a, [, v]) => a + v, 0);
   let acc = 0;
@@ -244,7 +269,7 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
             ›
           </button>
         </div>
-        <HatchPlot sessions={shown} cols={PLOT[range].cols} minCells={PLOT[range].min} />
+        <HatchPlot sessions={shown} cols={PLOT[range].cols} minCells={PLOT[range].min} max={PLOT[range].cols * 8} />
         <p className="small center-text">
           {shown.length ? (
             <>
@@ -307,7 +332,7 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
                     <span className="rank-main">
                       <span className="row between">
                         <span>{animalDef(id).name}</span>
-                        <span className="small muted">{c} 隻</span>
+                        <span className="small muted">{c} 次</span>
                       </span>
                       <span className="rank-bar" style={{ width: `${(c / animalRows[0][1]) * 100}%` }} />
                     </span>

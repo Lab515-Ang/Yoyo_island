@@ -38,10 +38,19 @@ function TaiwanMap2D({ pins, onSelect }: { pins: MapPin[]; onSelect: (id: string
         const a = animalDef(p.id);
         const [x, z] = project(a.habitat.lon, a.habitat.lat);
         return (
-          <g key={p.id} transform={`translate(${x - s / 2} ${z - s})`} onClick={() => onSelect(a.id)} style={{ cursor: 'pointer' }} opacity={p.state === 'locked' ? 0.45 : p.state === 'legend' ? 0.35 : 1}>
-            <foreignObject width={s} height={s}>
-              <AnimalArt id={a.id} stage={p.state === 'met' ? p.stage : 2} size="100%" hidden={p.state !== 'met'} />
-            </foreignObject>
+          <g
+            key={p.id}
+            role="button"
+            tabIndex={0}
+            aria-label={p.state === 'met' ? a.name : '還沒遇見的動物'}
+            onClick={() => onSelect(a.id)}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect(a.id)}
+            style={{ cursor: 'pointer' }}
+            opacity={p.state === 'locked' ? 0.45 : p.state === 'legend' ? 0.35 : 1}
+          >
+            <svg x={x - s / 2} y={z - s} width={s} height={s} viewBox="0 0 100 100">
+              <AnimalArt id={a.id} stage={p.state === 'met' ? p.stage : 2} size={100} hidden={p.state !== 'met'} />
+            </svg>
           </g>
         );
       })}

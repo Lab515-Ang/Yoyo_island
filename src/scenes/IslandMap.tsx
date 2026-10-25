@@ -58,7 +58,7 @@ export function IslandMap({ save, onEnter }: { save: SaveFile; onEnter: (h: Habi
             {open &&
               animals.map((a, i) => (
                 <svg key={a.id} x={x - 44 + i * 30} y={y + 22} width="26" height="26" viewBox="0 0 100 100">
-                  <AnimalArt id={a.animalId} size={100} />
+                  <AnimalArt id={a.animalId} stage={a.stage} size={100} />
                 </svg>
               ))}
             <rect x={x - 54} y={y + (open ? 50 : 14)} width="108" height="18" rx="9" fill="rgba(255,252,244,.92)" />

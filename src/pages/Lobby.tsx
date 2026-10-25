@@ -160,7 +160,7 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
         開始專注
       </button>
       <InstallHint />
-      <p className="lobby-hint">{timerMode === 'countdown' ? '開始後 10 秒內可以取消；之後提前結束將一無所獲。' : `至少 ${MIN_FOCUS_MINUTES} 分鐘才算完成，最多 ${MAX_FOCUS_MINUTES} 分鐘。`}</p>
+      <p className="lobby-hint">{timerMode === 'countdown' ? `開始後 10 秒內可以取消；之後提前結束，${animalDef(egg).name}會被嚇跑。` : `至少 ${MIN_FOCUS_MINUTES} 分鐘才算完成，最多 ${MAX_FOCUS_MINUTES} 分鐘。`}</p>
 
       {sheet === 'tag' && (
         <Modal title="標籤" onClose={() => setSheet(null)}>
@@ -318,7 +318,7 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
 
       {sheet === 'egg' && (
         <Modal title="這次想去找誰？" onClose={() => setSheet(null)}>
-          <p className="small muted">專注時牠會慢慢靠近，完成就遇見牠，留下一筆觀察紀錄；提前放棄牠就被嚇跑了。同一種動物遇見越多次，族群越穩定，看到的就越成熟（60 分鐘以上的探索算 2 次）。</p>
+          <p className="small muted">專注時牠會慢慢靠近，完成就遇見牠，留下一筆觀察紀錄；提前放棄牠就被嚇跑了。同一種動物遇見越多次，族群越穩定，看到的就越成熟（60 分鐘以上的探索算 2 點成長）。</p>
           <div className="plant-pick" role="radiogroup" aria-label="動物">
             {ANIMALS.map((a) => {
               const ok = animalUnlocked(save, a);

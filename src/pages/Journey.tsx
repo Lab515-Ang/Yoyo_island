@@ -5,7 +5,7 @@ import { AnimalArt, TrackArt } from '../components/Animal';
 import { Modal } from '../components/ui';
 import { renderSessionCard, ShareModal } from '../components/ShareCard';
 import { localDateKey, shiftDateKey } from '../domain/focus';
-import { animalsUnlockedBy, editSessionNote, endedSessions, islandId, NOTE_MAX, sightings } from '../domain/game';
+import { animalsUnlockedBy, editSessionNote, endedSessions, islandId, NOTE_MAX, perSave, sightings } from '../domain/game';
 import type { FocusSession, SaveFile } from '../domain/types';
 import { Codex } from './Codex';
 
@@ -20,10 +20,17 @@ type Entry =
 
 const WEEK = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
 // 時間一律用玩家設定的時區（和日期分組一致）
-const hm = (t: number, tz: string) => new Date(t).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz });
+const fmts = new Map<string, Intl.DateTimeFormat>(); // 建立格式器很慢，依時區重用
+const hm = (t: number, tz: string) => {
+  let f = fmts.get(tz);
+  if (!f) fmts.set(tz, (f = new Intl.DateTimeFormat('zh-TW', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz })));
+  return f.format(t);
+};
 const minutesOf = (s: FocusSession) => Math.floor(s.accumulatedMs / 60000);
 
-function entriesOf(save: SaveFile, sights: ReturnType<typeof sightings>): Entry[] {
+// 依存檔快取：打開選單、分享等重繪時不用整份歷史重排
+const entriesOf = perSave((save: SaveFile): Entry[] => {
+  const sights = sightings(save);
   const out: Entry[] = [];
   for (const s of endedSessions(save)) {
     out.push({ t: Date.parse(s.startedAt), kind: 'start', s });
@@ -36,7 +43,7 @@ function entriesOf(save: SaveFile, sights: ReturnType<typeof sightings>): Entry[
   // 同一時間：結束的事（解鎖、長大、遇見）排在開始前面（時間軸由新到舊）
   const order = { project: 0, shop: 1, grow: 2, end: 3, start: 4 };
   return out.sort((a, b) => b.t - a.t || order[a.kind] - order[b.kind]);
-}
+});
 
 /** 日期標頭：「今天 / 10月25日」「週五 / 10月23日」 */
 function dayLabel(key: string, today: string) {
@@ -128,9 +135,13 @@ function Timeline() {
   const sights = sightings(save);
   const stageAt = (s: FocusSession) => sights.get(s.id)?.stage ?? 2;
   const groups: { key: string; items: Entry[] }[] = [];
-  for (const e of entriesOf(save, sights)) {
+  // 由新到舊分組；只需要畫出來的天數（多一組用來判斷還有沒有更早的）
+  for (const e of entriesOf(save)) {
     const key = localDateKey(e.t, tz);
-    if (groups[groups.length - 1]?.key !== key) groups.push({ key, items: [] });
+    if (groups[groups.length - 1]?.key !== key) {
+      if (groups.length > days) break;
+      groups.push({ key, items: [] });
+    }
     groups[groups.length - 1].items.push(e);
   }
   if (!groups.length) return <p className="card muted">還沒有紀錄。完成第一次探索，時間歷程就會從這裡開始。</p>;
@@ -219,8 +230,8 @@ function Timeline() {
 }
 
 /** 我的歷程：時間歷程與觀察圖鑑。 */
-export function Journey() {
-  const [tab, setTab] = useState<'timeline' | 'codex'>('timeline');
+export function Journey({ initialTab = 'timeline' }: { initialTab?: 'timeline' | 'codex' }) {
+  const [tab, setTab] = useState(initialTab);
   return (
     <div className="page">
       <h1>我的歷程</h1>

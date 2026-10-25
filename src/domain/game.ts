@@ -1,6 +1,6 @@
 // 經濟、工程、探索動物與統計：全部是對 SaveFile 的純函式
 import { ANIMALS, HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, PROJECTS, SOUNDS, animalDef, growthFor, projectDef, stageOfGrowth, type AnimalDef, type ProjectDef, type SoundUnlock } from '../content/config';
-import { addSegmentsByDay, createSession, isOpen, settle } from './focus';
+import { addSegmentsByDay, createSession, isOpen, localDateKey, settle } from './focus';
 import type { FocusSession, HabitatId, ID, SaveFile, TimerMode } from './types';
 
 export const POINT_MS = 60_000;
@@ -76,12 +76,31 @@ export const chosenAnimal = (save: SaveFile) => {
 /** 自己的專注中，有結果（完成＝遇見、放棄＝被嚇跑）的探索。 */
 export const endedSessions = (save: SaveFile) => save.sessions.filter((s) => s.userId === save.profile.id && s.endedAt && (s.status === 'completed' || s.status === 'abandoned'));
 
+/**
+ * 依存檔快取：存檔每次修改都是新的物件，所以同一份存檔算過一次就能直接重用
+ * （畫面每次重繪、每種動物都會問一次，紀錄多了以後很耗時）。回傳的資料只能讀、不要修改。
+ */
+export function perSave<T>(fn: (save: SaveFile) => T) {
+  const cache = new WeakMap<SaveFile, T>();
+  return (save: SaveFile) => {
+    if (!cache.has(save)) cache.set(save, fn(save));
+    return cache.get(save)!;
+  };
+}
+
+/** 每段結束的專注是本地哪一天（YYYY-MM-DD，依玩家時區；依存檔快取，時區換算很耗時）。 */
+export const endedDayKeys = perSave((save) => {
+  const m = new Map<ID, string>();
+  for (const s of save.sessions) if (s.endedAt) m.set(s.id, localDateKey(Date.parse(s.endedAt), save.profile.timezone));
+  return m;
+});
+
 /** 每種動物遇見幾次（完成的專注才算）。 */
-export function hatchCounts(save: SaveFile) {
+export const hatchCounts = perSave((save) => {
   const m = new Map<string, number>();
   for (const s of endedSessions(save)) if (s.status === 'completed') m.set(animalDef(s.animalId).id, (m.get(animalDef(s.animalId).id) ?? 0) + 1);
   return m;
-}
+});
 
 /** 可以去找、但還沒遇見過的動物（大廳標示「新」）。一開始就有的不算新。 */
 export const newAnimals = (save: SaveFile) => {
@@ -95,7 +114,7 @@ export const newAnimals = (save: SaveFile) => {
 const alwaysAdult = (animalId: string) => animalDef(animalId).unlock.kind === 'iap';
 
 /** 每次遇見時的族群成長（依時間順序累計）：當下的階段、成長值，以及這次是否讓族群長大。 */
-export function sightings(save: SaveFile) {
+export const sightings = perSave((save: SaveFile) => {
   const growth = new Map<string, number>();
   const out = new Map<string, { stage: number; growth: number; grew: boolean }>();
   for (const s of [...endedSessions(save)].sort((a, b) => a.endedAt!.localeCompare(b.endedAt!))) {
@@ -108,13 +127,17 @@ export function sightings(save: SaveFile) {
     out.set(s.id, { stage, growth: after, grew: before > 0 && !alwaysAdult(id) && stage > stageOfGrowth(before) });
   }
   return out;
-}
+});
 
 /** 這種動物目前的族群成長值與階段（森林裡同種的動物都用這個階段）。 */
+const growthAll = perSave((save) => {
+  const m = new Map<string, number>();
+  for (const s of endedSessions(save)) if (s.status === 'completed') m.set(animalDef(s.animalId).id, (m.get(animalDef(s.animalId).id) ?? 0) + growthFor(Math.floor(s.accumulatedMs / POINT_MS)));
+  return m;
+});
 export function growthOf(save: SaveFile, animalId: string) {
   const id = animalDef(animalId).id;
-  let g = 0;
-  for (const s of endedSessions(save)) if (s.status === 'completed' && animalDef(s.animalId).id === id) g += growthFor(Math.floor(s.accumulatedMs / POINT_MS));
+  const g = growthAll(save).get(id) ?? 0;
   return { growth: g, stage: alwaysAdult(id) ? 2 : stageOfGrowth(g) };
 }
 
@@ -122,7 +145,8 @@ export function growthOf(save: SaveFile, animalId: string) {
 export function sceneAnimals(save: SaveFile, limit = 6) {
   const seen = new Set<string>();
   const out: { id: string; animalId: string; stage: number }[] = [];
-  for (const s of [...endedSessions(save)].reverse()) {
+  // 依結束時間由新到舊（不要依陣列順序：示範快轉等會插入較早的紀錄）
+  for (const s of [...endedSessions(save)].sort((x, y) => y.endedAt!.localeCompare(x.endedAt!))) {
     const a = animalDef(s.animalId).id;
     if (s.status !== 'completed' || seen.has(a)) continue;
     seen.add(a);
@@ -289,12 +313,18 @@ export function habitatProgress(save: SaveFile, habitatId: HabitatId) {
 // ---------- 統計 ----------
 
 /** 今日/每日時間包含 completed 與 abandoned 的有效時間。 */
-export function minutesByDay(save: SaveFile, userId: ID = save.profile.id) {
-  const totals = new Map<string, number>();
+const byDayAll = perSave((save) => {
+  const out = new Map<ID, Map<string, number>>();
   for (const s of save.sessions) {
-    if (s.userId === userId && s.islandId === islandId(save) && !isOpen(s)) addSegmentsByDay(totals, s.segments, save.profile.timezone);
+    if (s.islandId !== islandId(save) || isOpen(s)) continue;
+    if (!out.has(s.userId)) out.set(s.userId, new Map());
+    addSegmentsByDay(out.get(s.userId)!, s.segments, save.profile.timezone);
   }
-  return totals;
+  return out;
+});
+/** 每天的專注時間（依存檔快取；回傳的資料只能讀）。 */
+export function minutesByDay(save: SaveFile, userId: ID = save.profile.id) {
+  return byDayAll(save).get(userId) ?? new Map<string, number>();
 }
 
 export function contributionsByUser(save: SaveFile) {

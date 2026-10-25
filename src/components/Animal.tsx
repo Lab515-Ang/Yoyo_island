@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useSave } from '../app/store';
 import { animalDef, stageName, type AnimalDef } from '../content/config';
 import { sightings } from '../domain/game';
@@ -213,19 +213,26 @@ export function HatchCell({ s, stage = 2, fresh = false }: { s: FocusSession; st
   );
 }
 
-/** 觀察紀錄格子：一格一次探索，空格是還沒走過的草地。 */
-export function HatchPlot({ sessions, cols, minCells, freshId }: { sessions: FocusSession[]; cols: number; minCells: number; freshId?: string }) {
+/**
+ * 觀察紀錄格子：一格一次探索，空格是還沒走過的草地。
+ * 最多畫 max 格（只畫最近的）：一年的紀錄可能上千次，全部畫出來手機會卡。
+ */
+export function HatchPlot({ sessions: all, cols, minCells, max = Infinity, freshId }: { sessions: FocusSession[]; cols: number; minCells: number; max?: number; freshId?: string }) {
   const { save } = useSave();
-  const stages = useMemo(() => sightings(save), [save]);
+  const stages = sightings(save);
+  const sessions = all.length > max ? all.slice(-max) : all;
   const total = Math.max(minCells, Math.ceil(sessions.length / cols) * cols);
   return (
-    <div className="hatch-plot" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
-      {sessions.map((s) => (
-        <HatchCell key={s.id} s={s} stage={stages.get(s.id)?.stage ?? 2} fresh={s.id === freshId} />
-      ))}
-      {Array.from({ length: total - sessions.length }, (_, i) => (
-        <div key={`e${i}`} className="hatch-cell" aria-hidden="true" />
-      ))}
-    </div>
+    <>
+      <div className="hatch-plot" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+        {sessions.map((s) => (
+          <HatchCell key={s.id} s={s} stage={stages.get(s.id)?.stage ?? 2} fresh={s.id === freshId} />
+        ))}
+        {Array.from({ length: total - sessions.length }, (_, i) => (
+          <div key={`e${i}`} className="hatch-cell" aria-hidden="true" />
+        ))}
+      </div>
+      {all.length > sessions.length && <p className="small muted center-text">格子只放最近的 {sessions.length} 次，較早的 {all.length - sessions.length} 次一樣算在統計裡。</p>}
+    </>
   );
 }

@@ -430,16 +430,22 @@ function FpsCap({ fps }: { fps: number }) {
 }
 export default function Scene3D({ done, prog, reducedMotion, onSelect, onSlow, backdrop, bubble, lowPower, animals = [] }: SceneProps) {
   const [hidden, setHidden] = useState(document.hidden);
+  const [offscreen, setOffscreen] = useState(false);
+  const canvas = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const on = () => setHidden(document.hidden);
     document.addEventListener('visibilitychange', on);
-    return () => document.removeEventListener('visibilitychange', on);
+    const io = new IntersectionObserver(([e]) => setOffscreen(!e.isIntersecting));
+    if (canvas.current) io.observe(canvas.current);
+    return () => (document.removeEventListener('visibilitychange', on), io.disconnect());
   }, []);
+  const still = hidden || offscreen;
   const props = { done, prog: prog ?? ((id: string) => (done(id) ? 1 : 0)), still: reducedMotion };
   return (
     <Canvas
-      // 背景分頁停止渲染；低動態只在變化時重繪；動作都很輕微，最多每秒 30 張（省電模式 12 張）
-      frameloop={hidden ? 'never' : 'demand'}
+      ref={canvas}
+      // 背景分頁、捲出畫面時停止渲染；低動態只在變化時重繪；動作都很輕微，最多每秒 30 張（省電模式 12 張）
+      frameloop={still ? 'never' : 'demand'}
       dpr={lowPower ? 1 : [1, 1.5]}
       camera={{ fov: 40, near: 0.1, far: 80 }}
       gl={{ antialias: true, powerPreference: 'low-power' }}
@@ -450,7 +456,7 @@ export default function Scene3D({ done, prog, reducedMotion, onSelect, onSlow, b
       <directionalLight position={[5, 9, 5]} intensity={1.5} color="#fff0d2" />
       <FitCamera dist={10.5 * (bubble ? 0.78 : 1)} raise={backdrop ? 0.2 : 0} />
       {!reducedMotion && !lowPower && <PerfWatch onSlow={onSlow} />}
-      {!reducedMotion && !hidden && <FpsCap fps={lowPower ? 12 : 30} />}
+      {!reducedMotion && !still && <FpsCap fps={lowPower ? 12 : 30} />}
       <Forest {...props} />
       {animals.slice(0, SPOTS.length).map((a, i) => (
         <AnimalSprite key={a.id} a={a} spot={SPOTS[i]} still={reducedMotion} onSelect={onSelect} />

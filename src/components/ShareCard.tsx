@@ -7,6 +7,8 @@ import { AnimalArt, TrackArt } from './Animal';
 import { Modal } from './ui';
 import { saveImage, shareImage } from '../platform';
 
+const clip = (t: string, n: number) => (t.length > n ? t.slice(0, n - 1) + '…' : t);
+
 export interface ShareCardData {
   title: string; // 例如「10/24（昨天）」
   subtitle: string; // 例如「全部標籤」
@@ -73,7 +75,7 @@ function cardSvg(d: ShareCardData) {
 <rect x="16" y="16" width="${W - 32}" height="${H - 32}" rx="24" fill="#fffbf2" stroke="#e7dcc5"/>
 <rect x="16" y="16" width="${W - 32}" height="64" rx="24" fill="#4f7a55"/><rect x="16" y="56" width="${W - 32}" height="24" fill="#4f7a55"/>
 <text x="${W / 2}" y="58" font-size="22" font-weight="700" fill="#fffdf6" text-anchor="middle">專注成果統計圖</text>
-<text x="40" y="122" font-size="18" fill="#6d7f6f">${esc(d.title)}・${esc(d.subtitle)}</text>
+<text x="40" y="122" font-size="18" fill="#6d7f6f">${esc(clip(`${d.title}・${d.subtitle}`, 26))}</text>
 <text x="40" y="166" font-size="34" font-weight="700" fill="#2f4a36">${esc(d.total)}</text>
 <text x="${W - 40}" y="166" font-size="16" fill="#6d7f6f" text-anchor="end">${esc(d.counts)}</text>
 <rect x="${plotX - 8}" y="${plotY - 8}" width="${plotW + 16}" height="${plotH + 16}" rx="18" fill="#a9cc8f"/>
@@ -123,9 +125,9 @@ function sessionSvg({ session: s, when, title, stage }: SessionCardData) {
 <rect x="16" y="16" width="${w - 32}" height="${h - 32}" rx="24" fill="#fffbf2" stroke="#e7dcc5"/>
 <circle cx="${w / 2}" cy="200" r="130" fill="${done ? '#dcebc9' : '#e6e1d6'}"/>
 ${place(art, done ? w / 2 - 110 : w / 2 - 85, done ? 90 : 115, done ? 220 : 170)}
-<text x="${w / 2}" y="378" font-size="28" font-weight="700" fill="#2f4a36" text-anchor="middle">${esc(title)}</text>
+<text x="${w / 2}" y="378" font-size="28" font-weight="700" fill="#2f4a36" text-anchor="middle">${esc(clip(title, 16))}</text>
 <text x="${w / 2}" y="414" font-size="17" fill="#6d7f6f" text-anchor="middle">${esc(when)}・${min} 分鐘</text>
-${meta ? `<text x="${w / 2}" y="446" font-size="16" fill="#4f7a55" text-anchor="middle">${esc(meta)}</text>` : ''}
+${meta ? `<text x="${w / 2}" y="446" font-size="16" fill="#4f7a55" text-anchor="middle">${esc(clip(meta, 28))}</text>` : ''}
 ${note.map((l, i) => `<text x="${w / 2}" y="${490 + i * 26}" font-size="16" fill="#2f4a36" text-anchor="middle">${esc(l)}</text>`).join('')}
 <text x="${w / 2}" y="${h - 36}" font-size="15" fill="#8fb38a" text-anchor="middle">🌿 棲光小島</text>
 </svg>`;

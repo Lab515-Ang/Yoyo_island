@@ -103,6 +103,7 @@ function Main() {
   const [summaryId, setSummaryId] = useState<string | null>(null);
   const [resting, setResting] = useState(false);
   const [recordsTag, setRecordsTag] = useState<string | null>(null);
+  const [journeyTab, setJourneyTab] = useState<'timeline' | 'codex'>('timeline');
   const [navOpen, setNavOpen] = useState(false); // 手機：抽屜
   const [collapsed, setCollapsedState] = useState(readCollapsed); // 桌面：收合成圖示列
   const setCollapsed = (fn: (c: boolean) => boolean) =>
@@ -219,9 +220,11 @@ function Main() {
   // Android 返回鍵：先關彈窗，再回上一層，最後才回到桌面；專注中不做事（避免誤觸離開）
   const backRef = useRef(() => {});
   backRef.current = () => {
-    const dialog = document.querySelector<HTMLDialogElement>('dialog[open]');
-    if (dialog) return void dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
     if (guardApp) return; // 攔截畫面要等倒數，不能用返回鍵跳過
+    const dialog = [...document.querySelectorAll<HTMLDialogElement>('dialog[open]')].pop(); // 最上層的那個
+    if (dialog) return void dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
+    const inner = document.querySelector<HTMLElement>('[data-back]'); // 畫面裡自己的「返回」（例如筆記編輯器）
+    if (inner) return inner.click();
     if (open) return;
     if (navOpen) return setNavOpen(false);
     if (resting || summaryId) return (setResting(false), go('lobby'));
@@ -244,6 +247,7 @@ function Main() {
   const go = (v: View, h: HabitatId | null = null) => {
     setSummaryId(null);
     setRecordsTag(null);
+    setJourneyTab('timeline');
     setView(v);
     setHabitat(h);
     setNavOpen(false);
@@ -307,12 +311,12 @@ function Main() {
         <main className="content" key={mode}>
           {view === 'lobby' && <Lobby onStarted={() => setSummaryId(null)} onShop={() => go('shop')} />}
           {view === 'lobby' && save.sessions.filter((s) => s.endedAt).length === 1 && <FirstTour />}
-          {view === 'island' && <IslandPage onLobby={() => go('lobby')} />}
-          {view === 'quests' && <Quests onIsland={() => go('island')} onShop={() => go('shop')} />}
+          {view === 'island' && <IslandPage onLobby={() => go('lobby')} onCodex={() => (go('journey'), setJourneyTab('codex'))} />}
+          {view === 'quests' && <Quests onIsland={() => go('island')} onShop={() => go('shop')} onLobby={() => go('lobby')} />}
           {view === 'records' && <Records key={recordsTag ?? 'all'} initialTag={recordsTag} />}
           {view === 'guard' && <GuardPage />}
           {view === 'sounds' && <Sounds onSettings={() => go('settings')} />}
-          {view === 'journey' && <Journey />}
+          {view === 'journey' && <Journey key={journeyTab} initialTab={journeyTab} />}
           {view === 'friends' && <Together />}
           {view === 'achievements' && <NotYet title="成就" />}
           {view === 'shop' && <Shop onLobby={() => go('lobby')} />}
