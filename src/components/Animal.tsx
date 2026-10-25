@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactElement, type ReactNode } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { useSave } from '../app/store';
 import { animalDef, stageName, type AnimalDef } from '../content/config';
 import { sightings } from '../domain/game';
@@ -200,31 +201,84 @@ export function TrackArt({ id, progress = 0, fled = false, stage = 2, size = 64 
   );
 }
 
+// 格子裡的動物畫成圖片並依「物種：階段」快取：一年的格子可能上千個，每格都畫一份 SVG 手機會卡
+const cellImages = new Map<string, string>();
+const cellImage = (key: string, make: () => ReactElement) => {
+  let url = cellImages.get(key);
+  if (!url) cellImages.set(key, (url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(renderToStaticMarkup(make()))}`));
+  return url;
+};
+
 /** 一次探索在紀錄裡的樣子：遇見的動物（當時的成長階段），或被嚇跑的剪影。 */
 export function HatchCell({ s, stage = 2, fresh = false }: { s: FocusSession; stage?: number; fresh?: boolean }) {
   const min = Math.floor(s.accumulatedMs / 60000);
   const a = animalDef(s.animalId);
   const done = s.status === 'completed';
   const label = `${done ? `遇見${a.name}（${stageName(a, stage)}）` : `${a.name}被嚇跑了`}・${s.tag}・${min} 分鐘`;
+  const src = done ? cellImage(`${a.id}:${stage}`, () => <AnimalArt id={a.id} stage={stage} size={100} />) : cellImage(`${a.id}:fled`, () => <TrackArt id={a.id} fled size={100} />);
   return (
     <div className={fresh ? 'hatch-cell filled fresh' : 'hatch-cell filled'} role="img" aria-label={label} title={label}>
-      {done ? <AnimalArt id={a.id} stage={stage} size="100%" /> : <TrackArt id={a.id} fled size="80%" />}
+      <img src={src} alt="" className={done ? '' : 'fled'} />
     </div>
   );
 }
 
-/**
- * 觀察紀錄格子：一格一次探索，空格是還沒走過的草地。
- * 最多畫 max 格（只畫最近的）：一年的紀錄可能上千次，全部畫出來手機會卡。
- */
-export function HatchPlot({ sessions: all, cols, minCells, max = Infinity, freshId }: { sessions: FocusSession[]; cols: number; minCells: number; max?: number; freshId?: string }) {
+/** 土地隨著數量往外擴張：至少 base 欄，放不下就變成更大的方形（一天最多 144 次 → 12 × 12）。 */
+export const plotCols = (n: number, base: number) => Math.max(base, Math.ceil(Math.sqrt(n)));
+const PLOT_CAP = 10_000; // ponytail: 100 × 100 格以上只畫最近的；真的有人超過再改成分批畫
+
+/** 觀察紀錄格子：一格一次探索，空格是還沒走過的草地；數量多了土地自動變大、格子變小。 */
+export function HatchPlot({ sessions: all, cols: base, minCells, freshId }: { sessions: FocusSession[]; cols: number; minCells: number; freshId?: string }) {
   const { save } = useSave();
   const stages = sightings(save);
-  const sessions = all.length > max ? all.slice(-max) : all;
+  const sessions = all.length > PLOT_CAP ? all.slice(-PLOT_CAP) : all;
+  const cols = plotCols(sessions.length, base);
   const total = Math.max(minCells, Math.ceil(sessions.length / cols) * cols);
+  const big = cols > 20; // 格子只剩幾個像素：整片畫在一張 canvas 上（上千個元素切換時會卡）
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const srcOf = (s: FocusSession) => {
+    const id = animalDef(s.animalId).id;
+    const stage = stages.get(s.id)?.stage ?? 2;
+    return s.status === 'completed' ? cellImage(`${id}:${stage}`, () => <AnimalArt id={id} stage={stage} size={100} />) : cellImage(`${id}:fled`, () => <TrackArt id={id} fled size={100} />);
+  };
+  useEffect(() => {
+    const c = canvas.current;
+    if (!big || !c) return;
+    const CELL = 24;
+    const rows = Math.ceil(total / cols);
+    c.width = cols * CELL;
+    c.height = rows * CELL;
+    const srcs = sessions.map(srcOf);
+    const imgs = new Map<string, HTMLImageElement>();
+    for (const u of new Set(srcs)) {
+      const img = new Image();
+      img.src = u;
+      imgs.set(u, img);
+    }
+    let alive = true;
+    void Promise.all([...imgs.values()].map((i) => i.decode().catch(() => {}))).then(() => {
+      const g = c.getContext('2d');
+      if (!alive || !g) return;
+      g.clearRect(0, 0, c.width, c.height);
+      srcs.forEach((u, i) => g.drawImage(imgs.get(u)!, (i % cols) * CELL, Math.floor(i / cols) * CELL, CELL, CELL));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [big, sessions, cols, total]); // eslint-disable-line react-hooks/exhaustive-deps
+  const capped = all.length > sessions.length && <p className="small muted center-text">格子只放最近的 {sessions.length} 次，較早的 {all.length - sessions.length} 次一樣算在統計裡。</p>;
+  if (big)
+    return (
+      <>
+        <div className="hatch-plot big">
+          <canvas ref={canvas} role="img" aria-label={`觀察紀錄：${sessions.length} 次探索`} />
+        </div>
+        {capped}
+      </>
+    );
   return (
     <>
-      <div className="hatch-plot" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+      <div className="hatch-plot" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: cols > 24 ? 1 : cols > 12 ? 2 : 4 }}>
         {sessions.map((s) => (
           <HatchCell key={s.id} s={s} stage={stages.get(s.id)?.stage ?? 2} fresh={s.id === freshId} />
         ))}
@@ -232,7 +286,7 @@ export function HatchPlot({ sessions: all, cols, minCells, max = Infinity, fresh
           <div key={`e${i}`} className="hatch-cell" aria-hidden="true" />
         ))}
       </div>
-      {all.length > sessions.length && <p className="small muted center-text">格子只放最近的 {sessions.length} 次，較早的 {all.length - sessions.length} 次一樣算在統計裡。</p>}
+      {capped}
     </>
   );
 }

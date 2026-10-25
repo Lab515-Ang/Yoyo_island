@@ -1614,7 +1614,20 @@ button.wallet {
   place-items: end center;
   background: radial-gradient(ellipse 34% 10% at 50% 92%, #7a9d5f 0 92%, transparent 100%);
 }
-.hatch-cell.fresh > svg {
+.hatch-plot.big {
+  display: block;
+}
+.hatch-plot.big canvas {
+  display: block;
+  width: 100%;
+}
+.hatch-cell img {
+  width: 100%;
+}
+.hatch-cell img.fled {
+  width: 80%;
+}
+.hatch-cell.fresh > img {
   animation: plant-grow 0.9s ease-out;
   transform-origin: 50% 92%;
 }

@@ -282,7 +282,7 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
             ›
           </button>
         </div>
-        <HatchPlot sessions={shown} cols={PLOT[range].cols} minCells={PLOT[range].min} max={PLOT[range].cols * 8} />
+        <HatchPlot sessions={shown} cols={PLOT[range].cols} minCells={PLOT[range].min} />
         <p className="small center-text">
           {shown.length ? (
             <>

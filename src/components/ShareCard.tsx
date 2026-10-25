@@ -30,22 +30,27 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 const place = (markup: string, x: number, y: number, size: number) => markup.replace('<svg ', `<svg x="${x}" y="${y}" `).replace(/width="[^"]*"/, `width="${size}"`).replace(/height="[^"]*"/, `height="${size}"`);
 
 function cardSvg(d: ShareCardData) {
-  // 觀察格子：最多畫 6 行，超過的在角落寫「另外 N 次」
+  // 觀察格子：和畫面一樣隨數量變大、格子變小，高度最多 260（再多就在角落寫「另外 N 次」）
   const plotX = 40;
   const plotY = 210;
   const plotW = W - 80;
-  const cell = plotW / d.cols;
-  const maxRows = Math.max(1, Math.min(6, Math.floor(260 / cell)));
-  const shown = d.sessions.slice(0, d.cols * maxRows);
-  const rows = Math.max(1, Math.ceil(shown.length / d.cols));
+  const cols = Math.min(60, Math.max(d.cols, Math.ceil(Math.sqrt((d.sessions.length * plotW) / 260))));
+  const cell = plotW / cols;
+  const maxRows = Math.max(1, Math.floor(260 / cell));
+  const shown = d.sessions.slice(0, cols * maxRows);
+  const markup = new Map<string, string>(); // 同一種動物、同一階段只畫一次
+  const rows = Math.max(1, Math.ceil(shown.length / cols));
   const plotH = Math.max(cell, rows * cell) + 16;
   const cells = shown
     .map((s, i) => {
-      const x = plotX + (i % d.cols) * cell;
-      const y = plotY + 8 + Math.floor(i / d.cols) * cell;
-      const art = s.status === 'completed' ? <AnimalArt id={animalDef(s.animalId).id} stage={d.stages.get(s.id) ?? 2} size={cell} /> : <TrackArt id={animalDef(s.animalId).id} fled size={cell * 0.7} />;
-      const off = s.status === 'completed' ? 0 : cell * 0.15;
-      return place(renderToStaticMarkup(art), x + off, y + off, s.status === 'completed' ? cell : cell * 0.7);
+      const x = plotX + (i % cols) * cell;
+      const y = plotY + 8 + Math.floor(i / cols) * cell;
+      const done = s.status === 'completed';
+      const id = animalDef(s.animalId).id;
+      const key = done ? `${id}:${d.stages.get(s.id) ?? 2}` : `${id}:fled`;
+      if (!markup.has(key)) markup.set(key, renderToStaticMarkup(done ? <AnimalArt id={id} stage={d.stages.get(s.id) ?? 2} size={100} /> : <TrackArt id={id} fled size={100} />));
+      const off = done ? 0 : cell * 0.15;
+      return place(markup.get(key)!, x + off, y + off, done ? cell : cell * 0.7);
     })
     .join('');
   const more = d.sessions.length - shown.length;
