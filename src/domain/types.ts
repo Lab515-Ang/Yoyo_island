@@ -82,13 +82,13 @@ export interface PointTransaction {
   id: ID;
   userId: ID;
   islandId: ID;
-  // 成長點數：focus_reward / project_spend；金幣：coin_reward / animal_unlock（商店解鎖動物）
-  kind: 'focus_reward' | 'project_spend' | 'coin_reward' | 'animal_unlock';
+  // 成長點數：focus_reward / project_spend；金幣：coin_reward / animal_unlock（商店解鎖動物）/ quest_reward（挑戰寶箱，新手任務另送 animalId）
+  kind: 'focus_reward' | 'project_spend' | 'coin_reward' | 'animal_unlock' | 'quest_reward';
   amount: number; // 獲得 > 0、花費 < 0
   sessionId?: ID;
   contributionId?: ID;
   animalId?: ID;
-  idempotencyKey: string; // reward:/coin:{sessionId}、spend:{contributionId}、animal:{islandId}:{animalId}
+  idempotencyKey: string; // reward:/coin:{sessionId}、spend:{contributionId}、animal:{islandId}:{animalId}、quest:…（見 quests.ts）
   createdAt: ISODate;
 }
 

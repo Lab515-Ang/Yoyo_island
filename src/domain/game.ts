@@ -15,7 +15,7 @@ export const islandId = (save: SaveFile) => save.profile.activeIslandId;
 export const rewardFor = (s: FocusSession) => (s.status === 'completed' ? Math.floor(s.accumulatedMs / POINT_MS) : 0);
 
 const POINT_KINDS = new Set(['focus_reward', 'project_spend']);
-const COIN_KINDS = new Set(['coin_reward', 'animal_unlock']);
+const COIN_KINDS = new Set(['coin_reward', 'animal_unlock', 'quest_reward']);
 
 function sumKinds(save: SaveFile, userId: ID, kinds: Set<string>) {
   const isl = islandId(save);
@@ -52,10 +52,10 @@ export function startFocus(save: SaveFile, p: { taskTitle: string; tag: string; 
 // ---------- 動物（每段專注是一次探索，完成就遇見一隻） ----------
 
 const animalKey = (save: SaveFile, animalId: string) => `animal:${islandId(save)}:${animalId}`;
-/** 商店用金幣解鎖過。 */
+/** 商店用金幣解鎖過（或新手任務的寶箱送的）。 */
 export function animalBought(save: SaveFile, animalId: string) {
   const key = animalKey(save, animalId);
-  return save.transactions.some((t) => t.idempotencyKey === key);
+  return save.transactions.some((t) => t.idempotencyKey === key || (t.kind === 'quest_reward' && t.animalId === animalId && t.islandId === islandId(save)));
 }
 
 /** 這種動物能不能當探索目標：一開始就有、工程完成、或商店解鎖過（真錢品種上架後才開放）。 */

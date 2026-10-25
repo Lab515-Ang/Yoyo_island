@@ -1,6 +1,7 @@
 // 存檔建立、驗證、示範資料與舊存檔轉換
 import { ANIMALS, CONTENT_VERSION, HABITATS, PROJECTS } from '../content/config';
 import { balance, coins, contribute, investAll } from './game';
+import { questRewardOk } from './quests';
 import type { AppMode, SaveFile, Settings } from './types';
 
 const iso = (t: number) => new Date(t).toISOString();
@@ -204,6 +205,8 @@ export function validateSave(input: unknown, now = Date.now()): Validation {
       const a = ANIMALS.find((x) => x.id === t.animalId);
       // 價格之後可能調整：只要是認得的動物、扣的是金幣就接受（不比對當時的價格）
       if (!a || t.amount >= 0 || t.idempotencyKey !== `animal:${t.islandId}:${a.id}`) return fail('動物解鎖紀錄不符。');
+    } else if (t.kind === 'quest_reward') {
+      if (!questRewardOk(t.idempotencyKey, t.amount, t.animalId)) return fail('挑戰獎勵紀錄不符。');
     } else if (t.kind === 'project_spend') {
       if (t.amount > 0) return fail('點數紀錄數值不正確。');
       const c = isStr(t.contributionId) ? contribById.get(t.contributionId) : undefined;

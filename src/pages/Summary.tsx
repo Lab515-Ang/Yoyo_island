@@ -5,6 +5,7 @@ import { AnimalArt, TrackArt } from '../components/Animal';
 import { Coin, Modal, fmtMinutes } from '../components/ui';
 import { localDateKey } from '../domain/focus';
 import { activeProject, animalUnlocked, animalsUnlockedBy, balance, coins, earnedFor, editSessionNote, endedSessions, focusOutcome, minutesByDay, NOTE_MAX, endedDayKeys, remainingFor, sightings } from '../domain/game';
+import { hasReward } from '../domain/quests';
 import { HabitatScene } from '../scenes/HabitatScene';
 
 const clock = (ms: number) => `${String(Math.floor(ms / 60000)).padStart(2, '0')}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
@@ -17,6 +18,7 @@ export function Summary({
   onRecords,
   onBreak,
   onShop,
+  onQuests,
 }: {
   sessionId: string;
   onDone: () => void;
@@ -24,6 +26,7 @@ export function Summary({
   onRecords: (tag: string) => void;
   onBreak: () => void;
   onShop: () => void;
+  onQuests: () => void;
 }) {
   const { save } = useSave();
   const s = save.sessions.find((x) => x.id === sessionId);
@@ -186,6 +189,11 @@ export function Summary({
           返回首頁
         </button>
 
+        {hasReward(save, Date.now()) && (
+          <button className="link-light" onClick={onQuests}>
+            🎁 挑戰完成了，去打開寶箱
+          </button>
+        )}
         {canBuild && (
           <button className="link-light" onClick={onProject}>
             點數夠了，去修「{project.title}」

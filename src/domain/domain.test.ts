@@ -3,6 +3,7 @@ import { applyDeepFocus, dueAt, completeNow, createSession, elapsedMs, finish, p
 import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote, isDone, projectQuarter, remainingFor, applyFocusRewards, focusOutcome, animalUnlocked, chosenAnimal, endedSessions, hatchCounts, newAnimals, sceneAnimals, unlockAnimal, growthOf, sightings, weekRecap, communityRank } from './game';
 import { ANIMALS, CONTENT_VERSION, GROWTH_AT, SOUNDS, animalDef, projectDef, stageName } from '../content/config';
 import { newSave, newDemoSave, validateSave, demoGrant } from './save';
+import { claimQuest, dailyQuests, monthQuest, questPlan, questRewardOk, starterQuest, hasReward, MONTH_REWARD, STARTER_REWARD } from './quests';
 import type { SaveFile } from './types';
 
 const T0 = Date.parse('2026-10-22T01:00:00Z');
@@ -436,6 +437,75 @@ describe('上週回顧', () => {
     expect(communityRank(961 * MIN).top).toBe(20); // 和 Forest 錄影裡 961 分鐘差不多（前 19%）
     expect(communityRank(300 * MIN).beat).toBeGreaterThan(communityRank(120 * MIN).beat);
     expect(communityRank(99999 * MIN)).toEqual({ beat: 99, top: 1 });
+  });
+});
+
+describe('挑戰與寶箱', () => {
+  const meet = (save: SaveFile, minutes: number, at: number, note = '') => {
+    const started = startFocus(save, { taskTitle: '', tag: '讀書', habitatId: 'forest', mode: 'countdown', targetSeconds: minutes * 60, animalId: 'blue_magpie' }, at);
+    const done = completeNow(started.sessions[started.sessions.length - 1], at + minutes * MIN, minutes);
+    let next = applyFocusRewards(closeSession(started, done, at + minutes * MIN), done.id, at + minutes * MIN);
+    if (note) next = editSessionNote(next, done.id, { note, tag: '讀書', taskTitle: '' });
+    return next;
+  };
+
+  it('每日挑戰只由日期決定：3 個不同種類，同一天每次都一樣', () => {
+    const plan = questPlan('2026-10-22');
+    expect(plan).toHaveLength(3);
+    expect(new Set(plan.map((q) => q.kind)).size).toBe(3);
+    expect(questPlan('2026-10-22')).toEqual(plan);
+    expect(plan.every((q) => q.reward > 0 && q.target > 0)).toBe(true);
+  });
+
+  it('完成才能開寶箱、只能開一次；金幣入帳，存檔檢查通過', () => {
+    let save = fresh();
+    const day = '2026-10-22';
+    expect(dailyQuests(save, day).every((q) => q.progress === 0 && !q.claimed)).toBe(true);
+    const first = dailyQuests(save, day)[0];
+    expect(claimQuest(save, first.key, T0).ok).toBe(false); // 還沒完成
+    for (let i = 0; i < 3; i++) save = meet(save, 60, T0 + i * 70 * MIN, '筆記');
+    const qs = dailyQuests(save, day);
+    expect(qs.every((q) => q.progress >= q.target)).toBe(true); // 3 次 60 分鐘、都有筆記：每種挑戰都達成
+    expect(hasReward(save, T0 + 300 * MIN)).toBe(true);
+    const before = coins(save);
+    let total = 0;
+    for (const q of qs) {
+      const r = claimQuest(save, q.key, T0 + 300 * MIN);
+      if (!r.ok) throw new Error(r.error);
+      save = r.save;
+      total += r.coins;
+    }
+    expect(coins(save)).toBe(before + total);
+    expect(claimQuest(save, qs[0].key, T0 + 300 * MIN).ok).toBe(false); // 不能重複開
+    expect(claimQuest(save, qs[0].key.replace('2026-10-22', '2026-10-21'), T0 + 300 * MIN).ok).toBe(false); // 只能開今天的
+    expect(monthQuest(save, '2026-10').progress).toBe(3);
+    expect(dailyQuests(save, day).every((q) => q.claimed)).toBe(true);
+    expect(validateSave(JSON.parse(JSON.stringify(save))).ok).toBe(true);
+  });
+
+  it('新手任務：三步都完成才能開，送商店第一條探索路線＋金幣', () => {
+    let save = meet(fresh(), 30, T0);
+    expect(starterQuest(save).ready).toBe(false); // 還沒寫筆記、還沒滿 60 分鐘
+    save = meet(save, 30, T0 + 60 * MIN, '第一次的筆記');
+    const st = starterQuest(save);
+    expect(st.ready).toBe(true);
+    expect(st.animal?.id).toBe('civet');
+    const r = claimQuest(save, 'quest:starter', T0 + 120 * MIN);
+    if (!r.ok) throw new Error(r.error);
+    expect(r.coins).toBe(STARTER_REWARD);
+    expect(animalUnlocked(r.save, animalDef('civet'))).toBe(true);
+    expect(unlockAnimal(r.save, r.save.profile.id, 'civet', T0).ok).toBe(false); // 已經有了，不能再買
+    expect(starterQuest(r.save).claimed).toBe(true);
+    expect(validateSave(JSON.parse(JSON.stringify(r.save))).ok).toBe(true);
+  });
+
+  it('存檔檢查：金額要和挑戰相符', () => {
+    const q = questPlan('2026-10-22')[1];
+    expect(questRewardOk(q.key, q.reward)).toBe(true);
+    expect(questRewardOk(q.key, q.reward + 1)).toBe(false);
+    expect(questRewardOk('quest:month:2026-10', MONTH_REWARD)).toBe(true);
+    expect(questRewardOk('quest:starter', STARTER_REWARD, 'blue_magpie')).toBe(false); // 只能送商店的路線
+    expect(questRewardOk('quest:2026-10-22:5', 10)).toBe(false);
   });
 });
 

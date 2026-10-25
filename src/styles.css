@@ -2601,3 +2601,298 @@ label.toggle input.switch:checked::after {
     animation: none;
   }
 }
+
+/* ---------- 挑戰與寶箱 ---------- */
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.starter-quest {
+  text-align: center;
+  background: linear-gradient(180deg, #dff3e6, #fffbf2);
+}
+.starter-quest h2 {
+  margin: 0.4rem 0 0.2rem;
+}
+.starter-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+.starter-steps span {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  border: 2px solid var(--line);
+  font-weight: 700;
+  color: var(--muted);
+}
+.starter-steps span + span::before {
+  content: '';
+}
+.starter-steps span.on {
+  background: var(--sage-deep);
+  border-color: var(--sage-deep);
+  color: #fff;
+}
+.starter-steps span.gift.on {
+  background: #f8e58a;
+  border-color: #e0b93a;
+  animation: chest-wobble 1.6s ease-in-out infinite;
+}
+.starter-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.6rem auto;
+  text-align: left;
+  display: inline-block;
+}
+.starter-list li.ok {
+  color: var(--muted);
+}
+.starter-quest .primary {
+  width: 100%;
+}
+.month-quest {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  background: linear-gradient(135deg, #20545a, #2f7a6d);
+  color: #fff;
+}
+.month-quest > div {
+  flex: 1;
+}
+.month-quest .eyebrow,
+.month-quest .muted {
+  color: rgba(255, 255, 255, 0.8);
+}
+.month-quest .bar {
+  background: rgba(255, 255, 255, 0.25);
+}
+.quest-month-chest {
+  border: 0;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 18px;
+  padding: 0.5rem;
+  opacity: 0.75;
+}
+.quest-month-chest.ready {
+  opacity: 1;
+  animation: chest-wobble 1.6s ease-in-out infinite;
+}
+.quest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.quest-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: 'title chest' 'bar chest' 'reward chest';
+  align-items: center;
+  gap: 0.35rem 0.8rem;
+  width: 100%;
+  padding: 0.8rem 0.9rem;
+  border-radius: 18px;
+  border: 1.5px solid #cfe3ee;
+  background: #eaf4fa;
+  text-align: left;
+  color: inherit;
+}
+.quest-card:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.quest-card strong {
+  grid-area: title;
+}
+.quest-card.ready {
+  border-color: #e9c45a;
+  background: linear-gradient(135deg, #fff2c2, #fde7a6);
+  box-shadow: 0 0 0 3px rgba(233, 196, 90, 0.25);
+}
+.quest-card.ready .quest-chest {
+  animation: chest-wobble 1.6s ease-in-out infinite;
+}
+.quest-card.done {
+  background: #f1f4f2;
+  border-color: var(--line);
+}
+.quest-bar {
+  grid-area: bar;
+  position: relative;
+  height: 20px;
+  border-radius: 999px;
+  background: #fff;
+  overflow: hidden;
+}
+.quest-bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: #f2c230;
+  border-radius: 999px;
+}
+.quest-card.done .quest-bar i {
+  background: #d8cf9a;
+}
+.quest-bar small {
+  position: relative;
+  display: block;
+  text-align: center;
+  line-height: 20px;
+  font-weight: 600;
+  color: #5d4a12;
+}
+.quest-chest {
+  grid-area: chest;
+  position: relative;
+}
+.quest-check {
+  position: absolute;
+  right: -4px;
+  bottom: -2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--sage-deep);
+  color: #fff;
+  font-size: 0.75rem;
+  display: grid;
+  place-items: center;
+}
+.quest-reward {
+  grid-area: reward;
+  color: var(--muted);
+}
+.chest .chest-lid {
+  transform-box: fill-box;
+  transform-origin: 0% 100%;
+  transition: transform 0.45s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.chest.open .chest-lid {
+  transform: translate(-6px, -10px) rotate(-28deg);
+}
+.chest-open {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  text-align: center;
+  color: #fff;
+  background: radial-gradient(circle at 50% 45%, #5fb08c, #2f6f5c 70%);
+}
+.chest-open .eyebrow {
+  color: rgba(255, 255, 255, 0.8);
+}
+.chest-tap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  border: 0;
+  background: none;
+  color: #fff;
+  font-weight: 600;
+}
+.chest-tap svg {
+  position: relative;
+  animation: chest-wobble 1.2s ease-in-out infinite;
+}
+.chest-glow {
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  width: 260px;
+  height: 260px;
+  margin: -130px 0 0 -130px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 245, 200, 0.55), transparent 65%);
+  pointer-events: none;
+}
+.chest-reward {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  animation: recap-in 0.45s ease both;
+}
+.chest-reward h2 {
+  margin: 0;
+  color: #fff;
+}
+.chest-burst {
+  position: relative;
+  padding: 1rem;
+}
+.chest-burst > svg {
+  position: relative;
+}
+.chest-line {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+.chest-hint {
+  margin-top: 1.5rem;
+  color: rgba(255, 255, 255, 0.75);
+}
+.nav-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e5533d;
+  margin-left: auto;
+}
+.menu-btn {
+  position: relative;
+}
+.menu-btn .nav-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
+@keyframes chest-wobble {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  10% {
+    transform: rotate(-6deg);
+  }
+  20% {
+    transform: rotate(6deg);
+  }
+  30% {
+    transform: rotate(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chest-tap svg,
+  .quest-card.ready .quest-chest,
+  .quest-month-chest.ready,
+  .starter-steps span.gift.on {
+    animation: none;
+  }
+}
+.chest-open .primary {
+  background: #f8e58a;
+  border-color: #e0b93a;
+  color: #3d3410;
+}

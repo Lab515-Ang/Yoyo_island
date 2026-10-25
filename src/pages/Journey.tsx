@@ -16,7 +16,7 @@ type Entry =
   | { t: number; kind: 'end'; s: FocusSession }
   | { t: number; kind: 'grow'; s: FocusSession; stage: number }
   | { t: number; kind: 'project'; projectId: string }
-  | { t: number; kind: 'shop'; animalId: string };
+  | { t: number; kind: 'shop'; animalId: string; gift: boolean };
 
 const WEEK = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
 // 時間一律用玩家設定的時區（和日期分組一致）
@@ -39,7 +39,7 @@ const entriesOf = perSave((save: SaveFile): Entry[] => {
     if (sight?.grew) out.push({ t: Date.parse(s.endedAt!), kind: 'grow', s, stage: sight.stage });
   }
   for (const p of save.projects) if (p.islandId === islandId(save) && p.completedAt) out.push({ t: Date.parse(p.completedAt), kind: 'project', projectId: p.projectId });
-  for (const x of save.transactions) if (x.kind === 'animal_unlock' && x.userId === save.profile.id && x.animalId) out.push({ t: Date.parse(x.createdAt), kind: 'shop', animalId: x.animalId });
+  for (const x of save.transactions) if ((x.kind === 'animal_unlock' || x.kind === 'quest_reward') && x.userId === save.profile.id && x.animalId) out.push({ t: Date.parse(x.createdAt), kind: 'shop', animalId: x.animalId, gift: x.kind === 'quest_reward' });
   // 同一時間：結束的事（解鎖、長大、遇見）排在開始前面（時間軸由新到舊）
   const order = { project: 0, shop: 1, grow: 2, end: 3, start: 4 };
   return out.sort((a, b) => b.t - a.t || order[a.kind] - order[b.kind]);
@@ -152,7 +152,7 @@ function Timeline() {
     if (e.kind === 'end') return e.s.status === 'completed' ? { icon: '🔭', text: `遇見了${name(e.s.animalId)}（${stageName(animalDef(e.s.animalId), stageAt(e.s))}，${minutesOf(e.s)} 分鐘）` } : { icon: '💨', text: `${name(e.s.animalId)}被嚇跑了` };
     if (e.kind === 'grow') return { icon: '🌱', text: `${name(e.s.animalId)}的族群長大了，現在看得到${stageName(animalDef(e.s.animalId), e.stage)}` };
     if (e.kind === 'project') return { icon: '🌲', text: `修好了「${projectDef(e.projectId)?.title ?? '工程'}」` };
-    return { icon: '🛍️', text: `在商店解鎖了${name(e.animalId)}的探索路線` };
+    return e.gift ? { icon: '🎁', text: `新手任務的寶箱送了${name(e.animalId)}的探索路線` } : { icon: '🛍️', text: `在商店解鎖了${name(e.animalId)}的探索路線` };
   };
   const whenOf = (s: FocusSession) => `${localDateKey(Date.parse(s.endedAt!), tz).slice(5).replace('-', '/')} ${hm(Date.parse(s.startedAt), tz)}–${hm(Date.parse(s.endedAt!), tz)}`;
 

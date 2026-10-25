@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useGame, useSave } from './app/store';
 import { APP_NAME, COPY, avatarEmoji } from './content/config';
 import { applyFocusRewards, closeSession, coins, openSession, putSession, settleOpenSessions } from './domain/game';
@@ -24,6 +24,7 @@ import { Shop } from './pages/Shop';
 import { GuardPage, GuardScreen } from './pages/Guard';
 import { Coin, Modal } from './components/ui';
 import { Tour } from './components/Tour';
+import { hasReward } from './domain/quests';
 
 type View = 'lobby' | 'island' | 'quests' | 'records' | 'guard' | 'sounds' | 'journey' | 'friends' | 'achievements' | 'shop' | 'news' | 'settings';
 // 左側選單順序
@@ -104,6 +105,7 @@ function Main() {
   const [summaryId, setSummaryId] = useState<string | null>(null);
   const [resting, setResting] = useState(false);
   const [recordsTag, setRecordsTag] = useState<string | null>(null);
+  const reward = useMemo(() => hasReward(save, Date.now()), [save]); // 有寶箱可以開：選單上的小紅點
   const [journeyTab, setJourneyTab] = useState<'timeline' | 'codex'>('timeline');
   const [navOpen, setNavOpen] = useState(false); // 手機：抽屜
   const [collapsed, setCollapsedState] = useState(readCollapsed); // 桌面：收合成圖示列
@@ -265,6 +267,7 @@ function Main() {
         onDone={() => go('lobby')}
         onProject={() => go('island')}
         onShop={() => go('shop')}
+        onQuests={() => go('quests')}
         onRecords={(tag) => {
           go('records');
           setRecordsTag(tag);
@@ -287,6 +290,7 @@ function Main() {
             aria-controls="sidenav"
           >
             ☰
+            {reward && <span className="nav-dot" aria-hidden="true" />}
           </button>
           <button className="brand" onClick={() => go('lobby')} aria-label="回到大廳">
             <span className="brand-name">🏠 {APP_NAME}</span>
@@ -306,6 +310,7 @@ function Main() {
               <span aria-hidden="true">{n.icon}</span>
               <span className="nav-label">{n.label}</span>
               {n.soon && <span className="soon">未開放</span>}
+              {n.id === 'quests' && reward && <span className="nav-dot" aria-label="有寶箱可以打開" />}
             </button>
           ))}
         </nav>
