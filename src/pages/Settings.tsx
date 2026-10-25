@@ -7,6 +7,7 @@ import { notifySupported, playChime } from '../sound';
 import { TimeGuard, defaultGuardConfig, isAndroid, isNative, onResume, requestNotifyPermission } from '../platform';
 import { Modal } from '../components/ui';
 import { Tour } from '../components/Tour';
+import { FeedbackSheet } from '../components/Feedback';
 import type { SaveFile } from '../domain/types';
 
 const TIMEZONES: string[] = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
@@ -20,6 +21,7 @@ export function SettingsPage() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [notifyMsg, setNotifyMsg] = useState<string | null>(null);
   const [touring, setTouring] = useState(false);
+  const [feedback, setFeedback] = useState(false);
   // Android：沒有「鬧鐘與提醒」權限時，倒數結束通知可能晚一點跳出
   const [exactAlarm, setExactAlarm] = useState(true);
   useEffect(() => {
@@ -115,6 +117,8 @@ export function SettingsPage() {
       <section className="sheet-section">
         <h3>導覽</h3>
         <button onClick={() => setTouring(true)}>再看一次新手導覽</button>
+        <button onClick={() => setFeedback(true)}>給我們回饋</button>
+        {feedback && <FeedbackSheet onClose={() => setFeedback(false)} />}
         {touring && (
           <Modal title="新手導覽" onClose={() => setTouring(false)}>
             <Tour onDone={() => setTouring(false)} doneLabel="知道了" />

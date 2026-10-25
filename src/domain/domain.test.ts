@@ -3,6 +3,7 @@ import { applyDeepFocus, dueAt, completeNow, createSession, elapsedMs, finish, p
 import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote, isDone, projectQuarter, remainingFor, applyFocusRewards, focusOutcome, animalUnlocked, chosenAnimal, endedSessions, hatchCounts, newAnimals, sceneAnimals, unlockAnimal, growthOf, sightings, weekRecap, communityRank } from './game';
 import { ANIMALS, CONTENT_VERSION, GROWTH_AT, SOUNDS, animalDef, projectDef, stageName } from '../content/config';
 import { newSave, newDemoSave, validateSave, demoGrant } from './save';
+import { npsDue } from './feedback';
 import { claimQuest, dailyQuests, monthQuest, questPlan, questRewardOk, starterQuest, hasReward, MONTH_REWARD, STARTER_REWARD } from './quests';
 import type { SaveFile } from './types';
 
@@ -506,6 +507,23 @@ describe('挑戰與寶箱', () => {
     expect(questRewardOk('quest:month:2026-10', MONTH_REWARD)).toBe(true);
     expect(questRewardOk('quest:starter', STARTER_REWARD, 'blue_magpie')).toBe(false); // 只能送商店的路線
     expect(questRewardOk('quest:2026-10-22:5', 10)).toBe(false);
+  });
+});
+
+describe('推薦意願問卷', () => {
+  it('完成 5 次、用滿 3 天才問；略過隔 30 天、送出隔 120 天', () => {
+    const DAY = 86_400_000;
+    let save = fresh();
+    for (let i = 0; i < 5; i++) save = focus(save, 25, T0 + i * 40 * MIN);
+    const none = { askedAt: null, answeredAt: null };
+    expect(npsDue(save, none, T0 + DAY)).toBe(false); // 還不到 3 天
+    expect(npsDue(focus(fresh(), 25), none, T0 + 10 * DAY)).toBe(false); // 才完成 1 次
+    const now = T0 + 4 * DAY;
+    expect(npsDue(save, none, now)).toBe(true);
+    expect(npsDue(save, { askedAt: now, answeredAt: null }, now + 29 * DAY)).toBe(false);
+    expect(npsDue(save, { askedAt: now, answeredAt: null }, now + 30 * DAY)).toBe(true);
+    expect(npsDue(save, { askedAt: now, answeredAt: now + 1000 }, now + 60 * DAY)).toBe(false);
+    expect(npsDue(save, { askedAt: now, answeredAt: now + 1000 }, now + 120 * DAY)).toBe(true);
   });
 });
 

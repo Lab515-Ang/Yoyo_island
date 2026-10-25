@@ -15,7 +15,9 @@ import { Break } from './pages/Break';
 import { IslandPage } from './pages/Island';
 import { Quests } from './pages/Quests';
 import { Records } from './pages/Records';
-import { RecapInvite } from './pages/Recap';
+import { RecapInvite, recapPending } from './pages/Recap';
+import { FeedbackSheet, loadFeedback } from './components/Feedback';
+import { npsDue } from './domain/feedback';
 import { Sounds } from './pages/Sounds';
 import { Journey } from './pages/Journey';
 import { Together } from './pages/Together';
@@ -107,6 +109,7 @@ function Main() {
   const [recordsTag, setRecordsTag] = useState<string | null>(null);
   const reward = useMemo(() => hasReward(save, Date.now()), [save]); // 有寶箱可以開：選單上的小紅點
   const [journeyTab, setJourneyTab] = useState<'timeline' | 'codex'>('timeline');
+  const [askNps, setAskNps] = useState(false);
   const [navOpen, setNavOpen] = useState(false); // 手機：抽屜
   const [collapsed, setCollapsedState] = useState(readCollapsed); // 桌面：收合成圖示列
   const setCollapsed = (fn: (c: boolean) => boolean) =>
@@ -264,7 +267,12 @@ function Main() {
     body = (
       <Summary
         sessionId={summaryId}
-        onDone={() => go('lobby')}
+        onDone={() => {
+          // 剛完成一段探索、回到大廳：偶爾問一次推薦意願（不和上週回顧的邀請撞在一起）
+          const ok = save.sessions.find((x) => x.id === summaryId)?.status === 'completed';
+          go('lobby');
+          if (ok && !recapPending(save) && npsDue(save, loadFeedback(), Date.now())) setAskNps(true);
+        }}
         onProject={() => go('island')}
         onShop={() => go('shop')}
         onQuests={() => go('quests')}
@@ -318,6 +326,7 @@ function Main() {
           {view === 'lobby' && <Lobby onStarted={() => setSummaryId(null)} onShop={() => go('shop')} />}
           {view === 'lobby' && save.sessions.filter((s) => s.endedAt).length === 1 && <FirstTour />}
           {view === 'lobby' && <RecapInvite />}
+          {view === 'lobby' && askNps && <FeedbackSheet onClose={() => setAskNps(false)} />}
           {view === 'island' && <IslandPage onLobby={() => go('lobby')} onCodex={() => (go('journey'), setJourneyTab('codex'))} />}
           {view === 'quests' && <Quests onIsland={() => go('island')} onShop={() => go('shop')} onLobby={() => go('lobby')} />}
           {view === 'records' && <Records key={recordsTag ?? 'all'} initialTag={recordsTag} />}

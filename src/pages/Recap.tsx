@@ -7,6 +7,7 @@ import { ShareModal, renderRecapCard } from '../components/ShareCard';
 import { Modal } from '../components/ui';
 import { localDateKey, shiftDateKey, weekStartKey } from '../domain/focus';
 import { communityRank, growthOf, weekRecap } from '../domain/game';
+import type { SaveFile } from '../domain/types';
 
 const SEEN_KEY = 'qiguang-ui:recapSeen'; // 介面偏好：最後一次邀請回顧的是哪一週
 const DAY_NAMES = ['週一', '週二', '週三', '週四', '週五', '週六', '週日'];
@@ -28,6 +29,17 @@ const hoursText = (ms: number) => {
     </>
   );
 };
+
+/** 這週還沒邀請過回顧、上週也有專注（大廳會跳出邀請；其他彈窗這時先別出來）。 */
+export function recapPending(save: SaveFile) {
+  const week = lastWeekStart(save.profile.timezone);
+  try {
+    if (localStorage.getItem(SEEN_KEY) === week) return false;
+  } catch {
+    return false;
+  }
+  return weekRecap(save, week).total >= 60_000;
+}
 
 /** 新的一週第一次回到大廳：上週有專注的話，邀請回顧一次（不管開始或下次再說，這週都不會再問）。 */
 export function RecapInvite() {

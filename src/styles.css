@@ -2896,3 +2896,101 @@ label.toggle input.switch:checked::after {
   border-color: #e0b93a;
   color: #3d3410;
 }
+
+/* ---------- 推薦意願問卷 ---------- */
+.nps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.nps p {
+  margin: 0;
+}
+.nps-scale {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 4px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.nps-scale span {
+  width: 1.4em;
+  text-align: center;
+  border-radius: 50%;
+}
+.nps-scale span.on {
+  background: var(--sage-deep);
+  color: #fff;
+  font-weight: 700;
+}
+.nps-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.nps-range::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to right, var(--sage-deep) var(--fill), #e9e3d4 var(--fill));
+}
+.nps-range::-moz-range-track {
+  height: 8px;
+  border-radius: 4px;
+  background: #e9e3d4;
+}
+.nps-range::-moz-range-progress {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--sage-deep);
+}
+.nps-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 26px;
+  height: 26px;
+  margin-top: -9px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--sage-deep);
+}
+.nps-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--sage-deep);
+}
+/* 還沒選：只有灰色軌道，不要看起來像預選了中間 */
+.nps-range.unset::-moz-range-progress {
+  background: transparent;
+}
+.nps-range.unset::-webkit-slider-thumb {
+  opacity: 0;
+}
+.nps-range.unset::-moz-range-thumb {
+  opacity: 0;
+}
+.nps-ends {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -0.4rem;
+}
+.nps-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-weight: 600;
+}
+.nps-text textarea {
+  min-height: 90px;
+  font-weight: 400;
+}
+.nps .primary {
+  margin-top: 0.4rem;
+}
