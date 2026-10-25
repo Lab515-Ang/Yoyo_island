@@ -127,6 +127,11 @@ function Pin({ pin, onSelect }: { pin: MapPin; onSelect: (id: string) => void })
         <circleGeometry args={[0.07, 20]} />
         <meshBasicMaterial color={ring} transparent opacity={pin.state === 'locked' ? 0.5 : 0.9} />
       </mesh>
+      {/* 點擊範圍：比圖示大一圈，手指比較好點 */}
+      <mesh position={[0, s / 2, 0]}>
+        <sphereGeometry args={[0.38, 8, 6]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
       {pin.state === 'legend' && (
         <mesh position={[0, 0.12, 0]}>
           <sphereGeometry args={[0.17, 16, 12]} />

@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react';
 import { useSave } from '../app/store';
-import { ANIMALS, HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, QUICK_MINUTES, TAGS, GROWTH_MAX, animalDef, clampMinutes, habitatName, stageName, tagColor } from '../content/config';
+import { ANIMALS, HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, QUICK_MINUTES, TAGS, animalDef, clampMinutes, habitatName, tagColor } from '../content/config';
 import { Modal } from '../components/ui';
 import { AnimalArt, TrackArt } from '../components/Animal';
-import { unlockText } from '../components/ui';
+import { GrowthTag, unlockText } from '../components/ui';
 import { animalUnlocked, chosenAnimal, growthOf, habitatOpen, hatchCounts, newAnimals, startFocus } from '../domain/game';
 import type { HabitatId, TimerMode } from '../domain/types';
 import { HabitatScene } from '../scenes/HabitatScene';
@@ -344,7 +344,7 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
                     {fresh.includes(a) && <span className="new-badge">新</span>}
                   </span>
                   {ok ? (
-                    <span className="small muted">{!met ? '還沒遇見過' : g.stage === 2 ? stageName(a, 2) : `${stageName(a, g.stage)}・成長 ${g.growth}/${GROWTH_MAX}`}</span>
+                    met ? <GrowthTag a={a} g={g} /> : <span className="small muted">還沒遇見過</span>
                   ) : (
                     <span className="small muted">{unlockText(a)}</span>
                   )}

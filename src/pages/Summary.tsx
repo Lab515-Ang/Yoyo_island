@@ -142,7 +142,7 @@ export function Summary({
           {sight && animal.unlock.kind !== 'iap' && (
             <li>
               <span>🌱 {animal.name}族群</span>
-              <strong>{sight.grew ? `長大了！現在看得到${stageName(animal, stage)}` : stage === 2 ? `已經是${stageName(animal, 2)}` : `成長 ${Math.min(sight.growth, GROWTH_MAX)} / ${GROWTH_MAX}`}</strong>
+              <strong>{sight.grew ? `長大了！現在看得到${stageName(animal, stage)}` : stage === 2 ? `已經是${stageName(animal, 2)}` : `成長 ${Math.min(sight.growth, GROWTH_MAX)}/${GROWTH_MAX}`}</strong>
             </li>
           )}
           {newAnimals.map((a) => (

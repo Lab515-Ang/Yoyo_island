@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useSave } from '../app/store';
-import { ANIMALS, COPY, GROWTH_MAX, PROJECTS, stageName } from '../content/config';
-import { AnimalCard, Progress, fmtMinutes } from '../components/ui';
+import { ANIMALS, COPY, PROJECTS } from '../content/config';
+import { AnimalCard, GrowthTag, Progress, fmtMinutes } from '../components/ui';
 import { AnimalArt } from '../components/Animal';
 import { activeProject, animalsUnlockedBy, balance, contribute, growthOf, habitatProgress, habitatSound, hatchCounts, isDone, projectRow, remainingFor, sceneAnimals } from '../domain/game';
 import { HabitatScene } from '../scenes/HabitatScene';
@@ -197,10 +197,7 @@ function ForestAnimals({ onCard, onLobby, onCodex }: { onCard: (id: string) => v
               <button key={a.id} className="pet-chip" onClick={() => onCard(a.id)}>
                 <AnimalArt id={a.id} stage={g.stage} size={56} />
                 <strong>{a.name}</strong>
-                <span className="small muted">
-                  {stageName(a, g.stage)}
-                  {g.stage < 2 && `・${g.growth}/${GROWTH_MAX}`}
-                </span>
+                <GrowthTag a={a} g={g} />
               </button>
             );
           })}

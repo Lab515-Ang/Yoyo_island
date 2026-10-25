@@ -53,7 +53,7 @@ export function Quests({ onIsland, onShop, onLobby }: { onIsland: () => void; on
         </p>
         {closest && (
           <p className="small">
-            {closest.a.name}最接近成年：成長 {closest.g.growth} / {GROWTH_MAX}（現在是{stageName(closest.a, closest.g.stage)}），再遇見幾次就能看到{stageName(closest.a, 2)}。
+            {closest.a.name}最接近成年：成長 {closest.g.growth}/{GROWTH_MAX}（現在是{stageName(closest.a, closest.g.stage)}），再遇見幾次就能看到{stageName(closest.a, 2)}。
           </p>
         )}
         {fresh.length > 0 && (

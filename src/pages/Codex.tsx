@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useSave } from '../app/store';
-import { ANIMALS, GROWTH_MAX, stageName } from '../content/config';
+import { ANIMALS } from '../content/config';
 import { AnimalArt } from '../components/Animal';
-import { AnimalCard, Progress, unlockText } from '../components/ui';
+import { AnimalCard, GrowthTag, unlockText } from '../components/ui';
 import { animalUnlocked, growthOf, hatchCounts } from '../domain/game';
 import { TaiwanMap } from '../scenes/TaiwanMap';
 import type { MapPin } from '../scenes/TaiwanMap3D';
@@ -84,10 +84,8 @@ export function Codex() {
                   <strong>{n || ok ? a.name : '還不知道是誰'}</strong>
                   {n ? (
                     <>
-                      <span className="small muted">
-                        遇見 {n} 次・{stageName(a, g.stage)}
-                      </span>
-                      {g.stage < 2 && <Progress value={g.growth / GROWTH_MAX} label={`${a.name}族群成長`} />}
+                      <span className="small muted">遇見 {n} 次</span>
+                      <GrowthTag a={a} g={g} />
                     </>
                   ) : (
                     <span className="small cond">{ok ? '可以去找，還沒遇見' : unlockText(a)}</span>

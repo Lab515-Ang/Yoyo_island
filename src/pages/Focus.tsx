@@ -151,6 +151,9 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
             </p>
           )}
         </div>
+        <p className="focus-target" aria-live="polite">
+          {progress < 0.5 ? `🔍 正在靠近${animalDef(session.animalId).name}…` : progress < 1 ? `👀 ${animalDef(session.animalId).name}就在附近了…` : `✨ 找到${animalDef(session.animalId).name}了！`}
+        </p>
         {endAt && <p className="focus-endtime">預計 {endAt} 結束</p>}
         <div className="focus-controls">
           {grace > 0 && !paused ? (

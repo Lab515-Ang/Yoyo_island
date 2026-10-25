@@ -28,6 +28,16 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
   );
 }
 
+/** 族群成長（大廳、小島、圖鑑共用同一種寫法）：「幼鳥・成長 3/6」＋進度條；成年只寫階段名。 */
+export function GrowthTag({ a, g }: { a: AnimalDef; g: { growth: number; stage: number } }) {
+  return (
+    <>
+      <span className="small muted">{g.stage === 2 ? stageName(a, 2) : `${stageName(a, g.stage)}・成長 ${Math.min(g.growth, GROWTH_MAX)}/${GROWTH_MAX}`}</span>
+      {g.stage < 2 && <Progress value={g.growth / GROWTH_MAX} label={`${a.name}族群成長`} />}
+    </>
+  );
+}
+
 export function Progress({ value, label }: { value: number; label: string }) {
   const pct = Math.round(Math.max(0, Math.min(1, value)) * 100);
   return (
@@ -85,7 +95,7 @@ export function AnimalCard({ save, animalId, onClose }: { save: SaveFile; animal
         {n > 0 && (
           <>
             <dt>族群</dt>
-            <dd>{g.stage === 2 ? `穩定了，看得到${stageName(a, 2)}` : `成長 ${g.growth} / ${GROWTH_MAX}・現在看得到${stageName(a, g.stage)}`}</dd>
+            <dd>{g.stage === 2 ? `穩定了，看得到${stageName(a, 2)}` : `成長 ${g.growth}/${GROWTH_MAX}・現在看得到${stageName(a, g.stage)}`}</dd>
           </>
         )}
         <dt>探索</dt>

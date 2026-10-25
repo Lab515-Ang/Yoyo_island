@@ -114,17 +114,29 @@ function TagPicker({ all, selected, onApply, onClose }: { all: string[]; selecte
 function Bars({ values, labels, names }: { values: number[]; labels: string[]; names: (i: number) => string }) {
   const [sel, setSel] = useState<number | null>(null);
   const peak = Math.max(1, ...values);
+  const pick = (e: React.PointerEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setSel(Math.max(0, Math.min(values.length - 1, Math.floor(((e.clientX - r.left) / r.width) * values.length))));
+  };
   return (
     <>
-      <p className="small muted bar-pick">{sel !== null ? `${names(sel)}：${shortTime(values[sel])}` : '點長條看時間'}</p>
-      <div className="focus-chart" role="img" aria-label="專注時間分布">
+      <p className="small muted bar-pick">{sel !== null ? `${names(sel)}：${shortTime(values[sel])}` : '點或左右滑長條看時間'}</p>
+      <div
+        className="focus-chart"
+        aria-label="專注時間分布"
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId);
+          pick(e);
+        }}
+        onPointerMove={(e) => e.buttons && pick(e)}
+      >
         <span className="focus-grid top" aria-hidden="true">
           {values.some(Boolean) ? shortTime(peak) : ''}
         </span>
         <span className="focus-grid mid" aria-hidden="true" />
         {!values.some(Boolean) && <span className="focus-empty">無資料</span>}
         {values.map((v, i) => (
-          <button key={i} className={sel === i ? 'focus-bar on' : 'focus-bar'} onClick={() => setSel(sel === i ? null : i)} aria-label={`${names(i)} ${shortTime(v)}`}>
+          <button key={i} className={sel === i ? 'focus-bar on' : 'focus-bar'} onClick={(e) => e.detail === 0 && setSel(sel === i ? null : i)} aria-label={`${names(i)} ${shortTime(v)}`}>
             <span style={{ height: `${(v / peak) * 100}%` }} />
           </button>
         ))}

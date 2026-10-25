@@ -48,6 +48,7 @@ function TaiwanMap2D({ pins, onSelect }: { pins: MapPin[]; onSelect: (id: string
             style={{ cursor: 'pointer' }}
             opacity={p.state === 'locked' ? 0.45 : p.state === 'legend' ? 0.35 : 1}
           >
+            <circle cx={x} cy={z - s / 2} r={s * 0.75} fill="transparent" />
             <svg x={x - s / 2} y={z - s} width={s} height={s} viewBox="0 0 100 100">
               <AnimalArt id={a.id} stage={p.state === 'met' ? p.stage : 2} size={100} hidden={p.state !== 'met'} />
             </svg>
