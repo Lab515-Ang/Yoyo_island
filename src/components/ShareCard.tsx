@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { animalDef } from '../content/config';
 import type { FocusSession } from '../domain/types';
+import type { weekRecap } from '../domain/game';
 import { AnimalArt, TrackArt } from './Animal';
 import { Modal } from './ui';
 import { saveImage, shareImage } from '../platform';
@@ -149,6 +150,40 @@ async function toPng(svg: string, w: number, h: number) {
 }
 
 export const renderSessionCard = (d: SessionCardData) => toPng(sessionSvg(d), 540, 640);
+
+export type RecapCardData = ReturnType<typeof weekRecap> & { range: string; bestName: string; topStage: number };
+
+/** 上週回顧的總結卡：最常遇見的動物、四個數字、日期。 */
+function recapSvg(d: RecapCardData) {
+  const w = 540;
+  const h = 580;
+  const top = d.top && animalDef(d.top.id);
+  const art = top ? place(renderToStaticMarkup(<AnimalArt id={top.id} stage={d.topStage} size={170} />), w / 2 - 85, 92, 170) : '';
+  const tiles: [string, string][] = [
+    [`${Math.floor(d.total / 60000)}`, '專注分鐘'],
+    [`${d.focusDays}/7`, '專注天數'],
+    [d.bestName, '最佳日'],
+    [top ? top.name : '—', '最常遇見'],
+  ];
+  const tile = ([v, l]: [string, string], k: number) => {
+    const x = 40 + (k % 2) * 236;
+    const y = 300 + Math.floor(k / 2) * 112;
+    return `<rect x="${x}" y="${y}" width="224" height="96" rx="18" fill="#ffffff" stroke="#e7dcc5"/>
+<text x="${x + 22}" y="${y + 46}" font-size="28" font-weight="700" fill="#2f4a36">${esc(clip(v, 7))}</text>
+<text x="${x + 22}" y="${y + 76}" font-size="15" fill="#6d7f6f">${l}</text>`;
+  };
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif">
+<rect width="${w}" height="${h}" fill="#dcecf3"/>
+<rect x="16" y="16" width="${w - 32}" height="${h - 32}" rx="24" fill="#f4f9fb" stroke="#c9dfe8"/>
+<text x="${w / 2}" y="66" font-size="24" font-weight="700" fill="#2f4a36" text-anchor="middle">我的上週回顧</text>
+<circle cx="${w / 2}" cy="178" r="88" fill="#cfe6d0"/>
+${art}
+${tiles.map(tile).join('')}
+<text x="${w / 2}" y="${h - 40}" font-size="16" fill="#6d8f86" text-anchor="middle">🌿 棲光小島・${esc(d.range)}</text>
+</svg>`;
+}
+
+export const renderRecapCard = (d: RecapCardData) => toPng(recapSvg(d), 540, 580);
 
 /** 分享圖視窗：製作圖片 → 預覽 → 儲存／分享。 */
 export function ShareModal({ title, fileName, make, onClose }: { title: string; fileName: string; make: () => Promise<string>; onClose: () => void }) {

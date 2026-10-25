@@ -1,6 +1,6 @@
 // 經濟、工程、探索動物與統計：全部是對 SaveFile 的純函式
 import { ANIMALS, HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, PROJECTS, SOUNDS, animalDef, growthFor, projectDef, stageOfGrowth, type AnimalDef, type ProjectDef, type SoundUnlock } from '../content/config';
-import { addSegmentsByDay, createSession, isOpen, localDateKey, settle } from './focus';
+import { addSegmentsByDay, createSession, isOpen, localDateKey, settle, shiftDateKey } from './focus';
 import type { FocusSession, HabitatId, ID, SaveFile, TimerMode } from './types';
 
 export const POINT_MS = 60_000;
@@ -325,6 +325,49 @@ const byDayAll = perSave((save) => {
 /** 每天的專注時間（依存檔快取；回傳的資料只能讀）。 */
 export function minutesByDay(save: SaveFile, userId: ID = save.profile.id) {
   return byDayAll(save).get(userId) ?? new Map<string, number>();
+}
+
+/**
+ * 一週回顧（weekStart 是週一的 YYYY-MM-DD）：每天專注時間、專注天數、最佳日、最常遇見的動物、探索收穫，
+ * 以及和前一週比較。時間含提前結束的那幾段（和專注紀錄一致）；遇見只算完成的探索。
+ */
+export function weekRecap(save: SaveFile, weekStart: string) {
+  const byDay = minutesByDay(save);
+  const week = (from: number) => Array.from({ length: 7 }, (_, i) => byDay.get(shiftDateKey(weekStart, from + i)) ?? 0);
+  const days = week(0);
+  const total = days.reduce((a, b) => a + b, 0);
+  const prevTotal = week(-7).reduce((a, b) => a + b, 0);
+  const end = shiftDateKey(weekStart, 6);
+  const dayKeys = endedDayKeys(save);
+  const sights = sightings(save);
+  const firstMet = new Map<string, string>(); // 每種動物第一次遇見是哪天
+  const met = new Map<string, { count: number; ms: number }>();
+  let grew = 0;
+  for (const s of endedSessions(save)) {
+    if (s.status !== 'completed') continue;
+    const day = dayKeys.get(s.id)!;
+    const a = animalDef(s.animalId).id;
+    if (!(firstMet.get(a)! <= day)) firstMet.set(a, day);
+    if (day < weekStart || day > end) continue;
+    const m = met.get(a) ?? { count: 0, ms: 0 };
+    met.set(a, { count: m.count + 1, ms: m.ms + s.accumulatedMs });
+    if (sights.get(s.id)?.grew) grew++;
+  }
+  const ranked = [...met].sort((x, y) => y[1].ms - x[1].ms || y[1].count - x[1].count); // 陪你最久的在前面
+  const top = ranked[0];
+  return {
+    weekStart,
+    days,
+    total,
+    prevTotal,
+    focusDays: days.filter(Boolean).length,
+    best: total ? days.indexOf(Math.max(...days)) : -1, // 0 = 週一
+    top: top ? { id: top[0], ...top[1] } : null,
+    animals: ranked.map(([id]) => id),
+    species: met.size,
+    newSpecies: [...met.keys()].filter((a) => firstMet.get(a)! >= weekStart).length,
+    grew,
+  };
 }
 
 export function contributionsByUser(save: SaveFile) {

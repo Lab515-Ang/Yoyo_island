@@ -7,7 +7,7 @@ import { AnimalArt } from './Animal';
 /** CSS 畫的金幣圖示（🪙 在 Windows 10 的表情字型裡沒有）。 */
 export const Coin = () => <span className="coin" aria-hidden="true" />;
 
-/** 原生 <dialog>：焦點、Esc 關閉都由瀏覽器處理。 */
+/** 原生 <dialog>：焦點、Esc 關閉都由瀏覽器處理。被瀏覽器直接關掉時也通知（重新打開過的就不算，例如開發模式的重掛載）。 */
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -16,7 +16,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
     return () => d.close();
   }, []);
   return (
-    <dialog ref={ref} className="modal" onCancel={(e) => (e.preventDefault(), onClose())} onClose={onClose} onClick={(e) => e.target === ref.current && onClose()}>
+    <dialog ref={ref} className="modal" onCancel={(e) => (e.preventDefault(), onClose())} onClose={() => !ref.current?.open && onClose()} onClick={(e) => e.target === ref.current && onClose()}>
       <div className="modal-body">
         <header className="modal-head">
           <h2>{title}</h2>

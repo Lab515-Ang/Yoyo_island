@@ -5,7 +5,8 @@ import { fmtMinutes, Modal } from '../components/ui';
 import { renderShareCard, ShareModal } from '../components/ShareCard';
 import { AnimalArt, HatchPlot } from '../components/Animal';
 import { addSegmentsByHour, localDateKey, localHourKey, shiftDateKey, weekStartKey } from '../domain/focus';
-import { endedDayKeys, endedSessions, perSave, sightings } from '../domain/game';
+import { endedDayKeys, endedSessions, perSave, sightings, weekRecap } from '../domain/game';
+import { WeekRecap, lastWeekStart } from './Recap';
 import type { SaveFile } from '../domain/types';
 
 type Range = 'day' | 'week' | 'month' | 'year';
@@ -389,10 +390,21 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
 
 /** 專注紀錄：觀察格子與統計。從結算頁「查看專注紀錄」進來時先篩選那個標籤。 */
 export function Records({ initialTag = null }: { initialTag?: string | null }) {
+  const { save } = useSave();
   const [tagFilter, setTagFilter] = useState<string[] | null>(initialTag ? [initialTag] : null);
+  const [recap, setRecap] = useState(false);
+  const week = lastWeekStart(save.profile.timezone);
   return (
     <div className="page">
-      <h1>專注紀錄</h1>
+      <div className="page-head">
+        <h1>專注紀錄</h1>
+        {weekRecap(save, week).total >= 60_000 && (
+          <button className="ghost small" onClick={() => setRecap(true)}>
+            📅 上週回顧
+          </button>
+        )}
+      </div>
+      {recap && <WeekRecap weekStart={week} onClose={() => setRecap(false)} />}
       <Overview tags={tagFilter} onTags={setTagFilter} />
     </div>
   );

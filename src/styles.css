@@ -2313,3 +2313,281 @@ label.toggle input.switch:checked::after {
 .view-toggle button {
   flex: 1;
 }
+
+/* ---------- 上週回顧 ---------- */
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.recap-invite {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.4rem;
+}
+.recap-invite p {
+  margin: 0;
+}
+.recap-invite-emoji {
+  font-size: 3rem;
+}
+.recap-invite .primary {
+  align-self: stretch;
+  margin-top: 0.6rem;
+}
+.recap {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  color: #2f4a36;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, var(--recap-top) 0 45%, #f4faf8 45%);
+  transition: background 0.3s ease;
+}
+.recap::backdrop {
+  background: #000;
+}
+.recap-teal {
+  --recap-top: #7fcbbf;
+}
+.recap-lavender {
+  --recap-top: #b9a6e6;
+}
+.recap-warm {
+  --recap-top: #f2c26b;
+}
+.recap-pink {
+  --recap-top: #f0a7b4;
+}
+.recap-sky {
+  --recap-top: #8ec5e6;
+}
+.recap-summary {
+  --recap-top: #a9d3ea;
+  background: linear-gradient(180deg, #a9d3ea, #e6f3f9);
+}
+.recap-top {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: max(env(safe-area-inset-top), 0.6rem) 16px 0.4rem;
+}
+.recap-top .icon-btn {
+  color: #fff;
+  background: rgba(0, 0, 0, 0.12);
+}
+.recap-steps {
+  flex: 1;
+  display: flex;
+  gap: 6px;
+}
+.recap-steps span {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.45);
+}
+.recap-steps span.on {
+  background: #fff;
+}
+.recap-body {
+  flex: 1;
+  display: flex;
+  cursor: pointer;
+  user-select: none;
+  min-height: 0;
+}
+.recap-slide {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 16px;
+  animation: recap-in 0.45s ease both;
+}
+.recap-art {
+  height: 42vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+}
+.recap-summary .recap-art {
+  height: auto;
+  flex: 1;
+}
+.recap-text {
+  margin-top: 1.6rem;
+  text-align: center;
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+.recap-text p {
+  margin: 0.2rem 0;
+}
+.recap-text b {
+  color: var(--sage-deep);
+  font-size: 1.2em;
+}
+.recap-big {
+  margin: 0;
+  font-size: clamp(3.4rem, 18vw, 5.2rem);
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.12);
+}
+.recap-big small {
+  font-size: 0.25em;
+  margin-left: 0.2em;
+}
+.recap-animals {
+  display: flex;
+  justify-content: center;
+  gap: 0.2rem;
+}
+.recap-week {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.35);
+}
+.recap-week span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  color: #fff;
+}
+.recap-week i {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  display: grid;
+  place-items: center;
+  font-style: normal;
+  font-weight: 700;
+}
+.recap-week span.on i {
+  background: #fff;
+  color: #8a6fd1;
+}
+.recap-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  width: min(100%, 320px);
+  height: 70%;
+  padding: 14px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.35);
+}
+.recap-bars span {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+  color: #fff;
+}
+.recap-bars i {
+  width: 100%;
+  border-radius: 6px 6px 2px 2px;
+  background: rgba(255, 255, 255, 0.6);
+  transform-origin: bottom;
+  animation: recap-grow 0.7s ease both;
+}
+.recap-bars span.best i {
+  background: #fff;
+}
+.recap-hero {
+  padding: 1rem;
+  border-radius: 32px;
+  background: rgba(255, 255, 255, 0.55);
+  transform: rotate(-4deg);
+}
+.recap-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+}
+.recap-chips span {
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+}
+.recap-card {
+  width: min(100%, 360px);
+  padding: 1.2rem 1rem 0.8rem;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.75);
+  text-align: center;
+}
+.recap-card-title {
+  margin: 0 0 0.8rem;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+.recap-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+.recap-tiles span {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0.6rem 0.7rem;
+  border-radius: 14px;
+  background: #fff;
+  text-align: left;
+}
+.recap-tiles small {
+  color: var(--muted, #6d7f6f);
+}
+.recap-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.6rem 16px max(env(safe-area-inset-bottom), 1rem);
+}
+.recap-foot .primary {
+  width: min(100%, 360px);
+}
+@keyframes recap-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@keyframes recap-grow {
+  from {
+    transform: scaleY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .recap-slide,
+  .recap-bars i {
+    animation: none;
+  }
+}

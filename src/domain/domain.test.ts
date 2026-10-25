@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyDeepFocus, dueAt, completeNow, createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, addSegmentsByHour, weekStartKey } from './focus';
-import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote, isDone, projectQuarter, remainingFor, applyFocusRewards, focusOutcome, animalUnlocked, chosenAnimal, endedSessions, hatchCounts, newAnimals, sceneAnimals, unlockAnimal, growthOf, sightings } from './game';
+import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote, isDone, projectQuarter, remainingFor, applyFocusRewards, focusOutcome, animalUnlocked, chosenAnimal, endedSessions, hatchCounts, newAnimals, sceneAnimals, unlockAnimal, growthOf, sightings, weekRecap } from './game';
 import { ANIMALS, CONTENT_VERSION, GROWTH_AT, SOUNDS, animalDef, projectDef, stageName } from '../content/config';
 import { newSave, newDemoSave, validateSave, demoGrant } from './save';
 import type { SaveFile } from './types';
@@ -396,6 +396,39 @@ describe('族群成長（探索）', () => {
     expect(stageName(animalDef('blue_magpie'), 0)).toBe('雛鳥');
     expect(stageName(animalDef('black_bear'), 2)).toBe('成獸');
     expect(validateSave(JSON.parse(JSON.stringify(save))).ok).toBe(true);
+  });
+});
+
+describe('上週回顧', () => {
+  const meet = (save: SaveFile, animalId: string, minutes: number, at: number) => {
+    const started = startFocus(save, { taskTitle: '', tag: '讀書', habitatId: 'forest', mode: 'countdown', targetSeconds: minutes * 60, animalId }, at);
+    const done = completeNow(started.sessions[started.sessions.length - 1], at + minutes * MIN, minutes);
+    return applyFocusRewards(closeSession(started, done, at + minutes * MIN), done.id, at + minutes * MIN);
+  };
+  const DAY = 24 * 60 * MIN;
+
+  it('每天時間、專注天數、最佳日、最常遇見、第一次遇見、和前一週比較', () => {
+    // T0 = 2026-10-22（週四）台北 09:00；那週從 10/19 週一開始
+    let save = fresh();
+    save = meet(save, 'blue_magpie', 30, T0 - 7 * DAY); // 前一週
+    save = meet(save, 'blue_magpie', 25, T0 - 2 * DAY); // 週二
+    save = meet(save, 'pangolin', 60, T0); // 週四
+    save = meet(save, 'pangolin', 40, T0 + 3 * 60 * MIN); // 週四
+    const quit = finish(session(save, 'countdown', 25, T0 + DAY), T0 + DAY + 15 * MIN, 'abandoned'); // 週五放棄 15 分
+    save = closeSession(save, { ...quit, animalId: 'scops_owl' }, T0 + DAY + 15 * MIN);
+    save = meet(save, 'scops_owl', 25, T0 + 7 * DAY); // 下一週，不算
+
+    const r = weekRecap(save, weekStartKey('2026-10-22'));
+    expect(r.weekStart).toBe('2026-10-19');
+    expect(r.days.map((ms) => ms / MIN)).toEqual([0, 25, 0, 100, 15, 0, 0]);
+    expect(r.total).toBe(140 * MIN);
+    expect(r.prevTotal).toBe(30 * MIN);
+    expect(r.focusDays).toBe(3);
+    expect(r.best).toBe(3); // 週四
+    expect(r.top).toEqual({ id: 'pangolin', count: 2, ms: 100 * MIN });
+    expect(r.species).toBe(2);
+    expect(r.newSpecies).toBe(1); // 藍鵲前一週就遇過
+    expect(weekRecap(save, '2026-09-07')).toMatchObject({ total: 0, best: -1, top: null });
   });
 });
 

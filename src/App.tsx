@@ -15,6 +15,7 @@ import { Break } from './pages/Break';
 import { IslandPage } from './pages/Island';
 import { Quests } from './pages/Quests';
 import { Records } from './pages/Records';
+import { RecapInvite } from './pages/Recap';
 import { Sounds } from './pages/Sounds';
 import { Journey } from './pages/Journey';
 import { Together } from './pages/Together';
@@ -311,6 +312,7 @@ function Main() {
         <main className="content" key={mode}>
           {view === 'lobby' && <Lobby onStarted={() => setSummaryId(null)} onShop={() => go('shop')} />}
           {view === 'lobby' && save.sessions.filter((s) => s.endedAt).length === 1 && <FirstTour />}
+          {view === 'lobby' && <RecapInvite />}
           {view === 'island' && <IslandPage onLobby={() => go('lobby')} onCodex={() => (go('journey'), setJourneyTab('codex'))} />}
           {view === 'quests' && <Quests onIsland={() => go('island')} onShop={() => go('shop')} onLobby={() => go('lobby')} />}
           {view === 'records' && <Records key={recordsTag ?? 'all'} initialTag={recordsTag} />}
