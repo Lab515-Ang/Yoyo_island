@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { AnimalArt } from '../components/Animal';
+import { useSvgTexture } from './svgTexture';
 import type { HabitatId } from '../domain/types';
 
 export interface SceneProps {
@@ -126,49 +127,9 @@ const SPOTS: [number, number, number][] = [
   [0.9, 0.05, -0.9],
 ];
 
-const loadImage = (src: string) =>
-  new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = src;
-  });
-
-/** 把動物圖（臨時 SVG；美術圖到位後換成圖片）畫成貼圖。
- *  所有場景共用同一份（15 種動物 × 3 個成長階段）：換頁重開場景時不用重畫，也不會一直累積貼圖。 */
-const texCache = new Map<string, Promise<THREE.CanvasTexture>>();
-function animalTexture(animalId: string, stage: number) {
-  const key = `${animalId}:${stage}`;
-  let p = texCache.get(key);
-  if (!p) {
-    const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(renderToStaticMarkup(<AnimalArt id={animalId} stage={stage} size={256} />))}`;
-    p = loadImage(url).then((img) => {
-      const c = document.createElement('canvas');
-      c.width = c.height = 256;
-      c.getContext('2d')!.drawImage(img, 0, 0, 256, 256);
-      const t = new THREE.CanvasTexture(c);
-      t.colorSpace = THREE.SRGBColorSpace;
-      return t;
-    });
-    p.catch(() => texCache.delete(key)); // 失敗的下次再試
-    texCache.set(key, p);
-  }
-  return p;
-}
-
-function useAnimalTexture(animalId: string, stage: number) {
-  const [tex, setTex] = useState<THREE.CanvasTexture | null>(null);
-  useEffect(() => {
-    let alive = true;
-    animalTexture(animalId, stage)
-      .then((t) => alive && setTex(t))
-      .catch(() => undefined); // 圖檔缺漏時不顯示，不影響場景
-    return () => {
-      alive = false;
-    };
-  }, [animalId, stage]);
-  return tex;
-}
+/** 動物貼圖（15 種動物 × 3 個成長階段，所有 3D 畫面共用）。 */
+const useAnimalTexture = (animalId: string, stage: number) =>
+  useSvgTexture(`animal:${animalId}:${stage}`, () => renderToStaticMarkup(<AnimalArt id={animalId} stage={stage} size={256} />));
 
 function AnimalSprite({ a, spot, still, onSelect }: { a: SceneAnimal; spot: [number, number, number]; still: boolean; onSelect?: (id: string) => void }) {
   const tex = useAnimalTexture(a.animalId, a.stage);

@@ -14,7 +14,7 @@ function hasWebGL() {
     return false;
   }
 }
-const WEBGL = typeof document !== 'undefined' && hasWebGL();
+export const WEBGL = typeof document !== 'undefined' && hasWebGL();
 // 偵測到效能不足後，這次開啟 App 期間都用 2D（不然每換一頁都要再卡幾秒、再跳一次提示）
 let slowDevice = false;
 

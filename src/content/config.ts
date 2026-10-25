@@ -86,23 +86,39 @@ export interface AnimalDef {
   accent: string;
   unlock: AnimalUnlock;
   blurb: string;
+  habitat: Habitat;
 }
+
+/**
+ * 棲息地（觀察圖鑑的立體台灣地圖用）：只標大致地區與海拔帶，不標精確地點（避免打擾稀有動物）。
+ * level：陸域保育類等級（1 瀕臨絕種、2 珍貴稀有、3 其他應予保育），依 2019 年修正名錄與林業及自然保育署資料整理，上架前再對照現行名錄。
+ */
+export interface Habitat {
+  zone: 'low' | 'mid' | 'high' | 'legend'; // 低海拔、中海拔、中高海拔、傳說（沒有確切紀錄）
+  region: string;
+  elevation: string;
+  level: 1 | 2 | 3;
+  lon: number; // 地圖上的代表位置（經緯度，只是大致地區）
+  lat: number;
+}
+export const ZONE_NAME: Record<Habitat['zone'], string> = { low: '低海拔', mid: '中海拔', high: '中高海拔', legend: '傳說' };
+export const LEVEL_NAME: Record<Habitat['level'], string> = { 1: '一級・瀕臨絕種', 2: '二級・珍貴稀有', 3: '三級・其他應予保育' };
 export const ANIMALS: AnimalDef[] = [
-  { id: 'blue_magpie', name: '台灣藍鵲', shape: 'bird', color: '#2f6fd6', accent: '#e23b2e', unlock: { kind: 'start' }, blurb: '一身寶藍色的羽毛和長長的尾巴，常成群在樹林間穿梭。' },
-  { id: 'scops_owl', name: '領角鴞', shape: 'owl', color: '#9a7b5a', accent: '#f0c869', unlock: { kind: 'start' }, blurb: '夜裡活動的小型貓頭鷹，頭上有一對像耳朵的羽毛。' },
-  { id: 'pangolin', name: '穿山甲', shape: 'pangolin', color: '#a8865c', accent: '#6e5233', unlock: { kind: 'project', id: 'fo_trail' }, blurb: '全身覆蓋鱗片，遇到危險會捲成一顆球。' },
-  { id: 'pitta', name: '八色鳥', shape: 'bird', color: '#3fae5a', accent: '#f2c230', unlock: { kind: 'project', id: 'fo_saplings' }, blurb: '色彩繽紛的夏候鳥，常在森林底層的落葉間覓食。' },
-  { id: 'leopard_cat', name: '石虎', shape: 'cat', color: '#c99a5b', accent: '#5a4026', unlock: { kind: 'project', id: 'fo_cabin' }, blurb: '和家貓差不多大，額頭上有兩條明顯的白色斑紋。' },
-  { id: 'swinhoe_pheasant', name: '藍腹鷴', shape: 'pheasant', color: '#2b3f8c', accent: '#d8392f', unlock: { kind: 'project', id: 'fo_undergrowth' }, blurb: '雄鳥有深藍色的身體和白色的尾羽，常在清晨的林道上出現。' },
-  { id: 'crab_mongoose', name: '食蟹獴', shape: 'mustelid', color: '#8a7a66', accent: '#efe6d6', unlock: { kind: 'project', id: 'fo_corridor' }, blurb: '喜歡在溪邊翻找食物，臉頰兩側有白色的條紋。' },
-  { id: 'marten', name: '黃喉貂', shape: 'mustelid', color: '#3b2e25', accent: '#f2c230', unlock: { kind: 'project', id: 'fo_spring' }, blurb: '喉嚨是亮黃色的，動作靈活，能在樹上快速移動。' },
-  { id: 'hawk_eagle', name: '熊鷹', shape: 'raptor', color: '#6b4b30', accent: '#efe2c8', unlock: { kind: 'project', id: 'fo_canopy' }, blurb: '大型的猛禽，在森林上空盤旋，翅膀寬大有力。' },
-  { id: 'black_bear', name: '台灣黑熊', shape: 'bear', color: '#2a2622', accent: '#f1ecdf', unlock: { kind: 'project', id: 'fo_rescue' }, blurb: '胸前有一道白色的 V 字形斑紋，是台灣森林的代表動物。' },
-  { id: 'civet', name: '小麝香貓', shape: 'cat', color: '#b7a07c', accent: '#4a3b2a', unlock: { kind: 'coins', price: 800 }, blurb: '身上有成排的黑色斑點，尾巴有一圈一圈的環紋。' },
-  { id: 'mikado_pheasant', name: '帝雉', shape: 'pheasant', color: '#1f2f5c', accent: '#7fa3d8', unlock: { kind: 'coins', price: 1200 }, blurb: '住在中高海拔森林，羽毛在陽光下帶著藍紫色的光澤。' },
-  { id: 'serow', name: '長鬃山羊', shape: 'goat', color: '#6d5a48', accent: '#d9cbb5', unlock: { kind: 'coins', price: 1600 }, blurb: '擅長在陡峭的山壁上行走，脖子上有長長的鬃毛。' },
-  { id: 'clouded_leopard', name: '台灣雲豹', shape: 'cat', color: '#c2a476', accent: '#5b4630', unlock: { kind: 'iap', price: 'NT$90' }, blurb: '身上有像雲朵的斑紋。野外已多年沒有確切紀錄，是森林裡的傳說。' },
-  { id: 'black_eagle', name: '林鵰', shape: 'raptor', color: '#2b2622', accent: '#f2c230', unlock: { kind: 'iap', price: 'NT$60' }, blurb: '全身深色的大型猛禽，常貼著樹冠緩緩滑翔。' },
+  { id: 'blue_magpie', name: '台灣藍鵲', shape: 'bird', color: '#2f6fd6', accent: '#e23b2e', unlock: { kind: 'start' }, blurb: '一身寶藍色的羽毛和長長的尾巴，常成群在樹林間穿梭。', habitat: { zone: 'low', region: '全島低至中海拔山區的闊葉林', elevation: '約 300～1,200 公尺', level: 3, lon: 121.55, lat: 25.12 } },
+  { id: 'scops_owl', name: '領角鴞', shape: 'owl', color: '#9a7b5a', accent: '#f0c869', unlock: { kind: 'start' }, blurb: '夜裡活動的小型貓頭鷹，頭上有一對像耳朵的羽毛。', habitat: { zone: 'low', region: '全島平地到低海拔，都市公園也看得到', elevation: '約 1,200 公尺以下', level: 2, lon: 120.3, lat: 23.05 } },
+  { id: 'pangolin', name: '穿山甲', shape: 'pangolin', color: '#a8865c', accent: '#6e5233', unlock: { kind: 'project', id: 'fo_trail' }, blurb: '全身覆蓋鱗片，遇到危險會捲成一顆球。', habitat: { zone: 'low', region: '全島低海拔淺山', elevation: '多在 1,000 公尺以下', level: 2, lon: 121.18, lat: 22.92 } },
+  { id: 'pitta', name: '八色鳥', shape: 'bird', color: '#3fae5a', accent: '#f2c230', unlock: { kind: 'project', id: 'fo_saplings' }, blurb: '色彩繽紛的夏候鳥，常在森林底層的落葉間覓食。', habitat: { zone: 'low', region: '低海拔淺山闊葉林，例如雲林湖本（夏候鳥，約 4～9 月）', elevation: '低海拔', level: 2, lon: 120.62, lat: 23.72 } },
+  { id: 'leopard_cat', name: '石虎', shape: 'cat', color: '#c99a5b', accent: '#5a4026', unlock: { kind: 'project', id: 'fo_cabin' }, blurb: '和家貓差不多大，額頭上有兩條明顯的白色斑紋。', habitat: { zone: 'low', region: '淺山地區，以苗栗、台中、南投為主', elevation: '多在 1,500 公尺以下', level: 1, lon: 120.85, lat: 24.48 } },
+  { id: 'swinhoe_pheasant', name: '藍腹鷴', shape: 'pheasant', color: '#2b3f8c', accent: '#d8392f', unlock: { kind: 'project', id: 'fo_undergrowth' }, blurb: '雄鳥有深藍色的身體和白色的尾羽，常在清晨的林道上出現。', habitat: { zone: 'mid', region: '中低海拔原始闊葉林', elevation: '約 300～2,300 公尺', level: 2, lon: 121.4, lat: 24.68 } },
+  { id: 'crab_mongoose', name: '食蟹獴', shape: 'mustelid', color: '#8a7a66', accent: '#efe6d6', unlock: { kind: 'project', id: 'fo_corridor' }, blurb: '喜歡在溪邊翻找食物，臉頰兩側有白色的條紋。', habitat: { zone: 'mid', region: '低至中海拔的溪流旁森林', elevation: '約 2,000 公尺以下', level: 3, lon: 120.82, lat: 23.85 } },
+  { id: 'marten', name: '黃喉貂', shape: 'mustelid', color: '#3b2e25', accent: '#f2c230', unlock: { kind: 'project', id: 'fo_spring' }, blurb: '喉嚨是亮黃色的，動作靈活，能在樹上快速移動。', habitat: { zone: 'mid', region: '全島原始林，中海拔最常見', elevation: '約 300～3,900 公尺', level: 3, lon: 121.12, lat: 24.3 } },
+  { id: 'hawk_eagle', name: '熊鷹', shape: 'raptor', color: '#6b4b30', accent: '#efe2c8', unlock: { kind: 'project', id: 'fo_canopy' }, blurb: '大型的猛禽，在森林上空盤旋，翅膀寬大有力。', habitat: { zone: 'mid', region: '中海拔原始林', elevation: '約 300～2,800 公尺', level: 1, lon: 120.78, lat: 22.62 } },
+  { id: 'black_bear', name: '台灣黑熊', shape: 'bear', color: '#2a2622', accent: '#f1ecdf', unlock: { kind: 'project', id: 'fo_rescue' }, blurb: '胸前有一道白色的 V 字形斑紋，是台灣森林的代表動物。', habitat: { zone: 'high', region: '中央山脈、玉山、雪霸、大武山一帶', elevation: '主要約 1,000～3,500 公尺', level: 1, lon: 121.02, lat: 23.42 } },
+  { id: 'civet', name: '小麝香貓', shape: 'cat', color: '#b7a07c', accent: '#4a3b2a', unlock: { kind: 'coins', price: 800 }, blurb: '身上有成排的黑色斑點，尾巴有一圈一圈的環紋。', habitat: { zone: 'low', region: '低海拔草生地與農墾地', elevation: '約 1,000 公尺以下', level: 2, lon: 120.75, lat: 22.12 } },
+  { id: 'mikado_pheasant', name: '帝雉', shape: 'pheasant', color: '#1f2f5c', accent: '#7fa3d8', unlock: { kind: 'coins', price: 1200 }, blurb: '住在中高海拔森林，羽毛在陽光下帶著藍紫色的光澤。', habitat: { zone: 'high', region: '中央山脈高山，常有雲霧的針闊葉林', elevation: '約 1,800～3,800 公尺', level: 2, lon: 121.27, lat: 24.12 } },
+  { id: 'serow', name: '長鬃山羊', shape: 'goat', color: '#6d5a48', accent: '#d9cbb5', unlock: { kind: 'coins', price: 1600 }, blurb: '擅長在陡峭的山壁上行走，脖子上有長長的鬃毛。', habitat: { zone: 'high', region: '中高海拔陡峭山壁，例如南湖大山、雪山圈谷', elevation: '200 公尺到高山，1,000 公尺以上較常見', level: 3, lon: 121.44, lat: 24.36 } },
+  { id: 'clouded_leopard', name: '台灣雲豹', shape: 'cat', color: '#c2a476', accent: '#5b4630', unlock: { kind: 'iap', price: 'NT$90' }, blurb: '身上有像雲朵的斑紋。野外已多年沒有確切紀錄，是森林裡的傳說。', habitat: { zone: 'legend', region: '過去分布在中低海拔原始林；2013 年研究團隊調查後認為台灣野外可能已滅絕', elevation: '已多年沒有確切紀錄', level: 1, lon: 120.9, lat: 22.8 } },
+  { id: 'black_eagle', name: '林鵰', shape: 'raptor', color: '#2b2622', accent: '#f2c230', unlock: { kind: 'iap', price: 'NT$60' }, blurb: '全身深色的大型猛禽，常貼著樹冠緩緩滑翔。', habitat: { zone: 'mid', region: '中低海拔原始闊葉林', elevation: '約 500～2,500 公尺', level: 2, lon: 121.45, lat: 23.85 } },
 ];
 export const animalDef = (id: string | undefined) => ANIMALS.find((a) => a.id === id) ?? ANIMALS[0];
 // ---------- 探索與族群成長 ----------

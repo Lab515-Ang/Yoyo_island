@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { GROWTH_MAX, animalDef, projectDef, stageName, type AnimalDef } from '../content/config';
+import { GROWTH_MAX, LEVEL_NAME, ZONE_NAME, animalDef, projectDef, stageName, type AnimalDef } from '../content/config';
 import { animalUnlocked, growthOf, hatchCounts } from '../domain/game';
 import type { SaveFile } from '../domain/types';
 import { AnimalArt } from './Animal';
@@ -90,6 +90,14 @@ export function AnimalCard({ save, animalId, onClose }: { save: SaveFile; animal
         )}
         <dt>探索</dt>
         <dd>{ok ? '大廳選牠當探索目標就能去找' : unlockText(a)}</dd>
+        <dt>棲息地</dt>
+        <dd>
+          {ZONE_NAME[a.habitat.zone]}・{a.habitat.region}
+        </dd>
+        <dt>海拔</dt>
+        <dd>{a.habitat.elevation}</dd>
+        <dt>保育</dt>
+        <dd>{LEVEL_NAME[a.habitat.level]}</dd>
       </dl>
       {(n > 0 || ok) && <p className="muted">{a.blurb}</p>}
     </Modal>
