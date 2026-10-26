@@ -3,6 +3,7 @@ import { GROWTH_MAX, LEVEL_NAME, ZONE_NAME, animalDef, projectDef, stageName, ty
 import { animalUnlocked, growthOf, hatchCounts } from '../domain/game';
 import type { SaveFile } from '../domain/types';
 import { AnimalArt } from './Animal';
+import { X } from 'lucide-react';
 
 /** CSS 畫的金幣圖示（🪙 在 Windows 10 的表情字型裡沒有）。 */
 export const Coin = () => <span className="coin" aria-hidden="true" />;
@@ -20,7 +21,9 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
       <div className="modal-body">
         <header className="modal-head">
           <h2>{title}</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="關閉">✕</button>
+          <button className="icon-btn" onClick={onClose} aria-label="關閉">
+            <X size={20} strokeWidth={2.4} aria-hidden="true" />
+          </button>
         </header>
         {children}
       </div>

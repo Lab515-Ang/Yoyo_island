@@ -27,21 +27,23 @@ import { GuardPage, GuardScreen } from './pages/Guard';
 import { Coin, Modal } from './components/ui';
 import { Tour } from './components/Tour';
 import { hasReward } from './domain/quests';
+import { BarChart3, Bell, BookOpen, Home, ListChecks, Medal, Menu, Music, Settings as SettingsIcon, ShieldCheck, ShoppingBag, Trees, Users, type LucideIcon } from 'lucide-react';
 
 type View = 'lobby' | 'island' | 'quests' | 'records' | 'guard' | 'sounds' | 'journey' | 'friends' | 'achievements' | 'shop' | 'news' | 'settings';
 // 左側選單順序
-const NAV: { id: View; label: string; icon: string; soon?: boolean }[] = [
-  { id: 'island', label: '我的小島', icon: '🏝️' },
-  { id: 'quests', label: '任務', icon: '📋' },
-  { id: 'records', label: '專注紀錄', icon: '⏱️' },
-  { id: 'guard', label: '時間守護', icon: '🛡️' },
-  { id: 'sounds', label: '大自然交響樂', icon: '🎵' },
-  { id: 'journey', label: '我的歷程', icon: '📖' },
-  { id: 'friends', label: '好友', icon: '🤝' },
-  { id: 'achievements', label: '成就', icon: '🏅', soon: true },
-  { id: 'shop', label: '商店', icon: '🛍️' },
-  { id: 'news', label: '活動消息', icon: '📣', soon: true },
-  { id: 'settings', label: '設定', icon: '⚙️' },
+const NAV: { id: View; label: string; icon: LucideIcon; soon?: boolean }[] = [
+  { id: 'lobby', label: '大廳', icon: Home },
+  { id: 'island', label: '我的小島', icon: Trees },
+  { id: 'quests', label: '任務', icon: ListChecks },
+  { id: 'records', label: '專注紀錄', icon: BarChart3 },
+  { id: 'guard', label: '時間守護', icon: ShieldCheck },
+  { id: 'sounds', label: '大自然交響樂', icon: Music },
+  { id: 'journey', label: '我的歷程', icon: BookOpen },
+  { id: 'friends', label: '好友', icon: Users },
+  { id: 'achievements', label: '成就', icon: Medal, soon: true },
+  { id: 'shop', label: '商店', icon: ShoppingBag },
+  { id: 'news', label: '活動消息', icon: Bell, soon: true },
+  { id: 'settings', label: '設定', icon: SettingsIcon },
 ];
 
 // 介面偏好，不屬於存檔：key 不用存檔前綴，避免觸發其他分頁的「存檔已更新」
@@ -301,15 +303,15 @@ function Main() {
             aria-expanded={wide() ? !collapsed : navOpen}
             aria-controls="sidenav"
           >
-            ☰
+            <Menu size={22} strokeWidth={2.2} aria-hidden="true" />
             {reward && <span className="nav-dot" aria-hidden="true" />}
           </button>
           <button className="brand" onClick={() => go('lobby')} aria-label="回到大廳">
-            <span className="brand-name">🏠 {APP_NAME}</span>
+            <span className="brand-name">{APP_NAME}</span>
             <span className="muted small">{save.islands[0]?.name}</span>
           </button>
           <button className="wallet" title="金幣：在商店解鎖動物" onClick={() => go('shop')} aria-label={`金幣 ${coins(save)}，前往商店`}>
-            <Coin /> <strong>{coins(save)}</strong>
+            <Coin /> <strong>{coins(save).toLocaleString('en-US')}</strong>
           </button>
           <button className="avatar-btn" onClick={() => go('settings')} aria-label="設定">
             {avatarEmoji(save.profile.avatarId)}
@@ -317,9 +319,18 @@ function Main() {
         </header>
         {navOpen && <div className="nav-scrim" onClick={() => setNavOpen(false)} />}
         <nav id="sidenav" className={navOpen ? 'sidenav open' : 'sidenav'} aria-label="主要選單">
+          <div className="nav-head">
+            <span className="avatar-sm" aria-hidden="true">
+              {avatarEmoji(save.profile.avatarId)}
+            </span>
+            <div>
+              <b>{save.profile.nickname}</b>
+              <span className="small muted">{save.islands[0]?.name}</span>
+            </div>
+          </div>
           {NAV.map((n) => (
             <button key={n.id} className={view === n.id ? 'nav-item active' : 'nav-item'} aria-current={view === n.id ? 'page' : undefined} onClick={() => go(n.id)} title={n.label}>
-              <span aria-hidden="true">{n.icon}</span>
+              <n.icon className="nav-icon" strokeWidth={2} aria-hidden="true" />
               <span className="nav-label">{n.label}</span>
               {n.soon && <span className="soon">未開放</span>}
               {n.id === 'quests' && reward && <span className="nav-dot" aria-label="有寶箱可以打開" />}

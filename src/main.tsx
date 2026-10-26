@@ -2,6 +2,11 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GameProvider } from './app/store';
 import App from './App';
+// 字型打包進 App（離線也能用）：內文 GoRound、標題粉圓、數字 Nunito
+import '@fontsource-variable/chiron-goround-tc';
+import '@fontsource/huninn/chinese-traditional-400.css';
+import '@fontsource/huninn/latin-400.css';
+import '@fontsource-variable/nunito';
 import './styles.css';
 import { isNative } from './platform';
 

@@ -10,7 +10,10 @@ import { HabitatScene } from '../scenes/HabitatScene';
 import { DEEP_GRACE_MS, TimeGuard, isAndroid, isNative, requestNotifyPermission, type GuardApp } from '../platform';
 import { AppPicker } from './Guard';
 import { DeepSetup, deepPerm, deepSetupSeen } from '../components/DeepSetup';
+import { ChevronDown, ChevronRight, PencilLine, Search } from 'lucide-react';
 
+// 大廳直接點選的常用時間；其他時間從「自訂」設定
+const PRESETS = [10, 25, 45, 60];
 
 type Sheet = 'tag' | 'title' | 'time' | 'habitat' | 'egg' | 'allow' | 'deep' | 'deepInfo' | null;
 
@@ -41,13 +44,6 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
   const customMin = Number(custom);
   const customValid = Number.isInteger(customMin) && customMin >= MIN_FOCUS_MINUTES && customMin <= MAX_FOCUS_MINUTES;
   const shown = timerMode === 'stopwatch' ? '00:00' : seconds < 60 ? `00:${String(seconds).padStart(2, '0')}` : `${Math.round(seconds / 60)}:00`;
-
-  // 左右箭頭：在常用時間之間切換
-  const step = (d: 1 | -1) => {
-    const cur = seconds / 60;
-    const next = d > 0 ? QUICK_MINUTES.find((m) => m > cur) : [...QUICK_MINUTES].reverse().find((m) => m < cur);
-    if (next) setSeconds(next * 60);
-  };
 
   // 可以去找、但還沒遇見過的動物：標「新」，遇見一次就消失
   const fresh = newAnimals(save);
@@ -103,63 +99,74 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
 
   return (
     <div className="lobby">
-      <div className="lobby-head">
-        <button className="tag-chip" onClick={() => setSheet('tag')}>
+      {/* 這次要做什麼：標籤＋標題 */}
+      <div className="lobby-task">
+        <button className="tag-chip" onClick={() => setSheet('tag')} aria-label={`標籤：${tag}，點一下更換`}>
           <span className="tag-dot" style={{ background: tagColor(tag) }} aria-hidden="true" />
-          {tag} ›
+          {tag}
+          <ChevronDown size={16} aria-hidden="true" />
         </button>
         <button
-          className="title-chip"
+          className={task ? 'title-chip' : 'title-chip empty'}
           onClick={() => {
             setDraft(task);
             setSheet('title');
           }}
         >
-          {task || '新增專注標題'}
+          <span>{task || '想專注做什麼？'}</span>
+          <PencilLine size={16} aria-hidden="true" />
         </button>
       </div>
 
-      <div className="lobby-bubble">
+      {/* 這次去哪裡、找誰 */}
+      <div className="lobby-scene">
         <HabitatScene habitatId={habitat} bubble />
         {/* 這次的探索目標：還沒出發，只看得到剪影 */}
         <button className="bubble-plant" onClick={() => setSheet('egg')} aria-label={`探索目標：${animalDef(egg).name}，點一下更換`}>
           <TrackArt id={egg} stage={growthOf(save, egg).stage} size="100%" />
         </button>
-      </div>
-      <div className="row center">
-        <button className="habitat-chip" onClick={() => setSheet('egg')}>
-          🔍 尋找{animalDef(egg).name}
+        <button className="target-chip" onClick={() => setSheet('egg')}>
+          <span className="target-icon" aria-hidden="true">
+            <Search size={15} strokeWidth={2.4} />
+          </span>
+          尋找{animalDef(egg).name}
           {fresh.length > 0 && !fresh.some((a) => a.id === egg) && <span className="new-badge">{fresh.length} 個新足跡</span>}
-          {fresh.some((a) => a.id === egg) && <span className="new-badge">新</span>} ›
+          {fresh.some((a) => a.id === egg) && <span className="new-badge">新</span>}
+          <ChevronRight size={16} aria-hidden="true" />
         </button>
         {openHabitats.length > 1 && (
           <button className="habitat-chip" onClick={() => setSheet('habitat')}>
-            {habitatName(habitat)} ›
+            {habitatName(habitat)}
+            <ChevronDown size={14} aria-hidden="true" />
           </button>
         )}
       </div>
 
-      <div className="lobby-time-row">
-        {timerMode === 'countdown' && (
-          <button className="time-step" onClick={() => step(-1)} aria-label="減少時間" disabled={seconds <= QUICK_MINUTES[0] * 60}>
-            ‹
-          </button>
-        )}
+      {/* 多久 */}
+      <div className="lobby-timer">
         <button className="lobby-time" onClick={() => setSheet('time')} aria-label={`專注時間 ${shown}，點一下調整`}>
           {shown}
         </button>
-        {timerMode === 'countdown' && (
-          <button className="time-step" onClick={() => step(1)} aria-label="增加時間" disabled={seconds >= QUICK_MINUTES[QUICK_MINUTES.length - 1] * 60}>
-            ›
-          </button>
-        )}
+        <button className="lobby-mode" onClick={() => setSheet('time')}>
+          {timerMode === 'countdown' ? '倒數計時' : '正向計時'}
+          {deep ? ' · 深度專注' : ''}
+          <ChevronDown size={14} aria-hidden="true" />
+        </button>
       </div>
-      <button className="lobby-mode" onClick={() => setSheet('time')}>
-        {timerMode === 'countdown' ? '倒數' : '正向計時'}
-        {deep ? ' · 深度專注' : ''} · {timerMode === 'countdown' ? '點時間或左右箭頭調整' : '點這裡切換'} ▾
-      </button>
+      {timerMode === 'countdown' && (
+        <div className="quick-times" role="radiogroup" aria-label="常用時間">
+          {PRESETS.map((m) => (
+            <button key={m} role="radio" aria-checked={seconds === m * 60} className={seconds === m * 60 ? 'chip on' : 'chip'} onClick={() => setSeconds(m * 60)}>
+              {m} 分
+            </button>
+          ))}
+          <button className={PRESETS.includes(seconds / 60) ? 'chip' : 'chip on'} onClick={() => setSheet('time')}>
+            {PRESETS.includes(seconds / 60) ? '自訂' : `${seconds < 60 ? `${seconds} 秒` : `${seconds / 60} 分`}`}
+          </button>
+        </div>
+      )}
 
-      <button className="pill start" onClick={() => void start()}>
+      <button className="primary start" onClick={() => void start()}>
         開始專注
       </button>
       <InstallHint />

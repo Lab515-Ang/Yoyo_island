@@ -9,6 +9,7 @@ import type { FocusSession, SaveFile } from '../domain/types';
 import { HabitatScene } from '../scenes/HabitatScene';
 import { useAmbient } from '../sound';
 import { DEEP_GRACE_MS, TimeGuard, cancelFocusEnd, isAndroid, scheduleFocusEnd } from '../platform';
+import { Lock, Pause, Play, Square, Volume2, VolumeX, Zap } from 'lucide-react';
 
 const clock = (ms: number) => {
   const s = Math.floor(ms / 1000);
@@ -133,13 +134,17 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
         <div className="focus-top">
           {TEST_TOOLS && (
             <button className="test-btn" onClick={() => setTesting(true)}>
-              ⚡ 測試：立即完成
+              <Zap size={14} aria-hidden="true" /> 測試：立即完成
             </button>
           )}
-          {session.deep && isAndroid && <span className="small">🔒 深度專注</span>}
-          {soundOn && <span className="small">正在播放：{soundName}</span>}
+          {session.deep && isAndroid && (
+            <span className="focus-pill">
+              <Lock size={13} aria-hidden="true" /> 深度專注
+            </span>
+          )}
+          {soundOn && <span className="focus-pill">正在播放：{soundName}</span>}
           <button className="icon-round" onClick={toggleSound} aria-pressed={soundOn} aria-label={soundOn ? '關閉環境音' : '開啟環境音'}>
-            {soundOn ? '🔊' : '🔇'}
+            {soundOn ? <Volume2 size={20} aria-hidden="true" /> : <VolumeX size={20} aria-hidden="true" />}
           </button>
         </div>
         <div className="focus-plant">
@@ -156,7 +161,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
           )}
         </div>
         <p className="focus-target" aria-live="polite">
-          {progress < 0.5 ? `🔍 正在靠近${animalDef(session.animalId).name}…` : progress < 1 ? `👀 ${animalDef(session.animalId).name}就在附近了…` : `✨ 找到${animalDef(session.animalId).name}了！`}
+          {progress < 0.5 ? `正在靠近${animalDef(session.animalId).name}…` : progress < 1 ? `${animalDef(session.animalId).name}就在附近了…` : `找到${animalDef(session.animalId).name}了！`}
         </p>
         {endAt && <p className="focus-endtime">預計 {endAt} 結束</p>}
         <div className="focus-controls">
@@ -168,15 +173,15 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
           ) : (
             <>
               <button className="icon-round big" onClick={() => (countdown || tooShort ? setEnding(true) : end('completed'))} aria-label={countdown || tooShort ? '提前結束' : '完成這段專注'}>
-                ■
+                <Square size={18} fill="currentColor" aria-hidden="true" />
               </button>
               {paused ? (
                 <button className="icon-round big on" onClick={() => update((s) => putSession(s, resume(cur(s), Date.now())))} aria-label="恢復">
-                  ▶
+                  <Play size={22} fill="currentColor" aria-hidden="true" />
                 </button>
               ) : (
                 <button className="icon-round big on" onClick={pauseNow} aria-label="暫停">
-                  ❚❚
+                  <Pause size={22} fill="currentColor" aria-hidden="true" />
                 </button>
               )}
             </>
