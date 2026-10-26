@@ -63,7 +63,7 @@ function cardSvg(d: ShareCardData) {
   const bars = d.bars
     .map((v, i) => {
       const h = (v / peak) * chartH;
-      return `<rect x="${plotX + i * bw + bw * 0.15}" y="${chartY + chartH - Math.max(h, 2)}" width="${bw * 0.7}" height="${Math.max(h, 2)}" rx="2" fill="#4f7a55" opacity="${v ? 0.9 : 0.25}"/>`;
+      return `<rect x="${plotX + i * bw + bw * 0.15}" y="${chartY + chartH - Math.max(h, 2)}" width="${bw * 0.7}" height="${Math.max(h, 2)}" rx="2" fill="#5a8c55" opacity="${v ? 0.9 : 0.25}"/>`;
     })
     .join('');
   // 標籤和長條一樣多（例如星期）就對齊長條中間，否則平均分布在兩端之間
@@ -72,27 +72,27 @@ function cardSvg(d: ShareCardData) {
     .map((a, i) => {
       const x = centered ? plotX + (i + 0.5) * bw : plotX + (i / Math.max(1, d.axis.length - 1)) * plotW;
       const anchor = centered ? 'middle' : i === 0 ? 'start' : i === d.axis.length - 1 ? 'end' : 'middle';
-      return `<text x="${x}" y="${chartY + chartH + 22}" font-size="14" fill="#6d7f6f" text-anchor="${anchor}">${esc(a)}</text>`;
+      return `<text x="${x}" y="${chartY + chartH + 22}" font-size="14" fill="#766b5e" text-anchor="${anchor}">${esc(a)}</text>`;
     })
     .join('');
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif">
-<rect width="${W}" height="${H}" fill="#f6f1e4"/>
-<rect x="16" y="16" width="${W - 32}" height="${H - 32}" rx="24" fill="#fffbf2" stroke="#e7dcc5"/>
-<rect x="16" y="16" width="${W - 32}" height="64" rx="24" fill="#4f7a55"/><rect x="16" y="56" width="${W - 32}" height="24" fill="#4f7a55"/>
-<text x="${W / 2}" y="58" font-size="22" font-weight="700" fill="#fffdf6" text-anchor="middle">專注成果統計圖</text>
-<text x="40" y="122" font-size="18" fill="#6d7f6f">${esc(clip(`${d.title}・${d.subtitle}`, 26))}</text>
-<text x="40" y="166" font-size="34" font-weight="700" fill="#2f4a36">${esc(d.total)}</text>
-<text x="${W - 40}" y="166" font-size="16" fill="#6d7f6f" text-anchor="end">${esc(d.counts)}</text>
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="'Chiron GoRound TC Variable','Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif">
+<rect width="${W}" height="${H}" fill="#fbf6ec"/>
+<rect x="16" y="16" width="${W - 32}" height="${H - 32}" rx="24" fill="#fffdf8" stroke="#ece4d3"/>
+<rect x="16" y="16" width="${W - 32}" height="64" rx="24" fill="#5a8c55"/><rect x="16" y="56" width="${W - 32}" height="24" fill="#5a8c55"/>
+<text x="${W / 2}" y="58" font-size="22" font-weight="700" fill="#fffdf8" text-anchor="middle">專注成果統計圖</text>
+<text x="40" y="122" font-size="18" fill="#766b5e">${esc(clip(`${d.title}・${d.subtitle}`, 26))}</text>
+<text x="40" y="166" font-size="34" font-weight="700" fill="#36302a">${esc(d.total)}</text>
+<text x="${W - 40}" y="166" font-size="16" fill="#766b5e" text-anchor="end">${esc(d.counts)}</text>
 <rect x="${plotX - 8}" y="${plotY - 8}" width="${plotW + 16}" height="${plotH + 16}" rx="18" fill="#a9cc8f"/>
 ${cells}
-${more > 0 ? `<text x="${plotX + plotW - 6}" y="${plotY + plotH - 4}" font-size="14" fill="#2f4a36" text-anchor="end">另外 ${more} 次</text>` : ''}
-${d.sessions.length ? '' : `<text x="${W / 2}" y="${plotY + plotH / 2 + 6}" font-size="16" fill="#2f4a36" text-anchor="middle">這段時間還沒有遇見動物</text>`}
-<text x="40" y="${chartY - 12}" font-size="16" fill="#2f4a36">專注時間分布</text>
+${more > 0 ? `<text x="${plotX + plotW - 6}" y="${plotY + plotH - 4}" font-size="14" fill="#36302a" text-anchor="end">另外 ${more} 次</text>` : ''}
+${d.sessions.length ? '' : `<text x="${W / 2}" y="${plotY + plotH / 2 + 6}" font-size="16" fill="#36302a" text-anchor="middle">這段時間還沒有遇見動物</text>`}
+<text x="40" y="${chartY - 12}" font-size="16" fill="#36302a">專注時間分布</text>
 ${bars}
-<line x1="${plotX}" y1="${chartY + chartH}" x2="${plotX + plotW}" y2="${chartY + chartH}" stroke="#e7dcc5"/>
+<line x1="${plotX}" y1="${chartY + chartH}" x2="${plotX + plotW}" y2="${chartY + chartH}" stroke="#ece4d3"/>
 ${axis}
-<text x="${W / 2}" y="${H - 34}" font-size="15" fill="#8fb38a" text-anchor="middle">🌿 棲光小島</text>
+<text x="${W / 2}" y="${H - 34}" font-size="15" fill="#7aaa74" text-anchor="middle">🌿 棲光小島</text>
 </svg>`;
 }
 
@@ -126,16 +126,16 @@ function sessionSvg({ session: s, when, title, stage }: SessionCardData) {
   const art = done ? renderToStaticMarkup(<AnimalArt id={a.id} stage={stage} size={220} />) : renderToStaticMarkup(<TrackArt id={a.id} fled size={170} />);
   const meta = [s.taskTitle && s.taskTitle !== '一段專注' ? s.taskTitle : '', s.tag].filter(Boolean).join('・');
   const note = s.note ? wrap(s.note, 22, 3) : [];
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif">
-<rect width="${w}" height="${h}" fill="#f6f1e4"/>
-<rect x="16" y="16" width="${w - 32}" height="${h - 32}" rx="24" fill="#fffbf2" stroke="#e7dcc5"/>
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="'Chiron GoRound TC Variable','Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif">
+<rect width="${w}" height="${h}" fill="#fbf6ec"/>
+<rect x="16" y="16" width="${w - 32}" height="${h - 32}" rx="24" fill="#fffdf8" stroke="#ece4d3"/>
 <circle cx="${w / 2}" cy="200" r="130" fill="${done ? '#dcebc9' : '#e6e1d6'}"/>
 ${place(art, done ? w / 2 - 110 : w / 2 - 85, done ? 90 : 115, done ? 220 : 170)}
-<text x="${w / 2}" y="378" font-size="28" font-weight="700" fill="#2f4a36" text-anchor="middle">${esc(clip(title, 16))}</text>
-<text x="${w / 2}" y="414" font-size="17" fill="#6d7f6f" text-anchor="middle">${esc(when)}・${min} 分鐘</text>
-${meta ? `<text x="${w / 2}" y="446" font-size="16" fill="#4f7a55" text-anchor="middle">${esc(clip(meta, 28))}</text>` : ''}
-${note.map((l, i) => `<text x="${w / 2}" y="${490 + i * 26}" font-size="16" fill="#2f4a36" text-anchor="middle">${esc(l)}</text>`).join('')}
-<text x="${w / 2}" y="${h - 36}" font-size="15" fill="#8fb38a" text-anchor="middle">🌿 棲光小島</text>
+<text x="${w / 2}" y="378" font-size="28" font-weight="700" fill="#36302a" text-anchor="middle">${esc(clip(title, 16))}</text>
+<text x="${w / 2}" y="414" font-size="17" fill="#766b5e" text-anchor="middle">${esc(when)}・${min} 分鐘</text>
+${meta ? `<text x="${w / 2}" y="446" font-size="16" fill="#5a8c55" text-anchor="middle">${esc(clip(meta, 28))}</text>` : ''}
+${note.map((l, i) => `<text x="${w / 2}" y="${490 + i * 26}" font-size="16" fill="#36302a" text-anchor="middle">${esc(l)}</text>`).join('')}
+<text x="${w / 2}" y="${h - 36}" font-size="15" fill="#7aaa74" text-anchor="middle">🌿 棲光小島</text>
 </svg>`;
 }
 
@@ -173,14 +173,14 @@ function recapSvg(d: RecapCardData) {
   const tile = ([v, l]: [string, string], k: number) => {
     const x = 40 + (k % 2) * 236;
     const y = 300 + Math.floor(k / 2) * 112;
-    return `<rect x="${x}" y="${y}" width="224" height="96" rx="18" fill="#ffffff" stroke="#e7dcc5"/>
-<text x="${x + 22}" y="${y + 46}" font-size="28" font-weight="700" fill="#2f4a36">${esc(clip(v, 7))}</text>
-<text x="${x + 22}" y="${y + 76}" font-size="15" fill="#6d7f6f">${l}</text>`;
+    return `<rect x="${x}" y="${y}" width="224" height="96" rx="18" fill="#ffffff" stroke="#ece4d3"/>
+<text x="${x + 22}" y="${y + 46}" font-size="28" font-weight="700" fill="#36302a">${esc(clip(v, 7))}</text>
+<text x="${x + 22}" y="${y + 76}" font-size="15" fill="#766b5e">${l}</text>`;
   };
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif">
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="'Chiron GoRound TC Variable','Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif">
 <rect width="${w}" height="${h}" fill="#dcecf3"/>
 <rect x="16" y="16" width="${w - 32}" height="${h - 32}" rx="24" fill="#f4f9fb" stroke="#c9dfe8"/>
-<text x="${w / 2}" y="66" font-size="21" font-weight="700" fill="#2f4a36" text-anchor="middle">我的專注表現進入棲光小島前 ${d.rankTop}%！</text>
+<text x="${w / 2}" y="66" font-size="21" font-weight="700" fill="#36302a" text-anchor="middle">我的專注表現進入棲光小島前 ${d.rankTop}%！</text>
 <circle cx="${w / 2}" cy="178" r="88" fill="#cfe6d0"/>
 ${art}
 ${tiles.map(tile).join('')}
