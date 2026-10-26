@@ -48,7 +48,7 @@ export function Quests({ onIsland, onShop, onLobby }: { onIsland: () => void; on
   const daysLeft = Math.round((Date.parse(nextMonth) - Date.parse(day)) / 86400000);
   const claim = () => {
     let got: { coins: number; animalId?: string } | null = null;
-    update((s) => {
+    const saved = update((s) => {
       const r = claimQuest(s, opening!.key, Date.now());
       if (!r.ok) {
         notify(r.error);
@@ -57,7 +57,7 @@ export function Quests({ onIsland, onShop, onLobby }: { onIsland: () => void; on
       got = { coins: r.coins, animalId: r.animalId };
       return r.save;
     });
-    return got;
+    return saved ? got : null; // 存檔失敗（例如空間不足）：寶箱不打開
   };
   const project = activeProject(save);
   const got = project ? (projectRow(save, project.id)?.contributedPoints ?? 0) : 0;

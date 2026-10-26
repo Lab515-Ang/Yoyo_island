@@ -83,8 +83,9 @@ export function newDemoSave(from: SaveFile | null, now: number): SaveFile {
       ...DEMO_MEMBERS.map((m, i) => ({ islandId: s.profile.activeIslandId, userId: ids[i], role: 'member' as const, joinedAt: iso(now - (i + 1) * 86400000), demoNickname: m.nickname, demoAvatarId: m.avatarId })),
     ],
   };
-  // 範例貢獻：小林清出步道，兩人一起把樹苗推進到 270/300
-  const plan: [number, string, number][] = [[0, 'fo_trail', 10], [0, 'fo_saplings', 150], [1, 'fo_saplings', 120]];
+  // 範例貢獻：小林清出步道，兩人一起把樹苗推進到只差 30 點，讓示範玩家親手完成（依工程點數計算，調整節奏也不用改）
+  const saplings = PROJECTS.find((p) => p.id === 'fo_saplings')!.requiredPoints - 30;
+  const plan: [number, string, number][] = [[0, 'fo_trail', 10], [0, 'fo_saplings', Math.ceil(saplings / 2)], [1, 'fo_saplings', Math.floor(saplings / 2)]];
   for (const [who, pid, pts] of plan) {
     s = demoGrant(s, ids[who], pts, now);
     const r = contribute(s, ids[who], pid, pts, now);

@@ -50,24 +50,24 @@ function simulate(h: Habit, days: number) {
 }
 
 describe('節奏模擬', () => {
-  it('每天 2 小時：第一天就有步道與第一隻動物；約 3 個月修完森林；動物收集與族群成長跟得上', () => {
-    const { save, firstDay } = simulate({ sessionsPerDay: 4, minutes: 30, daysPerWeek: 7 }, 120);
+  it('每天 2.5 小時：第一天就有步道與第一隻動物；約 3 個月修完森林；動物收集與族群成長跟得上', () => {
+    const { save, firstDay } = simulate({ sessionsPerDay: 5, minutes: 30, daysPerWeek: 7 }, 150);
     console.table(firstDay);
     expect(firstDay['完成 清出林間步道']).toBe(1);
-    expect(firstDay['全部工程完成']).toBeGreaterThanOrEqual(70);
+    expect(firstDay['全部工程完成']).toBeGreaterThanOrEqual(80);
     expect(firstDay['全部工程完成']).toBeLessThanOrEqual(100);
-    expect(firstDay['遇見所有可取得的動物']).toBeLessThanOrEqual(110);
+    expect(firstDay['遇見所有可取得的動物']).toBeLessThanOrEqual(100);
     // 族群成長要和修復森林差不多同時走完，後期才有事可做
-    expect(firstDay['所有可取得的動物都看到成年']).toBeGreaterThanOrEqual(60);
-    expect(firstDay['所有可取得的動物都看到成年']).toBeLessThanOrEqual(120);
+    expect(firstDay['所有可取得的動物都看到成年']).toBeGreaterThanOrEqual(70);
+    expect(firstDay['所有可取得的動物都看到成年']).toBeLessThanOrEqual(130);
     expect(coins(save)).toBeGreaterThanOrEqual(0);
   });
 
-  it('每天 1 小時：森林大約半年修完，仍會持續解鎖新動物', () => {
-    const { firstDay } = simulate({ sessionsPerDay: 2, minutes: 30, daysPerWeek: 7 }, 200);
+  it('每天 1 小時：森林大約 7～8 個月修完，仍會持續解鎖新動物', () => {
+    const { firstDay } = simulate({ sessionsPerDay: 2, minutes: 30, daysPerWeek: 7 }, 260);
     console.table(firstDay);
-    expect(firstDay['全部工程完成']).toBeGreaterThanOrEqual(140);
-    expect(firstDay['全部工程完成']).toBeLessThanOrEqual(200);
+    expect(firstDay['全部工程完成']).toBeGreaterThanOrEqual(200);
+    expect(firstDay['全部工程完成']).toBeLessThanOrEqual(250);
     expect(firstDay['商店解鎖 小麝香貓']).toBeLessThanOrEqual(30);
   });
 });

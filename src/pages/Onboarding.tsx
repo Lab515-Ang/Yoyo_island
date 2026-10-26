@@ -5,6 +5,7 @@ import { AnimalArt, TrackArt } from '../components/Animal';
 import { Modal } from '../components/ui';
 import { startFocus } from '../domain/game';
 import { newSave, validateSave } from '../domain/save';
+import { minimizeApp, onBack } from '../platform';
 
 /**
  * 新手引導（參考 Forest 的開場）：首頁 → 三頁小故事（第一頁自己動手「開始觀察」）→ 怎麼稱呼你 → 第一段專注。
@@ -19,6 +20,9 @@ export function Onboarding() {
   const [task, setTask] = useState('');
   const [privacy, setPrivacy] = useState(false);
   const [restoreError, setRestoreError] = useState<string | null>(null);
+
+  // Android 返回鍵：先關隱私權說明，再回上一步，首頁才回到桌面（不要直接退出、弄丟填到一半的資料）
+  useEffect(() => onBack(() => (privacy ? setPrivacy(false) : step > 0 ? setStep(step - 1) : minimizeApp())), [privacy, step]);
 
   const create = () => replace(newSave('personal', { nickname: nickname.trim() || '照護者', islandName: islandName.trim() || '我的小島', avatarId }, Date.now()));
   const restore = async (file?: File) => {
@@ -169,7 +173,7 @@ function Top({ step, onBack }: { step?: number; onBack: () => void }) {
   );
 }
 
-/** 小故事的一頁：上方進度、中間內容、下方按鈕（第一頁要先自己按過望遠鏡）。 */
+/** 小故事的一頁：上方進度、中間內容、下方按鈕。 */
 function Story({ step, onBack, onNext, children }: { step: number; onBack: () => void; onNext: () => void; children: ReactNode }) {
   return (
     <div className="ob">
@@ -186,7 +190,7 @@ function Story({ step, onBack, onNext, children }: { step: number; onBack: () =>
   );
 }
 
-/** 第 1 頁：自己按望遠鏡，看剪影慢慢現出顏色（Forest 是「向下滑動種苗」）。 */
+/** 第 1 頁：自己按望遠鏡，看剪影慢慢現出顏色（Forest 是「向下滑動種苗」）；不按也可以直接下一步。 */
 function Observe() {
   const [p, setP] = useState(0);
   const [going, setGoing] = useState(false);

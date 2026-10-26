@@ -62,16 +62,29 @@ public class TimeGuardPlugin extends Plugin {
     }
 
     /** 電池最佳化清單（讓玩家把棲光小島設成不受限制）。用清單頁，不用直接詢問的視窗：後者 Google Play 審核限制很多。 */
+    /** 打開系統設定頁；這支手機沒有那一頁（部分品牌、舊版 Android）就改開 App 資訊頁，不要讓 App 閃退。 */
+    private void openSettings(Intent i) {
+        try {
+            getActivity().startActivity(i);
+        } catch (Exception e) {
+            try {
+                getActivity().startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getContext().getPackageName())));
+            } catch (Exception ignored) {
+                // 連 App 資訊頁都打不開：什麼都不做
+            }
+        }
+    }
+
     @PluginMethod
     public void openBatterySettings(PluginCall call) {
-        getActivity().startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
+        openSettings(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
         call.resolve();
     }
 
     /** 這個 App 的通知設定（玩家之前拒絕過，系統不會再跳詢問時用）。 */
     @PluginMethod
     public void openNotificationSettings(PluginCall call) {
-        getActivity().startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, getContext().getPackageName()));
+        openSettings(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, getContext().getPackageName()));
         call.resolve();
     }
 
@@ -84,19 +97,19 @@ public class TimeGuardPlugin extends Plugin {
 
     @PluginMethod
     public void openExactAlarmSettings(PluginCall call) {
-        if (Build.VERSION.SDK_INT >= 31) getActivity().startActivity(new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + getContext().getPackageName())));
+        if (Build.VERSION.SDK_INT >= 31) openSettings(new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + getContext().getPackageName())));
         call.resolve();
     }
 
     @PluginMethod
     public void openUsageSettings(PluginCall call) {
-        getActivity().startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
+        openSettings(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
         call.resolve();
     }
 
     @PluginMethod
     public void openOverlaySettings(PluginCall call) {
-        getActivity().startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getContext().getPackageName())));
+        openSettings(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getContext().getPackageName())));
         call.resolve();
     }
 
@@ -301,8 +314,8 @@ public class TimeGuardPlugin extends Plugin {
     public void startFocusWatch(PluginCall call) {
         String key = call.getString("key", "");
         JSObject w = new JSObject();
-        w.put("endAt", call.getLong("endAt", 0L));
-        w.put("graceMs", call.getLong("graceMs", 10_000L));
+        w.put("endAt", call.getData().optLong("endAt", 0L));
+        w.put("graceMs", call.getData().optLong("graceMs", 10_000L));
         w.put("allow", call.getArray("allow", new JSArray()));
         w.put("notifyEnd", call.getBoolean("notifyEnd", false));
         w.put("doneTitle", call.getString("doneTitle", ""));
@@ -310,7 +323,7 @@ public class TimeGuardPlugin extends Plugin {
         // 常駐通知（狀態列鎖頭）：標題、內容、計時基準（倒數＝結束時間；正向計時＝開始時間）
         w.put("title", call.getString("title", "🔭 專注中"));
         w.put("text", call.getString("text", ""));
-        w.put("chronoBase", call.getData().optLong("chronoBase", call.getLong("endAt", 0L)));
+        w.put("chronoBase", call.getData().optLong("chronoBase", call.getData().optLong("endAt", 0L)));
         w.put("chronoDown", call.getBoolean("chronoDown", true));
         synchronized (TimeGuardService.LOCK) {
             android.content.SharedPreferences p = TimeGuardService.prefs(getContext());
@@ -403,6 +416,7 @@ public class TimeGuardPlugin extends Plugin {
                 // 圖片壞了就只顯示文字
             }
         }
+        nm.cancel(4); // TimeGuardService.ID_DONE
         try {
             nm.notify(1, b.build());
         } catch (SecurityException ignored) {

@@ -112,6 +112,7 @@ export function claimQuest(save: SaveFile, key: string, now: number): Claim {
     coins = STARTER_REWARD;
     animalId = st.animal?.id;
   } else {
+    if (/^quest:\d{4}-\d{2}-\d{2}:/.test(key) && !key.startsWith(`quest:${day}:`)) return { ok: false, error: '已經過午夜，每日挑戰換新了。' };
     const q = [monthQuest(save, day.slice(0, 7)), ...dailyQuests(save, day)].find((x) => x.key === key);
     if (!q || q.claimed || q.progress < q.target) return { ok: false, error: '這個挑戰還沒完成。' };
     coins = q.reward;
@@ -120,11 +121,13 @@ export function claimQuest(save: SaveFile, key: string, now: number): Claim {
   return { ok: true, save: { ...save, transactions: [...save.transactions, t] }, coins, animalId };
 }
 
-/** 存檔檢查用：領取紀錄的金額要和挑戰相符（不重算進度：筆記之後被刪掉也不算壞檔）。 */
+/**
+ * 存檔檢查用：只看格式與合理範圍，不比對目前的獎勵數值與進度
+ * （之後調整挑戰獎勵、或筆記被刪掉，舊存檔都還要讀得到；同一個挑戰重複領取由 idempotencyKey 擋下）。
+ */
 export function questRewardOk(key: string, amount: number, animalId?: string) {
-  if (key === 'quest:starter') return amount === STARTER_REWARD && (!animalId || ANIMALS.some((a) => a.id === animalId && a.unlock.kind === 'coins'));
+  if (!Number.isInteger(amount) || amount <= 0 || amount > 1000) return false;
+  if (key === 'quest:starter') return !animalId || ANIMALS.some((a) => a.id === animalId);
   if (animalId) return false;
-  if (/^quest:month:\d{4}-\d{2}$/.test(key)) return amount === MONTH_REWARD;
-  const m = /^quest:(\d{4}-\d{2}-\d{2}):([0-2])$/.exec(key);
-  return !!m && questPlan(m[1])[Number(m[2])].reward === amount;
+  return /^quest:month:\d{4}-\d{2}$/.test(key) || /^quest:\d{4}-\d{2}-\d{2}:[0-2]$/.test(key);
 }

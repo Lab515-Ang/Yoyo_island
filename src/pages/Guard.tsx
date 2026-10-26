@@ -71,14 +71,19 @@ export function GuardScreen({ app, onClose }: { app: GuardApp; onClose: () => vo
 
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
-    const d = ref.current!;
+    const d = ref.current;
+    if (!d) return;
     if (!d.open) d.showModal();
     return () => d.close();
   }, []);
+  // 深度專注的攔下畫面在專注結束（例如剛好時間到）後就沒意義了：關掉，回到結算畫面
+  useEffect(() => {
+    if (app.focus && !session) onClose();
+  }, [app.focus, session, onClose]);
 
   // 深度專注中打開其他 App，被叫回小島（像 Forest 一樣擋下來）：不算時間守護的紀錄
-  if (app.focus && session)
-    return (
+  if (app.focus)
+    return !session ? null : (
       <dialog ref={ref} className="guard-screen" aria-labelledby="guard-title" onCancel={(e) => e.preventDefault()}>
         <div className="guard-pet">
           <TrackArt id={session.animalId} size={180} />

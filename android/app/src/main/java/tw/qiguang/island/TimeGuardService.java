@@ -136,21 +136,30 @@ public class TimeGuardService extends Service {
         return null;
     }
 
-    /** 正在看守的深度專注設定（沒有就是空字串）：變了才重畫常駐通知。 */
+    /** 正在看守的深度專注設定＋已結束的通話（沒有就是空字串）：變了才重畫常駐通知（通話後倒數要順延）。 */
     private String focusSignature() {
-        return watching(this) ? prefs(this).getString("watch", "") : "";
+        return watching(this) ? prefs(this).getString("watch", "") + '\n' + prefs(this).getString("calls", "[]") : "";
     }
 
     /**
-     * 常駐通知：深度專注中是「🔒 專注中」（狀態列鎖頭、倒數／正數計時，點了回到小島）；
+     * 常駐通知：深度專注中是「🔭 專注中」（狀態列望遠鏡、倒數／正數計時，點了回到小島）；
      * 其他時候是幾乎看不見的「守護中」（前景服務一定要有通知）。
      */
     private Notification serviceNotification(String watch) {
         Intent open = new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         PendingIntent pi = PendingIntent.getActivity(this, ID_SERVICE, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         JSONObject w = null;
+        long callTotal = 0; // 已結束的通話：倒數往後順延
         try {
-            if (!watch.isEmpty()) w = new JSONObject(watch);
+            if (!watch.isEmpty()) {
+                String[] parts = watch.split("\n", 2);
+                w = new JSONObject(parts[0]);
+                JSONArray calls = new JSONArray(parts.length > 1 ? parts[1] : "[]");
+                for (int i = 0; i < calls.length(); i++) {
+                    JSONArray c = calls.optJSONArray(i);
+                    if (c != null) callTotal += c.optLong(1) - c.optLong(0);
+                }
+            }
         } catch (Exception ignored) {
             // 讀不到就顯示一般的守護中
         }
@@ -169,7 +178,7 @@ public class TimeGuardService extends Service {
             .setColor(0xFF4F7A55)
             .setContentTitle(w.optString("title", "🔭 專注中"))
             .setContentText(w.optString("text", "點一下回到棲光小島"))
-            .setWhen(w.optLong("chronoBase", w.optLong("endAt")))
+            .setWhen(w.optLong("chronoBase", w.optLong("endAt")) + (down ? callTotal : 0))
             .setShowWhen(true)
             .setUsesChronometer(true)
             .setChronometerCountDown(down)

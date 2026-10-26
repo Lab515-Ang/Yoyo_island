@@ -300,7 +300,7 @@ export function WeekRecap({ weekStart, onClose }: { weekStart: string; onClose: 
       ref={ref}
       className={`recap recap-${slide.tone}`}
       aria-label="上週回顧"
-      onCancel={(e) => (e.preventDefault(), onClose())}
+      onCancel={(e) => e.target === e.currentTarget && (e.preventDefault(), onClose())}
       onKeyDown={(e) => (e.key === 'ArrowRight' ? go(1) : e.key === 'ArrowLeft' ? go(-1) : undefined)}
     >
       <header className="recap-top">

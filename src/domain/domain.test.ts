@@ -500,12 +500,15 @@ describe('挑戰與寶箱', () => {
     expect(validateSave(JSON.parse(JSON.stringify(r.save))).ok).toBe(true);
   });
 
-  it('存檔檢查：金額要和挑戰相符', () => {
+  it('存檔檢查：只看格式與合理範圍（之後調整獎勵，舊存檔仍讀得到）', () => {
     const q = questPlan('2026-10-22')[1];
     expect(questRewardOk(q.key, q.reward)).toBe(true);
-    expect(questRewardOk(q.key, q.reward + 1)).toBe(false);
+    expect(questRewardOk(q.key, q.reward + 7)).toBe(true); // 獎勵改過也接受
+    expect(questRewardOk(q.key, 0)).toBe(false);
+    expect(questRewardOk(q.key, 999999)).toBe(false);
     expect(questRewardOk('quest:month:2026-10', MONTH_REWARD)).toBe(true);
-    expect(questRewardOk('quest:starter', STARTER_REWARD, 'blue_magpie')).toBe(false); // 只能送商店的路線
+    expect(questRewardOk('quest:starter', STARTER_REWARD, 'civet')).toBe(true);
+    expect(questRewardOk('quest:starter', STARTER_REWARD, 'no_such_animal')).toBe(false);
     expect(questRewardOk('quest:2026-10-22:5', 10)).toBe(false);
   });
 });
@@ -611,7 +614,7 @@ describe('舊存檔轉換（溫室／溪流、植物、寵物 → 陸地森林�
     expect(coins(s)).toBe(400); // 買寵物的 300 退回
     expect(balance(s)).toBe(0); // 點數全部投入森林工程
     expect(isDone(s, 'fo_trail')).toBe(true);
-    expect(s.projects.find((p) => p.projectId === 'fo_saplings')?.contributedPoints).toBe(300);
+    expect(s.projects.find((p) => p.projectId === 'fo_saplings')?.contributedPoints).toBe(390); // 400 分鐘：步道 10，其餘投入樹苗
     expect(s.settings.eggId).toBe(ANIMALS[0].id);
     expect(s.settings.preferredHabitatId).toBe('forest');
     expect('pets' in s || 'discoveries' in s).toBe(false);

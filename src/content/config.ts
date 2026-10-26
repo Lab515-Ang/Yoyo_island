@@ -59,13 +59,13 @@ export interface ProjectDef {
 // 森林修復工程（固定順序）。節奏目標：每天專注約 1～3 小時，約 3 個月修完（共 9,410 點）；pacing.test.ts 會模擬檢查
 export const PROJECTS: ProjectDef[] = [
   { id: 'fo_trail', habitatId: 'forest', title: '清出林間步道', description: '搬開倒木與落石，步道可以走了', requiredPoints: 10, prerequisiteProjectId: null, sceneChangeKey: 'fo_trail', promise: '林間步道就會清出來' },
-  { id: 'fo_saplings', habitatId: 'forest', title: '種回原生樹苗', description: '一排排小樹苗冒出新芽', requiredPoints: 300, prerequisiteProjectId: 'fo_trail', sceneChangeKey: 'fo_saplings', promise: '原生樹苗就會種下' },
-  { id: 'fo_cabin', habitatId: 'forest', title: '修好森林觀察小屋', description: '小屋亮起燈，可以安靜地觀察森林', requiredPoints: 900, prerequisiteProjectId: 'fo_saplings', sceneChangeKey: 'fo_cabin', promise: '觀察小屋就能修好' },
-  { id: 'fo_undergrowth', habitatId: 'forest', title: '恢復林下草叢', description: '蕨類與草叢長回來，小動物有地方躲', requiredPoints: 1300, prerequisiteProjectId: 'fo_cabin', sceneChangeKey: 'fo_undergrowth', promise: '林下草叢就會長回來' },
-  { id: 'fo_corridor', habitatId: 'forest', title: '架設生態廊道', description: '動物可以安全穿越的綠色通道', requiredPoints: 1500, prerequisiteProjectId: 'fo_undergrowth', sceneChangeKey: 'fo_corridor', promise: '生態廊道就會架好' },
-  { id: 'fo_spring', habitatId: 'forest', title: '整理森林水源地', description: '清澈的泉水流進小水池', requiredPoints: 1700, prerequisiteProjectId: 'fo_corridor', sceneChangeKey: 'fo_spring', promise: '水源地就會恢復清澈' },
-  { id: 'fo_canopy', habitatId: 'forest', title: '搭建樹冠步道', description: '高處的木棧道，看得到整片樹海', requiredPoints: 1800, prerequisiteProjectId: 'fo_spring', sceneChangeKey: 'fo_canopy', promise: '樹冠步道就能完成' },
-  { id: 'fo_rescue', habitatId: 'forest', title: '設立保育救傷站', description: '受傷的動物在這裡被好好照顧', requiredPoints: 1900, prerequisiteProjectId: 'fo_canopy', sceneChangeKey: 'fo_rescue', promise: '保育救傷站就會設立' },
+  { id: 'fo_saplings', habitatId: 'forest', title: '種回原生樹苗', description: '一排排小樹苗冒出新芽', requiredPoints: 430, prerequisiteProjectId: 'fo_trail', sceneChangeKey: 'fo_saplings', promise: '原生樹苗就會種下' },
+  { id: 'fo_cabin', habitatId: 'forest', title: '修好森林觀察小屋', description: '小屋亮起燈，可以安靜地觀察森林', requiredPoints: 1300, prerequisiteProjectId: 'fo_saplings', sceneChangeKey: 'fo_cabin', promise: '觀察小屋就能修好' },
+  { id: 'fo_undergrowth', habitatId: 'forest', title: '恢復林下草叢', description: '蕨類與草叢長回來，小動物有地方躲', requiredPoints: 1850, prerequisiteProjectId: 'fo_cabin', sceneChangeKey: 'fo_undergrowth', promise: '林下草叢就會長回來' },
+  { id: 'fo_corridor', habitatId: 'forest', title: '架設生態廊道', description: '動物可以安全穿越的綠色通道', requiredPoints: 2150, prerequisiteProjectId: 'fo_undergrowth', sceneChangeKey: 'fo_corridor', promise: '生態廊道就會架好' },
+  { id: 'fo_spring', habitatId: 'forest', title: '整理森林水源地', description: '清澈的泉水流進小水池', requiredPoints: 2450, prerequisiteProjectId: 'fo_corridor', sceneChangeKey: 'fo_spring', promise: '水源地就會恢復清澈' },
+  { id: 'fo_canopy', habitatId: 'forest', title: '搭建樹冠步道', description: '高處的木棧道，看得到整片樹海', requiredPoints: 2600, prerequisiteProjectId: 'fo_spring', sceneChangeKey: 'fo_canopy', promise: '樹冠步道就能完成' },
+  { id: 'fo_rescue', habitatId: 'forest', title: '設立保育救傷站', description: '受傷的動物在這裡被好好照顧', requiredPoints: 2700, prerequisiteProjectId: 'fo_canopy', sceneChangeKey: 'fo_rescue', promise: '保育救傷站就會設立' },
 ];
 export const projectDef = (id: string) => PROJECTS.find((p) => p.id === id);
 

@@ -49,7 +49,7 @@ export function ChestOpen({
   };
   const a = got?.animalId ? animalDef(got.animalId) : null;
   return (
-    <dialog ref={ref} className="chest-open" aria-label={title} onCancel={(e) => (e.preventDefault(), onClose())} onClick={got && !a ? onClose : undefined}>
+    <dialog ref={ref} className="chest-open" aria-label={title} onCancel={(e) => e.target === e.currentTarget && (e.preventDefault(), onClose())} onClick={got && !a ? onClose : undefined}>
       <p className="eyebrow">{title}</p>
       {!got ? (
         <button className="chest-tap" onClick={open} aria-label="打開寶箱">
