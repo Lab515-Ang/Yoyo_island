@@ -221,6 +221,8 @@ export function settleOpenSessions(save: SaveFile, now: number): { save: SaveFil
   if (!open) return { save, completed: null };
   const s = settle(open, now);
   if (s === open) return { save, completed: null };
+  // 暫停到上限自動繼續、但還沒結束：只更新狀態
+  if (isOpen(s)) return { save: putSession(save, s), completed: null };
   return { save: closeSession(save, s, now), completed: s };
 }
 

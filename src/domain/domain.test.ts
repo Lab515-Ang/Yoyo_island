@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyDeepFocus, dueAt, completeNow, createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, addSegmentsByHour, weekStartKey } from './focus';
+import { applyDeepFocus, dueAt, completeNow, createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, addSegmentsByHour, weekStartKey, wakeAt, watchWindow } from './focus';
 import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote, isDone, projectQuarter, remainingFor, applyFocusRewards, focusOutcome, animalUnlocked, chosenAnimal, endedSessions, hatchCounts, newAnimals, sceneAnimals, unlockAnimal, growthOf, sightings, weekRecap, communityRank } from './game';
 import { ANIMALS, CONTENT_VERSION, GROWTH_AT, SOUNDS, animalDef, projectDef, stageName } from '../content/config';
 import { newSave, newDemoSave, validateSave, demoGrant } from './save';
@@ -27,6 +27,41 @@ function focus(save: SaveFile, minutes: number, at = T0): SaveFile {
   const next = closeSession(save, s, at + chunk * MIN);
   return minutes > chunk ? focus(next, minutes - chunk, at + (chunk + 1) * MIN) : next;
 }
+
+describe('暫停上限（參考 Forest：最多 5 分鐘，時間到自動繼續）', () => {
+  const LIMIT = 5 * MIN;
+  it('玩家按的暫停超過上限，從上限那一刻自動繼續；之後照常計時、完成', () => {
+    const s0 = session(fresh(), 'countdown', 25);
+    const p = pause(s0, T0 + 10 * MIN, LIMIT);
+    expect(p.status).toBe('paused');
+    expect(wakeAt(p)).toBe(T0 + 15 * MIN);
+    expect(settle(p, T0 + 14 * MIN).status).toBe('paused'); // 還在暫停時間內
+    const r = settle(p, T0 + 20 * MIN);
+    expect(r.status).toBe('running');
+    expect(r.runningSince).toBe(new Date(T0 + 15 * MIN).toISOString());
+    expect(elapsedMs(r, T0 + 20 * MIN)).toBe(15 * MIN); // 暫停的 5 分鐘不算，之後的 5 分鐘算
+    const done = settle(p, T0 + 60 * MIN); // 背景很久才回來：自動繼續後倒數歸零
+    expect(done.status).toBe('completed');
+    expect(done.endedAt).toBe(new Date(T0 + 30 * MIN).toISOString());
+  });
+
+  it('手動恢復會清掉上限；接電話的暫停沒有上限', () => {
+    const p = pause(session(fresh(), 'countdown', 25), T0 + 10 * MIN, LIMIT);
+    const back = resume(p, T0 + 12 * MIN);
+    expect(back.pauseLimitAt).toBeNull();
+    const call = pause(session(fresh(), 'countdown', 25), T0 + 10 * MIN);
+    expect(settle(call, T0 + 60 * MIN).status).toBe('paused');
+    expect(wakeAt(call)).toBeNull();
+    expect(watchWindow(call)).toBeNull(); // 接電話的暫停不用看守
+  });
+
+  it('深度專注在暫停中也看守：暫停期間可以離開，自動繼續後照常', () => {
+    const p = pause(session(fresh(), 'countdown', 25), T0 + 10 * MIN, LIMIT);
+    expect(watchWindow(p)).toEqual({ endAt: T0 + 30 * MIN, freeUntil: T0 + 15 * MIN, since: T0 + 5 * MIN });
+    const run = session(fresh(), 'countdown', 25);
+    expect(watchWindow(run)).toEqual({ endAt: dueAt(run)!, freeUntil: 0, since: T0 });
+  });
+});
 
 describe('專注計時', () => {
   it('暫停期間不計時，以時間戳推算', () => {

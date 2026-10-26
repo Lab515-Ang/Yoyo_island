@@ -55,8 +55,12 @@ function closeRunning(s: FocusSession, endMs: number): FocusSession {
   };
 }
 
-/** 倒數歸零（或正向計時滿 180 分鐘）時，於那一刻結束；就算在背景也只記到上限。 */
+/**
+ * 倒數歸零（或正向計時滿 180 分鐘）時，於那一刻結束；就算在背景也只記到上限。
+ * 玩家按的暫停超過上限：從上限那一刻自動繼續（之後照常計時、可能直接完成）。
+ */
 export function settle(s: FocusSession, now: number): FocusSession {
+  if (s.status === 'paused' && s.pauseLimitAt && now >= ms(s.pauseLimitAt)) s = resume(s, ms(s.pauseLimitAt));
   if (s.status !== 'running' || !s.runningSince) return s;
   const target = s.mode === 'countdown' ? (s.targetSeconds ?? 0) * 1000 : STOPWATCH_CAP_MS;
   if (!target) return s;
@@ -65,15 +69,36 @@ export function settle(s: FocusSession, now: number): FocusSession {
   return { ...closeRunning(s, end), status: 'completed', endedAt: iso(end) };
 }
 
-export function pause(s: FocusSession, now: number): FocusSession {
+/** limitMs：玩家按的暫停最多多久，時間到自動繼續；接電話的暫停不傳（講多久都可以）。 */
+export function pause(s: FocusSession, now: number, limitMs?: number): FocusSession {
   s = settle(s, now);
   if (s.status !== 'running') return s;
-  return { ...closeRunning(s, now), status: 'paused' };
+  return { ...closeRunning(s, now), status: 'paused', pauseLimitAt: limitMs ? iso(now + limitMs) : null };
 }
 
 export function resume(s: FocusSession, now: number): FocusSession {
   if (s.status !== 'paused') return s;
-  return { ...s, status: 'running', runningSince: iso(now) };
+  return { ...s, status: 'running', runningSince: iso(now), pauseLimitAt: null };
+}
+
+/** 下一次需要結算的時間：進行中是倒數歸零（或正向計時上限），暫停中是自動繼續的時間。 */
+export function wakeAt(s: FocusSession) {
+  if (s.status === 'paused') return s.pauseLimitAt ? ms(s.pauseLimitAt) : null;
+  return dueAt(s);
+}
+
+/**
+ * 深度專注要看守的區間：進行中到 dueAt；玩家按的暫停期間也看守（暫停時可以離開，自動繼續後還在外面就算離開）。
+ * 回傳 null＝不用看守（例如接電話的暫停）。
+ */
+export function watchWindow(s: FocusSession) {
+  const target = s.mode === 'countdown' ? (s.targetSeconds ?? 0) * 1000 : STOPWATCH_CAP_MS;
+  if (s.status === 'running' && s.runningSince) return { endAt: dueAt(s)!, freeUntil: 0, since: ms(s.runningSince) - s.accumulatedMs };
+  if (s.status === 'paused' && s.pauseLimitAt) {
+    const limit = ms(s.pauseLimitAt);
+    return { endAt: limit + target - s.accumulatedMs, freeUntil: limit, since: limit - s.accumulatedMs };
+  }
+  return null;
 }
 
 export function finish(s: FocusSession, now: number, status: 'completed' | 'abandoned'): FocusSession {

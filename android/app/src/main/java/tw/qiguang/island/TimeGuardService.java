@@ -136,9 +136,20 @@ public class TimeGuardService extends Service {
         return null;
     }
 
-    /** 正在看守的深度專注設定＋已結束的通話（沒有就是空字串）：變了才重畫常駐通知（通話後倒數要順延）。 */
+    /**
+     * 正在看守的深度專注設定＋已結束的通話＋是否還在暫停中（沒有就是空字串）：
+     * 變了才重畫常駐通知（通話後倒數要順延；暫停時間到要從「暫停中」換回專注倒數）。
+     */
     private String focusSignature() {
-        return watching(this) ? prefs(this).getString("watch", "") + '\n' + prefs(this).getString("calls", "[]") : "";
+        if (!watching(this)) return "";
+        String watch = prefs(this).getString("watch", "");
+        long free = 0;
+        try {
+            free = new JSONObject(watch).optLong("freeUntil");
+        } catch (Exception ignored) {
+            // 讀不到就當作沒有暫停
+        }
+        return watch + '\n' + prefs(this).getString("calls", "[]") + (System.currentTimeMillis() < free ? "\nP" : "");
     }
 
     /**
@@ -150,9 +161,11 @@ public class TimeGuardService extends Service {
         PendingIntent pi = PendingIntent.getActivity(this, ID_SERVICE, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         JSONObject w = null;
         long callTotal = 0; // 已結束的通話：倒數往後順延
+        boolean paused = false; // 玩家按的暫停中：顯示倒數到自動繼續
         try {
             if (!watch.isEmpty()) {
-                String[] parts = watch.split("\n", 2);
+                String[] parts = watch.split("\n", 3);
+                paused = parts.length > 2;
                 w = new JSONObject(parts[0]);
                 JSONArray calls = new JSONArray(parts.length > 1 ? parts[1] : "[]");
                 for (int i = 0; i < calls.length(); i++) {
@@ -172,13 +185,13 @@ public class TimeGuardService extends Service {
                 .setContentIntent(pi)
                 .setPriority(NotificationCompat.PRIORITY_MIN)
                 .build();
-        boolean down = w.optBoolean("chronoDown", true);
+        boolean down = paused || w.optBoolean("chronoDown", true);
         return new NotificationCompat.Builder(this, CHANNEL_FOCUS)
             .setSmallIcon(R.drawable.ic_stat_scope)
             .setColor(0xFF4F7A55)
-            .setContentTitle(w.optString("title", "🔭 專注中"))
-            .setContentText(w.optString("text", "點一下回到棲光小島"))
-            .setWhen(w.optLong("chronoBase", w.optLong("endAt")) + (down ? callTotal : 0))
+            .setContentTitle(paused ? "⏸ 暫停中" : w.optString("title", "🔭 專注中"))
+            .setContentText(paused ? "時間到會自動繼續；暫停期間離開小島不算" : w.optString("text", "點一下回到棲光小島"))
+            .setWhen(paused ? w.optLong("freeUntil") : w.optLong("chronoBase", w.optLong("endAt")) + (down ? callTotal : 0))
             .setShowWhen(true)
             .setUsesChronometer(true)
             .setChronometerCountDown(down)
@@ -286,6 +299,12 @@ public class TimeGuardService extends Service {
         // 螢幕關著：手機放下了，什麼都不變（離開的計時也不重來，避免開關螢幕繞過）
         if (!interactive) return;
         boolean inIsland = foreground == null || foreground.equals(getPackageName());
+        // 玩家按的暫停期間：離開、接電話都不算（暫停本來就不計時）；時間到自動繼續後才開始判定
+        if (now < w.optLong("freeUntil")) {
+            if (p.getLong("awayAt", 0) > 0) p.edit().putLong("awayAt", 0).apply();
+            cancel(ID_AWAY);
+            return;
+        }
         // 接電話（離開小島去接）：記成暫停，不算離開；在小島裡講電話（例如語音陪讀）照常計時
         AudioManager am = getSystemService(AudioManager.class);
         int mode = am == null ? AudioManager.MODE_NORMAL : am.getMode();

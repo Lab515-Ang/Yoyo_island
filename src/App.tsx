@@ -3,7 +3,7 @@ import { useGame, useSave } from './app/store';
 import { APP_NAME, COPY, avatarEmoji } from './content/config';
 import { applyFocusRewards, closeSession, coins, openSession, putSession, settleOpenSessions } from './domain/game';
 import * as storage from './data/storage';
-import { applyDeepFocus, dueAt } from './domain/focus';
+import { applyDeepFocus, dueAt, wakeAt } from './domain/focus';
 import { notifyEnd, playChime } from './sound';
 import { TimeGuard, buzz, isAndroid, isNative, minimizeApp, onBack, onGuard, onPause, onResume, type GuardApp } from './platform';
 import type { HabitatId } from './domain/types';
@@ -174,7 +174,11 @@ function Main() {
       if (due !== null && Date.now() >= due && deepChecked.current < due) return void syncDeep();
     }
     const r = settleOpenSessions(save, Date.now());
-    if (!r.completed) return;
+    if (!r.completed) {
+      // 暫停時間到、自動繼續：存起來（下一輪 save 就不會再變，不會一直重跑）
+      if (r.save !== save) update((s) => settleOpenSessions(s, Date.now()).save);
+      return;
+    }
     const id = r.completed.id;
     // 點數自動投入工程；在最新的存檔上結算（別的流程可能剛改過，例如深度專注判定放棄）
     let settled = false;
@@ -217,7 +221,7 @@ function Main() {
 
   // 剛好在該結算時（倒數歸零、正向計時滿 180 分鐘）觸發一次結算；不用每秒重繪整個畫面
   useEffect(() => {
-    const due = open ? dueAt(open) : null;
+    const due = open ? wakeAt(open) : null;
     if (due === null) return;
     const id = window.setTimeout(() => setWake((w) => w + 1), Math.max(0, due - Date.now()) + 50);
     return () => clearTimeout(id);

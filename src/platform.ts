@@ -121,7 +121,7 @@ interface TimeGuardNative {
   setConfig(o: { config: GuardConfig }): Promise<void>;
   unlock(o: { pkg: string; minutes: number }): Promise<void>;
   goHome(): Promise<void>;
-  startFocusWatch(o: { key: string; endAt: number; graceMs: number; allow: string[]; notifyEnd: boolean; doneTitle: string; doneText: string; title: string; text: string; chronoBase: number; chronoDown: boolean }): Promise<void>;
+  startFocusWatch(o: { key: string; endAt: number; graceMs: number; allow: string[]; notifyEnd: boolean; doneTitle: string; doneText: string; title: string; text: string; chronoBase: number; chronoDown: boolean; freeUntil?: number }): Promise<void>;
   stopFocusWatch(): Promise<void>;
   showResult(o: { title: string; text: string; sub: string; icon?: string }): Promise<void>;
   focusWatchStatus(): Promise<{ active: boolean; failedAt: number; callStart: number; calls: [number, number][] }>;

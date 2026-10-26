@@ -68,6 +68,7 @@ export interface FocusSession {
   targetSeconds: number | null;
   accumulatedMs: number;
   runningSince: ISODate | null;
+  pauseLimitAt?: ISODate | null; // 玩家按的暫停：最晚這個時間自動繼續（接電話的暫停沒有）
   segments: FocusSegment[];
   startedAt: ISODate;
   endedAt: ISODate | null;

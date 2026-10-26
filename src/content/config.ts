@@ -12,6 +12,8 @@ export const tagColor = (tag: string) => TAG_COLORS[tag] ?? CUSTOM_TAG_COLORS[[.
 /** 專注時間：最低 10 分鐘、最高 180 分鐘（示範模式另有 10 秒快轉，只用來測試）。 */
 export const MIN_FOCUS_MINUTES = 10;
 export const MAX_FOCUS_MINUTES = 180;
+/** 暫停最多幾分鐘，時間到自動繼續（參考 Forest；接電話的暫停不算）。 */
+export const PAUSE_MINUTES = 5;
 export const QUICK_MINUTES = [10, 15, 25, 45, 60, 90, 120, 180];
 /** 把舊存檔的時間（例如 5 分鐘）收進範圍內。 */
 export const clampMinutes = (min: number) => Math.min(MAX_FOCUS_MINUTES, Math.max(MIN_FOCUS_MINUTES, Math.round(min)));

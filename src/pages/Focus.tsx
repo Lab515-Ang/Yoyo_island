@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNow, useSave } from '../app/store';
-import { APP_NAME, MIN_FOCUS_MINUTES, SOUNDS, TEST_TOOLS, animalDef } from '../content/config';
+import { APP_NAME, MIN_FOCUS_MINUTES, PAUSE_MINUTES, SOUNDS, TEST_TOOLS, animalDef } from '../content/config';
 import { Modal } from '../components/ui';
 import { TrackArt } from '../components/Animal';
-import { completeNow, dueAt, elapsedMs, finish, pause, remainingMs, resume } from '../domain/focus';
+import { completeNow, elapsedMs, finish, pause, remainingMs, resume, watchWindow } from '../domain/focus';
 import { applyFocusRewards, cancelSession, closeSession, focusSoundFor, graceLeftMs, growthOf, putSession } from '../domain/game';
 import type { FocusSession, SaveFile } from '../domain/types';
 import { HabitatScene } from '../scenes/HabitatScene';
@@ -51,7 +51,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
     const t = Date.now();
     let finished = false;
     const ok = update((s) => {
-      const n = pause(cur(s), t);
+      const n = pause(cur(s), t, PAUSE_MINUTES * 60_000);
       if (n.status !== 'completed') return putSession(s, n);
       finished = true;
       return applyFocusRewards(closeSession(s, n, t), n.id, t);
@@ -84,7 +84,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   const endAt = countdown && !paused ? new Date(now + remainingMs(session, now)).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) : null;
 
   // 倒數進行中：排定系統通知（App 版鎖屏也會準時跳出）；暫停、取消、放棄、結束時撤銷
-  const notifyAt = countdown && session.status === 'running' && session.runningSince ? Date.parse(session.runningSince) + (session.targetSeconds ?? 0) * 1000 - session.accumulatedMs : null;
+  const notifyAt = countdown ? (watchWindow(session)?.endAt ?? null) : null;
   useEffect(() => {
     if (!notifyAt || !save.settings.endNotify) return;
     const min = Math.round((session.targetSeconds ?? 0) / 60);
@@ -102,10 +102,11 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   const progress = Math.floor(Math.min(1, countdown && session.targetSeconds ? elapsedMs(session, now) / (session.targetSeconds * 1000) : elapsedMin / 45) * 20) / 20;
   const stage = useMemo(() => growthOf(save, session.animalId ?? '').stage, [save, session.animalId]);
 
-  // 深度專注：進行中請原生端看守；暫停或結束就停止（暫停時離開不算）
+  // 深度專注：進行中與玩家按的暫停都請原生端看守（暫停期間離開不算，自動繼續後還在外面就算離開）
   // key 相同（同一段、同一次開始計時）時原生端會保留背景期間的紀錄，App 重開也不會洗掉
-  const watchUntil = session.deep && isAndroid ? dueAt(session) : null;
-  const watchKey = `${session.id}:${session.runningSince}`;
+  const win = session.deep && isAndroid ? watchWindow(session) : null;
+  const watchUntil = win?.endAt ?? null;
+  const watchKey = `${session.id}:${session.runningSince ?? `p${session.pauseLimitAt}`}`;
   const allow = save.settings.focusAllow.map((a) => a.pkg).join(',');
   const notifyEnd = countdown && save.settings.endNotify;
   const doneText = `「${session.taskTitle}」完成了 ${Math.round((session.targetSeconds ?? 0) / 60)} 分鐘，回來看看小島吧。`;
@@ -113,8 +114,8 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   const watchText = `正在靠近${animalDef(session.animalId).name}・${session.tag}`;
   useEffect(() => {
     if (!watchUntil) return;
-    const chronoBase = countdown ? watchUntil : Date.now() - elapsedMs(session, Date.now());
-    void TimeGuard.startFocusWatch({ key: watchKey, endAt: watchUntil, graceMs: DEEP_GRACE_MS, allow: allow ? allow.split(',') : [], notifyEnd, doneTitle: `${APP_NAME}・專注完成`, doneText, title: '🔭 專注中', text: watchText, chronoBase, chronoDown: countdown });
+    const chronoBase = countdown ? watchUntil : win!.since;
+    void TimeGuard.startFocusWatch({ key: watchKey, endAt: watchUntil, graceMs: DEEP_GRACE_MS, allow: allow ? allow.split(',') : [], notifyEnd, doneTitle: `${APP_NAME}・專注完成`, doneText, title: '🔭 專注中', text: watchText, chronoBase, chronoDown: countdown, freeUntil: win!.freeUntil });
     return () => void TimeGuard.stopFocusWatch();
   }, [watchUntil, watchKey, allow, notifyEnd, doneText, watchText]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -150,7 +151,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
           </div>
           {paused && (
             <p className="focus-status" aria-live="polite">
-              已暫停
+              已暫停{session.pauseLimitAt ? `・${clock(Math.max(0, Date.parse(session.pauseLimitAt) - now))} 後自動繼續` : ''}
             </p>
           )}
         </div>
