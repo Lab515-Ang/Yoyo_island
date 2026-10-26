@@ -54,7 +54,25 @@ public class TimeGuardPlugin extends Plugin {
         r.put("usage", hasUsageAccess(getContext()));
         r.put("overlay", Settings.canDrawOverlays(getContext()));
         r.put("exactAlarm", canExactAlarm());
+        // 深度專注設定清單：通知（提醒回來、專注倒數）、不受省電限制（背景看守不被系統關掉）
+        r.put("notify", androidx.core.app.NotificationManagerCompat.from(getContext()).areNotificationsEnabled());
+        android.os.PowerManager pm = (android.os.PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
+        r.put("battery", pm != null && pm.isIgnoringBatteryOptimizations(getContext().getPackageName()));
         call.resolve(r);
+    }
+
+    /** 電池最佳化清單（讓玩家把棲光小島設成不受限制）。用清單頁，不用直接詢問的視窗：後者 Google Play 審核限制很多。 */
+    @PluginMethod
+    public void openBatterySettings(PluginCall call) {
+        getActivity().startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
+        call.resolve();
+    }
+
+    /** 這個 App 的通知設定（玩家之前拒絕過，系統不會再跳詢問時用）。 */
+    @PluginMethod
+    public void openNotificationSettings(PluginCall call) {
+        getActivity().startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, getContext().getPackageName()));
+        call.resolve();
     }
 
     /** 精確鬧鐘（「鬧鐘與提醒」權限）：倒數結束通知準時跳出。Android 12 以下不用申請。 */

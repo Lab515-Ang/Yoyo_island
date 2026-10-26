@@ -110,7 +110,9 @@ export interface UsageReport {
 }
 
 interface TimeGuardNative {
-  status(): Promise<{ usage: boolean; overlay: boolean; exactAlarm: boolean }>;
+  status(): Promise<{ usage: boolean; overlay: boolean; exactAlarm: boolean; notify: boolean; battery: boolean }>;
+  openBatterySettings(): Promise<void>;
+  openNotificationSettings(): Promise<void>;
   openExactAlarmSettings(): Promise<void>;
   openUsageSettings(): Promise<void>;
   openOverlaySettings(): Promise<void>;

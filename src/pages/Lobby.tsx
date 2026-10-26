@@ -9,25 +9,10 @@ import type { HabitatId, TimerMode } from '../domain/types';
 import { HabitatScene } from '../scenes/HabitatScene';
 import { DEEP_GRACE_MS, TimeGuard, isAndroid, isNative, requestNotifyPermission, type GuardApp } from '../platform';
 import { AppPicker } from './Guard';
+import { DeepSetup, deepPerm, deepSetupSeen } from '../components/DeepSetup';
 
-// 介面偏好：深度專注的「顯示在其他應用程式上層」權限問過了（不管開不開，只問一次）
-const OVERLAY_KEY = 'qiguang-ui:overlayAsked';
-const overlayAsked = () => {
-  try {
-    return localStorage.getItem(OVERLAY_KEY) === '1';
-  } catch {
-    return true;
-  }
-};
-const markOverlayAsked = () => {
-  try {
-    localStorage.setItem(OVERLAY_KEY, '1');
-  } catch {
-    // 只影響下次會不會再問
-  }
-};
 
-type Sheet = 'tag' | 'title' | 'time' | 'habitat' | 'egg' | 'allow' | 'usage' | 'overlay' | null;
+type Sheet = 'tag' | 'title' | 'time' | 'habitat' | 'egg' | 'allow' | 'deep' | 'deepInfo' | null;
 
 /** 首頁大廳（參考 Forest 構圖）：左上標籤與標題、中央棲地泡泡、大字時間、開始按鈕；細項點了才展開。 */
 export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: () => void }) {
@@ -96,13 +81,11 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
     }
   };
   const startInner = async () => {
-    // 深度專注需要「使用情況存取權」才知道有沒有離開小島
-    const perm = deep ? await TimeGuard.status().catch(() => ({ usage: false, overlay: false })) : null;
-    if (perm && !perm.usage) return setSheet('usage');
-    // 「顯示在其他應用程式上層」：專注中打開其他 App 時才能把小島叫回來；只問一次，不開也照常（改成倒數提醒）
-    if (perm && !perm.overlay && !overlayAsked()) return setSheet('overlay');
-    // 「快回到小島」的提醒要通知權限（Android 13 起要問）；不允許也照常進行
-    if (deep) await requestNotifyPermission();
+    // 深度專注：缺「使用情況」（必要）一定要先設定；其他建議的權限只在第一次跳出清單（參考 Forest）
+    if (deep) {
+      const perm = await deepPerm();
+      if (!perm.usage || (!deepSetupSeen() && !(perm.overlay && perm.notify && perm.battery))) return setSheet('deep');
+    }
     begin(deep);
   };
 
@@ -296,6 +279,9 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
               <button className="link" onClick={() => setSheet('allow')}>
                 可以使用的 App：{st.focusAllow.length ? st.focusAllow.map((a) => a.label).join('、') : '沒有'} ›
               </button>
+              <button className="link" onClick={() => setSheet('deepInfo')}>
+                深度專注需要的權限 ›
+              </button>
             </div>
           )}
           {timerMode === 'stopwatch' && (
@@ -316,37 +302,16 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
         </Modal>
       )}
 
-      {sheet === 'overlay' && (
-        <Modal title="讓小島幫你擋下其他 App" onClose={() => (markOverlayAsked(), setSheet(null))}>
-          <p>開啟「顯示在其他應用程式上層」後，專注中打開其他 App 會馬上被叫回小島，不會不小心滑去別的地方。</p>
-          <p className="small muted">不開也可以：離開小島時會跳出提醒，{graceSec} 秒內回來就沒事。允許名單裡的 App 不受影響。</p>
-          <div className="row wrap">
-            <button className="primary" onClick={() => (markOverlayAsked(), setSheet(null), void TimeGuard.openOverlaySettings())}>
-              去開啟
-            </button>
-            <button onClick={() => (markOverlayAsked(), setSheet(null), begin(deep))}>先不用，開始專注</button>
-          </div>
-        </Modal>
-      )}
-
-      {sheet === 'usage' && (
-        <Modal title="深度專注需要一個權限" onClose={() => setSheet(null)}>
-          <p>需要「使用情況存取權」才知道你有沒有離開棲光小島。只用來判斷前景的 App，不會讀取任何內容，資料也不會離開手機。</p>
-          <div className="row wrap">
-            <button className="primary" onClick={() => (setSheet(null), void TimeGuard.openUsageSettings())}>
-              去開啟
-            </button>
-            <button
-              onClick={() => {
-                update((s) => ({ ...s, settings: { ...s.settings, deepFocus: false } }));
-                begin(false);
-              }}
-            >
-              先關閉深度專注
-            </button>
-          </div>
-          <p className="small muted">之後可以在時間設定裡再打開。</p>
-        </Modal>
+      {(sheet === 'deep' || sheet === 'deepInfo') && (
+        <DeepSetup
+          onClose={() => setSheet(sheet === 'deepInfo' ? 'time' : null)}
+          onStart={sheet === 'deep' ? () => (setSheet(null), begin(true)) : undefined}
+          onDisable={() => {
+            update((s) => ({ ...s, settings: { ...s.settings, deepFocus: false } }));
+            setSheet(null);
+            begin(false);
+          }}
+        />
       )}
 
       {sheet === 'egg' && (
