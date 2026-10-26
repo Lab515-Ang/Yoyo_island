@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { useSave } from '../app/store';
 import { ANIMALS, COPY, GROWTH_MAX, animalDef, stageName, tagColor, TAGS } from '../content/config';
 import { AnimalArt, TrackArt } from '../components/Animal';
@@ -7,6 +8,34 @@ import { localDateKey } from '../domain/focus';
 import { activeProject, animalUnlocked, animalsUnlockedBy, balance, coins, earnedFor, editSessionNote, endedSessions, focusOutcome, minutesByDay, NOTE_MAX, endedDayKeys, remainingFor, sightings } from '../domain/game';
 import { hasReward } from '../domain/quests';
 import { HabitatScene } from '../scenes/HabitatScene';
+import { toPng } from '../components/ShareCard';
+import { TimeGuard, isAndroid } from '../platform';
+import type { SaveFile } from '../domain/types';
+
+// 每段專注只留一次結果通知（結算畫面重新掛上時不要再跳）
+const posted = new Set<string>();
+
+/** 專注結果通知（參考 Forest iOS 鎖定畫面的結果卡片）：成功或被嚇跑都留一則，附動物圖片，30 分鐘後自動消失。 */
+async function postResult(save: SaveFile, id: string) {
+  const s = save.sessions.find((x) => x.id === id);
+  if (!s?.endedAt || posted.has(id) || !save.settings.endNotify) return;
+  posted.add(id);
+  const a = animalDef(s.animalId);
+  const done = s.status === 'completed';
+  const tz = save.profile.timezone;
+  const hm = (iso: string) => new Date(iso).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz });
+  const when = `${hm(s.startedAt)}–${hm(s.endedAt)}・${Math.floor(s.accumulatedMs / 60000)} 分鐘`;
+  const today = minutesByDay(save).get(endedDayKeys(save).get(id)!) ?? 0;
+  const stage = sightings(save).get(id)?.stage ?? 2;
+  const svg = renderToStaticMarkup(done ? <AnimalArt id={a.id} stage={stage} size={96} /> : <TrackArt id={a.id} fled size={96} />);
+  const icon = await toPng(svg, 96, 96).catch(() => undefined);
+  await TimeGuard.showResult({
+    title: done ? `🔭 遇見了${a.name}（${stageName(a, stage)}）！` : '太可惜了，下次再努力吧！',
+    text: done ? when : `${a.name}被嚇跑了・${when}`,
+    sub: `${done ? '很棒！' : ''}你今天已專注 ${fmtMinutes(today)}。`,
+    icon,
+  }).catch(() => undefined);
+}
 
 const clock = (ms: number) => `${String(Math.floor(ms / 60000)).padStart(2, '0')}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
 
@@ -33,6 +62,9 @@ export function Summary({
   const [comforted, setComforted] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState<'first' | 'again' | null>(null);
+  useEffect(() => {
+    if (isAndroid) void postResult(save, sessionId);
+  }, [sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
   // 紀錄不見了（例如在別的分頁重設）：不要留白畫面，給一個回大廳的按鈕
   if (!s)
     return (

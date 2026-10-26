@@ -139,7 +139,7 @@ ${note.map((l, i) => `<text x="${w / 2}" y="${490 + i * 26}" font-size="16" fill
 </svg>`;
 }
 
-async function toPng(svg: string, w: number, h: number) {
+export async function toPng(svg: string, w: number, h: number) {
   const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const i = new Image();

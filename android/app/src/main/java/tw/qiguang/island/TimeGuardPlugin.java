@@ -347,6 +347,53 @@ public class TimeGuardPlugin extends Plugin {
         call.resolve();
     }
 
+    /**
+     * 專注結果（參考 Forest iOS 鎖定畫面的結果卡片）：成功或被嚇跑都留一則通知，附動物圖片，30 分鐘後自動消失。
+     * 用 1 號：取代倒數結束時排好的「專注完成」通知，不會同時出現兩則。
+     */
+    @PluginMethod
+    public void showResult(PluginCall call) {
+        Context ctx = getContext();
+        android.app.NotificationManager nm = ctx.getSystemService(android.app.NotificationManager.class);
+        if (Build.VERSION.SDK_INT >= 26) {
+            android.app.NotificationChannel ch = new android.app.NotificationChannel("focusresult", "專注結果", android.app.NotificationManager.IMPORTANCE_DEFAULT);
+            ch.setSound(null, null); // 只是留著看，不響、不震動
+            ch.enableVibration(false);
+            nm.createNotificationChannel(ch);
+        }
+        String title = call.getString("title", "");
+        String text = call.getString("text", "");
+        String sub = call.getString("sub", "");
+        Intent open = new Intent(ctx, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        android.app.PendingIntent pi = android.app.PendingIntent.getActivity(ctx, 1, open, android.app.PendingIntent.FLAG_IMMUTABLE | android.app.PendingIntent.FLAG_UPDATE_CURRENT);
+        androidx.core.app.NotificationCompat.Builder b = new androidx.core.app.NotificationCompat.Builder(ctx, "focusresult")
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(new androidx.core.app.NotificationCompat.BigTextStyle().bigText(sub.isEmpty() ? text : text + "
+" + sub))
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setContentIntent(pi)
+            .setVisibility(androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC)
+            .setTimeoutAfter(30 * 60_000L);
+        String icon = call.getString("icon");
+        if (icon != null && icon.contains(",")) {
+            try {
+                byte[] png = Base64.decode(icon.substring(icon.indexOf(',') + 1), Base64.DEFAULT);
+                b.setLargeIcon(android.graphics.BitmapFactory.decodeByteArray(png, 0, png.length));
+            } catch (Exception ignored) {
+                // 圖片壞了就只顯示文字
+            }
+        }
+        try {
+            nm.notify(1, b.build());
+        } catch (SecurityException ignored) {
+            // 沒有通知權限：不顯示
+        }
+        call.resolve();
+    }
+
     /** 回到手機桌面（「其實不需要」）。 */
     @PluginMethod
     public void goHome(PluginCall call) {
