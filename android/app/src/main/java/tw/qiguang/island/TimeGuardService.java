@@ -27,7 +27,8 @@ import org.json.JSONObject;
 /**
  * 每秒看一次前景 App，負責兩件事：
  * 1. 時間守護：玩家選的 App 在守護時段內被打開時，把棲光小島叫到前面顯示攔截畫面。
- * 2. 深度專注：專注中離開小島（允許名單以外）超過寬限時間就記下失敗；接電話期間記成暫停。
+ * 2. 深度專注：專注中打開允許名單以外的 App，立刻把小島叫回前面（像 Forest 一樣擋下來）；
+ *    回到桌面、或沒有「顯示在其他應用程式上層」權限叫不回來時，離開超過寬限時間就記下失敗；接電話期間記成暫停。
  *    結果存在 SharedPreferences，網頁端回到前景時讀取並結算（App 在背景時網頁不會執行）。
  * 設定存在 SharedPreferences，App 被關掉、手機重開後服務仍照設定運作。
  */
@@ -52,6 +53,7 @@ public class TimeGuardService extends Service {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private String foreground;
     private long lastLaunch;
+    private java.util.Set<String> home; // 桌面 App：回到桌面不擋，照常倒數
 
     private final Runnable tick = new Runnable() {
         @Override
@@ -111,6 +113,10 @@ public class TimeGuardService extends Service {
             .build();
         if (Build.VERSION.SDK_INT >= 34) startForeground(ID_SERVICE, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
         else startForeground(ID_SERVICE, n);
+        home = new java.util.HashSet<>();
+        Intent h = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
+        for (android.content.pm.ResolveInfo ri : getPackageManager().queryIntentActivities(h, 0)) home.add(ri.activityInfo.packageName);
+        home.remove("com.android.settings"); // 「設定」裡有開機用的備用桌面，但它是一般 App
         handler.post(tick);
     }
 
@@ -159,15 +165,32 @@ public class TimeGuardService extends Service {
         String label = blockedLabel(c, foreground);
         if (label == null || !inSchedule(c, Calendar.getInstance())) return;
         if (now < prefs(this).getLong("unlock:" + foreground, 0)) return;
-        if (now - lastLaunch < 3000) return;
+        bringBack(now, foreground, label, false);
+    }
+
+    /** 把小島叫到前面，顯示攔截畫面（focus＝深度專注中被擋下）。成功送出回傳 true。 */
+    private boolean bringBack(long now, String pkg, String label, boolean focus) {
+        if (now - lastLaunch < 3000) return true;
         lastLaunch = now;
-        Uri uri = Uri.parse("qiguang://guard").buildUpon().appendQueryParameter("pkg", foreground).appendQueryParameter("label", label).build();
-        Intent i = new Intent(Intent.ACTION_VIEW, uri, this, MainActivity.class);
+        Uri.Builder b = Uri.parse("qiguang://guard").buildUpon().appendQueryParameter("pkg", pkg).appendQueryParameter("label", label);
+        if (focus) b.appendQueryParameter("focus", "1");
+        Intent i = new Intent(Intent.ACTION_VIEW, b.build(), this, MainActivity.class);
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         try {
             startActivity(i);
+            return true;
         } catch (Exception ignored) {
             // 系統不允許從背景開啟畫面（通常是沒有「顯示在其他應用程式上層」權限）
+            return false;
+        }
+    }
+
+    private String appLabel(String pkg) {
+        try {
+            android.content.pm.PackageManager pm = getPackageManager();
+            return pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString();
+        } catch (Exception e) {
+            return pkg;
         }
     }
 
@@ -229,9 +252,11 @@ public class TimeGuardService extends Service {
             return;
         }
         long grace = w.optLong("graceMs", 10_000);
+        // 打開其他 App：直接叫回小島（Android 10 起要有「顯示在其他應用程式上層」權限才叫得動）
+        boolean blocked = !home.contains(foreground) && android.provider.Settings.canDrawOverlays(this) && bringBack(now, foreground, appLabel(foreground), true);
         if (awayAt == 0) {
             p.edit().putLong("awayAt", now).apply();
-            alert(ID_AWAY, "快回到棲光小島", (grace / 1000) + " 秒內回來，動物就不會被嚇跑。");
+            if (!blocked) alert(ID_AWAY, "快回到棲光小島", (grace / 1000) + " 秒內回來，動物就不會被嚇跑。");
         } else if (now - awayAt >= grace) {
             // 從離開的那一刻算放棄
             p.edit().putLong("failedAt", awayAt).putBoolean("watchActive", false).apply();

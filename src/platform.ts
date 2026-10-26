@@ -79,6 +79,7 @@ export interface GuardApp {
   pkg: string;
   label: string;
   icon?: string; // data URL
+  focus?: boolean; // 深度專注中打開其他 App 被叫回來（不是時間守護）
 }
 
 /** 守護設定：存在手機的原生設定裡，App 關掉後背景服務照樣使用。 */
@@ -186,7 +187,7 @@ export function onGuard(cb: (app: GuardApp) => void): () => void {
     if (!url?.startsWith('qiguang://guard')) return;
     const q = new URL(url).searchParams;
     const pkg = q.get('pkg');
-    if (pkg) cb({ pkg, label: q.get('label') ?? pkg });
+    if (pkg) cb({ pkg, label: q.get('label') ?? pkg, focus: q.get('focus') === '1' });
   };
   if (!launchHandled) {
     launchHandled = true;

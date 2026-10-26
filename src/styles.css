@@ -793,15 +793,22 @@ fieldset {
 .focus-top {
   position: absolute;
   top: calc(0.8rem + env(safe-area-inset-top));
+  left: 1rem;
   right: 1rem;
   display: flex;
+  flex-wrap: wrap; /* 窄螢幕（例如 360dp）放不下就換行，不要疊在一起 */
+  justify-content: flex-end;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.4rem 0.6rem;
   color: #2f4a36;
   text-shadow: 0 1px 6px rgba(255, 255, 255, 0.8);
 }
 .mode-demo .focus-top {
   top: 56px;
+}
+.focus-top .test-btn {
+  position: static;
+  margin-right: auto;
 }
 .icon-round {
   width: 44px;

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSave } from '../app/store';
-import { AnimalArt } from '../components/Animal';
+import { AnimalArt, TrackArt } from '../components/Animal';
 import { Modal, fmtMinutes } from '../components/ui';
 import { animalDef } from '../content/config';
 import { localDateKey } from '../domain/focus';
@@ -58,7 +58,8 @@ export function GuardScreen({ app, onClose }: { app: GuardApp; onClose: () => vo
   }, [left]);
   const pet = guardPet(save);
   // 專注中被攔下：留在小島回到專注（回桌面或解鎖都會被深度專注算成離開）
-  const focusing = !!openSession(save);
+  const session = openSession(save);
+  const focusing = !!session;
 
   const choose = (choice: 'resisted' | 'unlocked') => {
     logChoice(choice, save.profile.timezone);
@@ -74,6 +75,26 @@ export function GuardScreen({ app, onClose }: { app: GuardApp; onClose: () => vo
     if (!d.open) d.showModal();
     return () => d.close();
   }, []);
+
+  // 深度專注中打開其他 App，被叫回小島（像 Forest 一樣擋下來）：不算時間守護的紀錄
+  if (app.focus && session)
+    return (
+      <dialog ref={ref} className="guard-screen" aria-labelledby="guard-title" onCancel={(e) => e.preventDefault()}>
+        <div className="guard-pet">
+          <TrackArt id={session.animalId} size={180} />
+        </div>
+        <h1 id="guard-title">專注中</h1>
+        <p>
+          嘿，{save.profile.nickname}！{animalDef(session.animalId).name}就在附近，現在打開<strong>「{app.label}」</strong>會把牠嚇跑。
+        </p>
+        <p className="muted small">需要用到的 App（字典、計算機…）可以在時間設定的「深度專注」加進允許名單。</p>
+        <div className="guard-actions">
+          <button className="primary" onClick={onClose}>
+            回到專注
+          </button>
+        </div>
+      </dialog>
+    );
 
   return (
     <dialog ref={ref} className="guard-screen" aria-labelledby="guard-title" onCancel={(e) => e.preventDefault()}>

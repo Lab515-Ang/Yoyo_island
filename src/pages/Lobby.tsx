@@ -10,7 +10,24 @@ import { HabitatScene } from '../scenes/HabitatScene';
 import { DEEP_GRACE_MS, TimeGuard, isAndroid, isNative, requestNotifyPermission, type GuardApp } from '../platform';
 import { AppPicker } from './Guard';
 
-type Sheet = 'tag' | 'title' | 'time' | 'habitat' | 'egg' | 'allow' | 'usage' | null;
+// 介面偏好：深度專注的「顯示在其他應用程式上層」權限問過了（不管開不開，只問一次）
+const OVERLAY_KEY = 'qiguang-ui:overlayAsked';
+const overlayAsked = () => {
+  try {
+    return localStorage.getItem(OVERLAY_KEY) === '1';
+  } catch {
+    return true;
+  }
+};
+const markOverlayAsked = () => {
+  try {
+    localStorage.setItem(OVERLAY_KEY, '1');
+  } catch {
+    // 只影響下次會不會再問
+  }
+};
+
+type Sheet = 'tag' | 'title' | 'time' | 'habitat' | 'egg' | 'allow' | 'usage' | 'overlay' | null;
 
 /** 首頁大廳（參考 Forest 構圖）：左上標籤與標題、中央棲地泡泡、大字時間、開始按鈕；細項點了才展開。 */
 export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: () => void }) {
@@ -80,7 +97,10 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
   };
   const startInner = async () => {
     // 深度專注需要「使用情況存取權」才知道有沒有離開小島
-    if (deep && !(await TimeGuard.status().catch(() => ({ usage: false }))).usage) return setSheet('usage');
+    const perm = deep ? await TimeGuard.status().catch(() => ({ usage: false, overlay: false })) : null;
+    if (perm && !perm.usage) return setSheet('usage');
+    // 「顯示在其他應用程式上層」：專注中打開其他 App 時才能把小島叫回來；只問一次，不開也照常（改成倒數提醒）
+    if (perm && !perm.overlay && !overlayAsked()) return setSheet('overlay');
     // 「快回到小島」的提醒要通知權限（Android 13 起要問）；不允許也照常進行
     if (deep) await requestNotifyPermission();
     begin(deep);
@@ -293,6 +313,19 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
           <button className="primary wide" onClick={() => setSheet('time')}>
             完成
           </button>
+        </Modal>
+      )}
+
+      {sheet === 'overlay' && (
+        <Modal title="讓小島幫你擋下其他 App" onClose={() => (markOverlayAsked(), setSheet(null))}>
+          <p>開啟「顯示在其他應用程式上層」後，專注中打開其他 App 會馬上被叫回小島，不會不小心滑去別的地方。</p>
+          <p className="small muted">不開也可以：離開小島時會跳出提醒，{graceSec} 秒內回來就沒事。允許名單裡的 App 不受影響。</p>
+          <div className="row wrap">
+            <button className="primary" onClick={() => (markOverlayAsked(), setSheet(null), void TimeGuard.openOverlaySettings())}>
+              去開啟
+            </button>
+            <button onClick={() => (markOverlayAsked(), setSheet(null), begin(deep))}>先不用，開始專注</button>
+          </div>
         </Modal>
       )}
 
