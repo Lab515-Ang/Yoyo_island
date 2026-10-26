@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>需要更新 WebView</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 24px 16px;
+        box-sizing: border-box;
+        text-align: center;
+        font-family: sans-serif;
+        background: #f6f1e4;
+        color: #2f4a36;
+      }
+      h1 {
+        font-size: 1.3rem;
+      }
+      p {
+        line-height: 1.7;
+        color: #4f5f52;
+      }
+      a {
+        display: block;
+        width: 100%;
+        max-width: 320px;
+        margin-top: 12px;
+        padding: 14px;
+        border-radius: 999px;
+        background: #4f7a55;
+        color: #fff;
+        text-decoration: none;
+        font-weight: bold;
+        box-sizing: border-box;
+      }
+      a.ghost {
+        background: none;
+        color: #4f7a55;
+        border: 1.5px solid #4f7a55;
+      }
+    </style>
+  </head>
+  <body>
+    <div style="font-size: 3rem">🌿</div>
+    <h1>棲光小島需要更新手機的 WebView</h1>
+    <p>手機裡的「Android System WebView」版本太舊，小島的畫面顯示不出來。<br />到 Play 商店更新後，再重新打開棲光小島就可以了。</p>
+    <!-- 這頁只用最基本的 HTML，舊版 WebView 也看得懂 -->
+    <a href="market://details?id=com.google.android.webview">前往 Play 商店更新 WebView</a>
+    <a class="ghost" href="market://details?id=com.android.chrome">也更新 Chrome</a>
+  </body>
+</html>

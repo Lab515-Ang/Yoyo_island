@@ -5,6 +5,9 @@ const config: CapacitorConfig = {
   appId: 'tw.qiguang.island',
   appName: '棲光小島',
   webDir: 'dist',
+  // 打包用的是新版瀏覽器語法（Vite 預設 Chrome 111 以上）：WebView 太舊時改顯示「請更新 WebView」頁，不要白畫面
+  android: { minWebViewVersion: 111 },
+  server: { errorPath: 'webview-update.html' },
   plugins: {
     LocalNotifications: {
       iconColor: '#4f7a55',
