@@ -156,7 +156,7 @@ public class TimeGuardService extends Service {
         }
         if (w == null)
             return new NotificationCompat.Builder(this, CHANNEL)
-                .setSmallIcon(R.mipmap.ic_launcher)
+                .setSmallIcon(R.drawable.ic_stat_scope)
                 .setContentTitle("棲光小島守護中")
                 .setContentText("時間守護與深度專注會在背景幫你留意手機。")
                 .setOngoing(true)
@@ -165,9 +165,9 @@ public class TimeGuardService extends Service {
                 .build();
         boolean down = w.optBoolean("chronoDown", true);
         return new NotificationCompat.Builder(this, CHANNEL_FOCUS)
-            .setSmallIcon(R.drawable.ic_stat_lock)
+            .setSmallIcon(R.drawable.ic_stat_scope)
             .setColor(0xFF4F7A55)
-            .setContentTitle(w.optString("title", "🔒 專注中"))
+            .setContentTitle(w.optString("title", "🔭 專注中"))
             .setContentText(w.optString("text", "點一下回到棲光小島"))
             .setWhen(w.optLong("chronoBase", w.optLong("endAt")))
             .setShowWhen(true)
@@ -178,6 +178,8 @@ public class TimeGuardService extends Service {
             .setContentIntent(pi)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            // Android 16 起：狀態列顯示計時膠囊（像 iPhone 動態島），舊版忽略
+            .setRequestPromotedOngoing(true)
             .build();
     }
 
@@ -318,7 +320,7 @@ public class TimeGuardService extends Service {
         Intent open = new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         PendingIntent pi = PendingIntent.getActivity(this, id, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         Notification n = new NotificationCompat.Builder(this, CHANNEL_ALERT)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_stat_scope)
             .setContentTitle(title)
             .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_HIGH)

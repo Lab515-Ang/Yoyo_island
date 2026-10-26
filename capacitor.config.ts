@@ -10,6 +10,7 @@ const config: CapacitorConfig = {
   server: { errorPath: 'webview-update.html' },
   plugins: {
     LocalNotifications: {
+      smallIcon: 'ic_stat_scope', // 望遠鏡（res/drawable）：通知小圖示要單色，App 圖示會被系統裁成一塊
       iconColor: '#4f7a55',
     },
   },

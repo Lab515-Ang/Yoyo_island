@@ -290,7 +290,7 @@ public class TimeGuardPlugin extends Plugin {
         w.put("doneTitle", call.getString("doneTitle", ""));
         w.put("doneText", call.getString("doneText", ""));
         // 常駐通知（狀態列鎖頭）：標題、內容、計時基準（倒數＝結束時間；正向計時＝開始時間）
-        w.put("title", call.getString("title", "🔒 專注中"));
+        w.put("title", call.getString("title", "🔭 專注中"));
         w.put("text", call.getString("text", ""));
         w.put("chronoBase", call.getData().optLong("chronoBase", call.getLong("endAt", 0L)));
         w.put("chronoDown", call.getBoolean("chronoDown", true));
@@ -367,7 +367,7 @@ public class TimeGuardPlugin extends Plugin {
         Intent open = new Intent(ctx, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         android.app.PendingIntent pi = android.app.PendingIntent.getActivity(ctx, 1, open, android.app.PendingIntent.FLAG_IMMUTABLE | android.app.PendingIntent.FLAG_UPDATE_CURRENT);
         androidx.core.app.NotificationCompat.Builder b = new androidx.core.app.NotificationCompat.Builder(ctx, "focusresult")
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_stat_scope)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(new androidx.core.app.NotificationCompat.BigTextStyle().bigText(sub.isEmpty() ? text : text + '\n' + sub))

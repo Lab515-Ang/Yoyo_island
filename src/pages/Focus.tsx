@@ -114,7 +114,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   useEffect(() => {
     if (!watchUntil) return;
     const chronoBase = countdown ? watchUntil : Date.now() - elapsedMs(session, Date.now());
-    void TimeGuard.startFocusWatch({ key: watchKey, endAt: watchUntil, graceMs: DEEP_GRACE_MS, allow: allow ? allow.split(',') : [], notifyEnd, doneTitle: `${APP_NAME}・專注完成`, doneText, title: '🔒 專注中', text: watchText, chronoBase, chronoDown: countdown });
+    void TimeGuard.startFocusWatch({ key: watchKey, endAt: watchUntil, graceMs: DEEP_GRACE_MS, allow: allow ? allow.split(',') : [], notifyEnd, doneTitle: `${APP_NAME}・專注完成`, doneText, title: '🔭 專注中', text: watchText, chronoBase, chronoDown: countdown });
     return () => void TimeGuard.stopFocusWatch();
   }, [watchUntil, watchKey, allow, notifyEnd, doneText, watchText]); // eslint-disable-line react-hooks/exhaustive-deps
 
