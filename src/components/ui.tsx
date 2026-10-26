@@ -20,7 +20,10 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
     <dialog ref={ref} className="modal" onCancel={(e) => e.target === e.currentTarget && (e.preventDefault(), onClose())} onClose={(e) => e.target === e.currentTarget && !ref.current?.open && onClose()} onClick={(e) => e.target === ref.current && onClose()}>
       <div className="modal-body">
         <header className="modal-head">
-          <h2>{title}</h2>
+          {/* 打開時焦點放在標題（讀屏先唸標題），不要讓關閉按鈕一打開就亮起焦點框 */}
+          <h2 tabIndex={-1} autoFocus style={{ outline: 'none' }}>
+            {title}
+          </h2>
           <button className="icon-btn" onClick={onClose} aria-label="關閉">
             <X size={20} strokeWidth={2.4} aria-hidden="true" />
           </button>

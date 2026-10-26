@@ -1171,7 +1171,7 @@ button.danger-fill {
 @media (max-width: 420px) {
   .topbar {
     gap: 0.5rem;
-    padding: 0.6rem 0.75rem;
+    padding: calc(0.6rem + env(safe-area-inset-top)) 0.75rem 0.6rem;
   }
   .brand .small {
     display: none;
