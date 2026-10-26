@@ -370,8 +370,7 @@ public class TimeGuardPlugin extends Plugin {
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
             .setContentText(text)
-            .setStyle(new androidx.core.app.NotificationCompat.BigTextStyle().bigText(sub.isEmpty() ? text : text + "
-" + sub))
+            .setStyle(new androidx.core.app.NotificationCompat.BigTextStyle().bigText(sub.isEmpty() ? text : text + '\n' + sub))
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(pi)
