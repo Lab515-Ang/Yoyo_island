@@ -109,11 +109,14 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   const allow = save.settings.focusAllow.map((a) => a.pkg).join(',');
   const notifyEnd = countdown && save.settings.endNotify;
   const doneText = `「${session.taskTitle}」完成了 ${Math.round((session.targetSeconds ?? 0) / 60)} 分鐘，回來看看小島吧。`;
+  // 常駐通知（狀態列鎖頭）：倒數顯示剩下的時間，正向計時從已專注的時間往上數
+  const watchText = `正在靠近${animalDef(session.animalId).name}・${session.tag}`;
   useEffect(() => {
     if (!watchUntil) return;
-    void TimeGuard.startFocusWatch({ key: watchKey, endAt: watchUntil, graceMs: DEEP_GRACE_MS, allow: allow ? allow.split(',') : [], notifyEnd, doneTitle: `${APP_NAME}・專注完成`, doneText });
+    const chronoBase = countdown ? watchUntil : Date.now() - elapsedMs(session, Date.now());
+    void TimeGuard.startFocusWatch({ key: watchKey, endAt: watchUntil, graceMs: DEEP_GRACE_MS, allow: allow ? allow.split(',') : [], notifyEnd, doneTitle: `${APP_NAME}・專注完成`, doneText, title: '🔒 專注中', text: watchText, chronoBase, chronoDown: countdown });
     return () => void TimeGuard.stopFocusWatch();
-  }, [watchUntil, watchKey, allow, notifyEnd, doneText]);
+  }, [watchUntil, watchKey, allow, notifyEnd, doneText, watchText]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cancel = () => {
     if (update((s) => cancelSession(s, session.id, Date.now()))) notify('已取消，這次不算數。');

@@ -289,6 +289,11 @@ public class TimeGuardPlugin extends Plugin {
         w.put("notifyEnd", call.getBoolean("notifyEnd", false));
         w.put("doneTitle", call.getString("doneTitle", ""));
         w.put("doneText", call.getString("doneText", ""));
+        // 常駐通知（狀態列鎖頭）：標題、內容、計時基準（倒數＝結束時間；正向計時＝開始時間）
+        w.put("title", call.getString("title", "🔒 專注中"));
+        w.put("text", call.getString("text", ""));
+        w.put("chronoBase", call.getData().optLong("chronoBase", call.getLong("endAt", 0L)));
+        w.put("chronoDown", call.getBoolean("chronoDown", true));
         synchronized (TimeGuardService.LOCK) {
             android.content.SharedPreferences p = TimeGuardService.prefs(getContext());
             android.content.SharedPreferences.Editor e = p.edit().putString("watch", w.toString()).putString("watchKey", key);

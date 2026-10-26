@@ -66,7 +66,7 @@ export function RecapInvite() {
     <Modal title="上週回顧" onClose={() => seen('done')}>
       <div className="recap-invite">
         <p className="recap-invite-emoji" aria-hidden="true">
-          📅
+          🌿
         </p>
         <p>
           <strong>新的一週開始了！</strong>

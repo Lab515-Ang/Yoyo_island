@@ -38,6 +38,7 @@ public class TimeGuardService extends Service {
     static final String KEY_CONFIG = "config";
     private static final String CHANNEL = "timeguard";
     private static final String CHANNEL_ALERT = "focuswatch";
+    private static final String CHANNEL_FOCUS = "focusing";
     private static final int ID_SERVICE = 7001; // 不能用 1：倒數結束通知（LocalNotifications）用的是 1
     private static final int ID_FOCUS_END = 1;
     private static final int ID_AWAY = 2;
@@ -54,6 +55,7 @@ public class TimeGuardService extends Service {
     private String foreground;
     private long lastLaunch;
     private java.util.Set<String> home; // 桌面 App：回到桌面不擋，照常倒數
+    private String shown; // 常駐通知目前顯示的深度專注（watch 設定；空字串＝沒有專注）
 
     private final Runnable tick = new Runnable() {
         @Override
@@ -103,14 +105,11 @@ public class TimeGuardService extends Service {
         if (Build.VERSION.SDK_INT >= 26) {
             nm.createNotificationChannel(new NotificationChannel(CHANNEL, "時間守護", NotificationManager.IMPORTANCE_MIN));
             nm.createNotificationChannel(new NotificationChannel(CHANNEL_ALERT, "深度專注提醒", NotificationManager.IMPORTANCE_HIGH));
+            // 低重要性：狀態列看得到鎖頭，但不響、不跳出
+            nm.createNotificationChannel(new NotificationChannel(CHANNEL_FOCUS, "專注中", NotificationManager.IMPORTANCE_LOW));
         }
-        Notification n = new NotificationCompat.Builder(this, CHANNEL)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("棲光小島守護中")
-            .setContentText("時間守護與深度專注會在背景幫你留意手機。")
-            .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_MIN)
-            .build();
+        shown = focusSignature();
+        Notification n = serviceNotification(shown);
         if (Build.VERSION.SDK_INT >= 34) startForeground(ID_SERVICE, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
         else startForeground(ID_SERVICE, n);
         home = new java.util.HashSet<>();
@@ -137,10 +136,60 @@ public class TimeGuardService extends Service {
         return null;
     }
 
+    /** 正在看守的深度專注設定（沒有就是空字串）：變了才重畫常駐通知。 */
+    private String focusSignature() {
+        return watching(this) ? prefs(this).getString("watch", "") : "";
+    }
+
+    /**
+     * 常駐通知：深度專注中是「🔒 專注中」（狀態列鎖頭、倒數／正數計時，點了回到小島）；
+     * 其他時候是幾乎看不見的「守護中」（前景服務一定要有通知）。
+     */
+    private Notification serviceNotification(String watch) {
+        Intent open = new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        PendingIntent pi = PendingIntent.getActivity(this, ID_SERVICE, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        JSONObject w = null;
+        try {
+            if (!watch.isEmpty()) w = new JSONObject(watch);
+        } catch (Exception ignored) {
+            // 讀不到就顯示一般的守護中
+        }
+        if (w == null)
+            return new NotificationCompat.Builder(this, CHANNEL)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle("棲光小島守護中")
+                .setContentText("時間守護與深度專注會在背景幫你留意手機。")
+                .setOngoing(true)
+                .setContentIntent(pi)
+                .setPriority(NotificationCompat.PRIORITY_MIN)
+                .build();
+        boolean down = w.optBoolean("chronoDown", true);
+        return new NotificationCompat.Builder(this, CHANNEL_FOCUS)
+            .setSmallIcon(R.drawable.ic_stat_lock)
+            .setColor(0xFF4F7A55)
+            .setContentTitle(w.optString("title", "🔒 專注中"))
+            .setContentText(w.optString("text", "點一下回到棲光小島"))
+            .setWhen(w.optLong("chronoBase", w.optLong("endAt")))
+            .setShowWhen(true)
+            .setUsesChronometer(true)
+            .setChronometerCountDown(down)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setContentIntent(pi)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build();
+    }
+
     private void check() {
         if (!shouldRun(this)) {
             stopSelf();
             return;
+        }
+        String sig = focusSignature();
+        if (!sig.equals(shown)) {
+            shown = sig;
+            getSystemService(NotificationManager.class).notify(ID_SERVICE, serviceNotification(sig));
         }
         long now = System.currentTimeMillis();
         PowerManager pm = getSystemService(PowerManager.class);
