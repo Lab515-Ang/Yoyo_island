@@ -6,7 +6,8 @@ import { AnimalArt, TrackArt } from '../components/Animal';
 import { Coin, Gem, Modal } from '../components/ui';
 import { coins, gems, type ActionResult } from '../domain/game';
 import { buyItem, dailyPicks, exchangeCoins, featuredItems, landOwned, owned, refreshPicks, shopItems } from '../domain/shop';
-import { Check, RefreshCw } from 'lucide-react';
+import { Check, Play, RefreshCw, Square } from 'lucide-react';
+import { useAmbient } from '../sound';
 import type { SaveFile } from '../domain/types';
 
 /**
@@ -253,6 +254,9 @@ function ItemSheet({ it, onClose, onBought, onLobby, run }: { it: ShopItem; onCl
   const short = 'coins' in p ? p.coins - coins(save) : 'gems' in p ? p.gems - gems(save) : 0;
   const desc = it.kind === 'animal' ? animalDef(it.ref).blurb : it.kind === 'sound' ? SOUNDS.find((s) => s.id === it.ref)?.desc : '專注紀錄裡的那塊草地會換成這個樣子。';
   const usingLand = it.kind === 'land' && save.settings.landId === it.ref;
+  // 環境音可以先試聽再決定要不要買
+  const [listening, setListening] = useState(false);
+  useAmbient(it.kind === 'sound' && listening, save.settings.soundVolume || 0.5, it.kind === 'sound' ? it.ref : 'breeze');
 
   const buy = () => {
     if (!run((s) => buyItem(s, it.id, Date.now()), `買到${it.name}了！`)) return;
@@ -265,6 +269,12 @@ function ItemSheet({ it, onClose, onBought, onLobby, run }: { it: ShopItem; onCl
         <ItemArt it={it} size={140} />
       </div>
       <p>{desc}</p>
+      {it.kind === 'sound' && (
+        <button className={listening ? 'primary listen-btn' : 'listen-btn'} aria-pressed={listening} onClick={() => setListening((x) => !x)}>
+          {listening ? <Square size={14} fill="currentColor" aria-hidden="true" /> : <Play size={16} fill="currentColor" aria-hidden="true" />}
+          {listening ? '停止試聽' : '試聽'}
+        </button>
+      )}
       {it.kind === 'animal' && !have && <p className="small muted">解鎖後，每次專注前都能選擇去找牠。</p>}
       {have ? (
         it.kind === 'animal' ? (

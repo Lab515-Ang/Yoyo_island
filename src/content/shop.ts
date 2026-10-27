@@ -51,7 +51,7 @@ export const GEM_PACKS = [
   { id: 'cartful', name: '一推車寶石', gems: 720, price: 'NT$600', bonus: 20 },
 ] as const;
 
-/** 每日精選：6 個，寶石 2～3 個、金幣其餘；花金幣可以換一批。 */
+/** 每日精選：6 隻動物，寶石 2～3 個、金幣其餘；花金幣可以換一批。 */
 export const DAILY_PICKS = 6;
 export const REFRESH_COINS = 300;
 /** 寶箱偶爾送的寶石 */

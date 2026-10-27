@@ -84,7 +84,7 @@ const shuffle = <T,>(xs: T[], r: () => number) => {
 const refreshes = (save: SaveFile, day: string) => save.transactions.filter((t) => t.idempotencyKey.startsWith(`refresh:${islandId(save)}:${day}:`));
 
 /**
- * 今天的每日精選：6 個，寶石 2～3 個、其餘金幣；午夜換新，也可以花金幣換一批。
+ * 今天的每日精選：6 隻動物，寶石 2～3 個、其餘金幣；午夜換新，也可以花金幣換一批。
  * 只從「這一批開始時還沒擁有」的商品挑，買了之後清單不會跟著變（顯示已擁有）。
  */
 export function dailyPicks(save: SaveFile, now: number) {
@@ -94,7 +94,8 @@ export function dailyPicks(save: SaveFile, now: number) {
   const since = rs.length ? rs[rs.length - 1].createdAt : null;
   const tz = save.profile.timezone;
   const before = { ...save, transactions: save.transactions.filter((t) => (since ? t.createdAt < since : localDateKey(Date.parse(t.createdAt), tz) < day)) };
-  const pool = shopItems(save).filter((it) => !('iap' in it.price) && !owned(before, it));
+  // 每日精選只放動物（土地造型、環境音在「探索」分頁）
+  const pool = shopItems(save).filter((it) => it.kind === 'animal' && !('iap' in it.price) && !owned(before, it));
   const r = rng(`${save.profile.id}:${day}:${rs.length}`);
   const gemPool = shuffle(pool.filter((it) => 'gems' in it.price), r);
   const coinPool = shuffle(pool.filter((it) => 'coins' in it.price), r);

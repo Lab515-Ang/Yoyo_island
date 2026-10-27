@@ -4425,3 +4425,12 @@ label.set-row input.switch:checked {
 .world-pin {
   cursor: pointer;
 }
+.listen-btn {
+  flex-direction: row;
+  gap: 0.4rem;
+  justify-self: center;
+  align-self: center;
+  margin: 0 auto 0.6rem;
+  min-height: 42px;
+  padding: 0 1.2rem;
+}
