@@ -4870,3 +4870,150 @@ label.set-row input.switch:checked {
     animation: none;
   }
 }
+
+/* ---------- 商店商品詳細頁 ---------- */
+.item-modal .modal-body {
+  background: linear-gradient(180deg, var(--panel) 0%, var(--bg) 100%);
+}
+.item-modal .modal-head h2 {
+  font-family: var(--font-title);
+  font-weight: 400;
+  font-size: 1.45rem;
+}
+/* 展示台：依種類換底色 */
+.item-hero {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 210px;
+  margin-bottom: 0.9rem;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: linear-gradient(180deg, #cfe6e4 0%, #f6e9c8 58%, #edc79b 100%);
+}
+.kind-land .item-hero {
+  background: linear-gradient(180deg, #d7ecf0 0%, #e9f1dc 60%, #c7dfb8 100%);
+}
+.kind-sound .item-hero {
+  background: linear-gradient(180deg, #dbe6f3 0%, #eaf0e6 60%, #d6e6d0 100%);
+}
+.item-glow {
+  position: absolute;
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 253, 248, 0.95) 0%, rgba(255, 253, 248, 0) 70%);
+}
+.item-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+}
+/* 地面的柔和影子 */
+.item-art::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  width: 60%;
+  height: 12px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: rgba(90, 70, 40, 0.14);
+  filter: blur(3px);
+  z-index: -1;
+}
+.kind-animal .item-art svg {
+  transform-origin: 50% 92%;
+  animation: breathe 3.6s ease-in-out infinite;
+}
+.item-chip {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.85);
+  color: var(--sage-deep);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.item-chip.owned {
+  left: auto;
+  right: 12px;
+  background: var(--primary);
+  color: #fff;
+}
+.item-desc {
+  margin: 0 0 0.8rem;
+  line-height: 1.7;
+}
+.item-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin: 0 0 0.9rem;
+}
+.item-facts > div {
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.item-facts > div.wide {
+  grid-column: 1 / -1;
+}
+.item-facts dt {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.item-facts dd {
+  margin: 0.1rem 0 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+.item-action {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+}
+.item-buy {
+  flex-direction: row;
+  gap: 0.6rem;
+  min-height: 52px;
+  font-size: 1.05rem;
+}
+.item-buy-price {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  font-family: var(--font-num), var(--font);
+  font-weight: 800;
+}
+.item-confirm {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.8rem;
+  border-radius: var(--radius);
+  background: var(--honey-soft);
+  text-align: center;
+}
+.item-confirm p {
+  margin: 0;
+}
+.item-confirm .row {
+  justify-content: center;
+}
+.app.calm .kind-animal .item-art svg {
+  animation: none;
+}

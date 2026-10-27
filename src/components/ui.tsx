@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { GROWTH_MAX, ZONE_NAME, animalDef, levelName, projectDef, stageName, type AnimalDef } from '../content/config';
+import { GROWTH_MAX, ZONE_NAME, animalDef, hasStages, levelName, projectDef, stageName, type AnimalDef } from '../content/config';
 import { animalUnlocked, growthOf, hatchCounts } from '../domain/game';
 import type { SaveFile } from '../domain/types';
 import { AnimalArt } from './Animal';
@@ -11,7 +11,7 @@ export const Coin = () => <span className="coin" aria-hidden="true" />;
 export const Gem = () => <span className="gem" aria-hidden="true" />;
 
 /** 原生 <dialog>：焦點、Esc 關閉都由瀏覽器處理。被瀏覽器直接關掉時也通知（重新打開過的就不算，例如開發模式的重掛載）。 */
-export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Modal({ title, onClose, children, className }: { title: string; onClose: () => void; children: ReactNode; className?: string }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const d = ref.current!;
@@ -19,7 +19,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
     return () => d.close();
   }, []);
   return (
-    <dialog ref={ref} className="modal" onCancel={(e) => e.target === e.currentTarget && (e.preventDefault(), onClose())} onClose={(e) => e.target === e.currentTarget && !ref.current?.open && onClose()} onClick={(e) => e.target === ref.current && onClose()}>
+    <dialog ref={ref} className={className ? `modal ${className}` : 'modal'} onCancel={(e) => e.target === e.currentTarget && (e.preventDefault(), onClose())} onClose={(e) => e.target === e.currentTarget && !ref.current?.open && onClose()} onClick={(e) => e.target === ref.current && onClose()}>
       <div className="modal-body">
         <header className="modal-head">
           {/* 打開時焦點放在標題（讀屏先唸標題），不要讓關閉按鈕一打開就亮起焦點框 */}
@@ -97,14 +97,14 @@ export function AnimalCard({ save, animalId, onClose }: { save: SaveFile; animal
       <div className="species-hero">
         <AnimalArt id={a.id} stage={n ? g.stage : 2} size={140} hidden={!n} />
       </div>
-      {n > 0 && <StageStrip animalId={a.id} stage={g.stage} seen />}
+      {n > 0 && hasStages(a) && <StageStrip animalId={a.id} stage={g.stage} seen />}
       <dl className="facts">
         <dt>遇見</dt>
         <dd>{n} 次</dd>
         {n > 0 && (
           <>
             <dt>族群</dt>
-            <dd>{g.stage === 2 ? `穩定了，看得到${stageName(a, 2)}` : `成長 ${g.growth}/${GROWTH_MAX}・現在看得到${stageName(a, g.stage)}`}</dd>
+            <dd>{!hasStages(a) ? '只有一種樣式，遇見就是成年的牠' : g.stage === 2 ? `穩定了，看得到${stageName(a, 2)}` : `成長 ${g.growth}/${GROWTH_MAX}・現在看得到${stageName(a, g.stage)}`}</dd>
           </>
         )}
         <dt>探索</dt>

@@ -1,5 +1,5 @@
 // 經濟、工程、探索動物與統計：全部是對 SaveFile 的純函式
-import { ANIMALS, HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, PROJECTS, SOUNDS, TEST_TOOLS, TEST_UNLOCKED, animalDef, animalRegion, regionDef, growthFor, projectDef, stageOfGrowth, type AnimalDef, type ProjectDef, type SoundUnlock } from '../content/config';
+import { ANIMALS, HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, PROJECTS, SOUNDS, TEST_TOOLS, TEST_UNLOCKED, animalDef, animalRegion, regionDef, growthFor, hasStages, projectDef, stageOfGrowth, type AnimalDef, type ProjectDef, type SoundUnlock } from '../content/config';
 import { addSegmentsByDay, createSession, isOpen, localDateKey, settle, shiftDateKey } from './focus';
 import type { FocusSession, HabitatId, ID, SaveFile, TimerMode } from './types';
 
@@ -124,7 +124,8 @@ export const newAnimals = (save: SaveFile) => {
 // ---------- 族群成長 ----------
 
 /** 特別探索（真錢）的動物一遇見就是成年。 */
-const alwaysAdult = (animalId: string) => animalDef(animalId).unlock.kind === 'iap';
+// 沒有成長階段的動物（只有一種樣式）：一遇見就是成年的牠
+const alwaysAdult = (animalId: string) => !hasStages(animalDef(animalId));
 
 /** 每次遇見時的族群成長（依時間順序累計）：當下的階段、成長值，以及這次是否讓族群長大。 */
 export const sightings = perSave((save: SaveFile) => {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNow, useSave } from '../app/store';
-import { SOUNDS, animalDef, type AnimalDef } from '../content/config';
+import { SOUNDS, animalDef, animalRegion, hasStages, levelName, regionDef, type AnimalDef } from '../content/config';
 import { COIN_PACKS, GEM_PACKS, REFRESH_COINS, landDef, type ShopItem } from '../content/shop';
 import { AnimalArt, TrackArt } from '../components/Animal';
 import { Coin, Gem, Modal } from '../components/ui';
@@ -263,67 +263,106 @@ function ItemSheet({ it, onClose, onBought, onLobby, run }: { it: ShopItem; onCl
     onBought(it.kind === 'animal' ? animalDef(it.ref) : null);
   };
 
-  return (
-    <Modal title={it.name} onClose={onClose}>
-      <div className="center item-art">
-        <ItemArt it={it} size={140} />
+  const animal = it.kind === 'animal' ? animalDef(it.ref) : null;
+  const region = animal ? regionDef(animalRegion(animal)) : null;
+
+  // 底下的動作列：已擁有（去找牠／套用／去交響樂選）、真錢（即將推出）、確認購買、購買
+  const action = have ? (
+    it.kind === 'animal' ? (
+      <button
+        className="primary wide"
+        onClick={() => {
+          update((s) => ({ ...s, settings: { ...s.settings, eggId: it.ref } }));
+          onClose();
+          onLobby();
+        }}
+      >
+        現在就去找牠
+      </button>
+    ) : it.kind === 'land' ? (
+      <button className="primary wide" disabled={usingLand || !landOwned(save, it.ref)} onClick={() => update((s) => ({ ...s, settings: { ...s.settings, landId: it.ref } })) && onClose()}>
+        {usingLand ? '使用中' : '套用這個土地造型'}
+      </button>
+    ) : (
+      <p className="small cond center-text">可以在「大自然交響樂」選它當專注背景音。</p>
+    )
+  ) : 'iap' in p ? (
+    <>
+      <button className="primary wide" disabled>
+        {p.iap} · 即將推出
+      </button>
+      <p className="small muted center-text">付費購買會在 App 上架後開放，使用 Google Play 付款。</p>
+    </>
+  ) : confirming ? (
+    <div className="item-confirm">
+      <p>
+        確定用 <PriceTag it={it} /> 買{it.name}嗎？
+      </p>
+      <div className="row">
+        <button onClick={() => setConfirming(false)}>取消</button>
+        <button className="primary" onClick={buy}>
+          確定購買
+        </button>
       </div>
-      <p>{desc}</p>
+    </div>
+  ) : (
+    <>
+      <button className="primary wide item-buy" disabled={short > 0} onClick={() => setConfirming(true)}>
+        <span className="item-buy-price">
+          <PriceTag it={it} />
+        </span>
+        購買
+      </button>
+      {short > 0 && <p className="small muted center-text">{'coins' in p ? `還差 ${short} 金幣，再專注 ${short} 分鐘就夠了。` : `還差 ${short} 顆寶石，可以到「貨幣資源」看看。`}</p>}
+    </>
+  );
+
+  return (
+    <Modal title={it.name} onClose={onClose} className={`item-modal kind-${it.kind}`}>
+      {/* 上方的展示台：依種類換底色，商品站在光暈上 */}
+      <div className="item-hero">
+        <span className="item-chip">{kindName[it.kind]}</span>
+        {have && (
+          <span className="item-chip owned">
+            <Check size={13} aria-hidden="true" /> 已擁有
+          </span>
+        )}
+        <span className="item-glow" aria-hidden="true" />
+        <span className="item-art">
+          <ItemArt it={it} size={150} />
+        </span>
+      </div>
+      <p className="item-desc">{desc}</p>
+      {animal && region && (
+        <dl className="item-facts">
+          <div>
+            <dt>區域</dt>
+            <dd>
+              {region.flag} {region.name}
+            </dd>
+          </div>
+          <div>
+            <dt>保育</dt>
+            <dd>{levelName(animal)}</dd>
+          </div>
+          <div>
+            <dt>樣式</dt>
+            <dd>{hasStages(animal) ? '三個成長階段' : '一種樣式'}</dd>
+          </div>
+          <div className="wide">
+            <dt>棲息地</dt>
+            <dd>{animal.habitat.region}</dd>
+          </div>
+        </dl>
+      )}
       {it.kind === 'sound' && (
         <button className={listening ? 'primary listen-btn' : 'listen-btn'} aria-pressed={listening} onClick={() => setListening((x) => !x)}>
           {listening ? <Square size={14} fill="currentColor" aria-hidden="true" /> : <Play size={16} fill="currentColor" aria-hidden="true" />}
           {listening ? '停止試聽' : '試聽'}
         </button>
       )}
-      {it.kind === 'animal' && !have && <p className="small muted">解鎖後，每次專注前都能選擇去找牠。</p>}
-      {have ? (
-        it.kind === 'animal' ? (
-          <button
-            className="primary wide"
-            onClick={() => {
-              update((s) => ({ ...s, settings: { ...s.settings, eggId: it.ref } }));
-              onClose();
-              onLobby();
-            }}
-          >
-            現在就去找牠
-          </button>
-        ) : it.kind === 'land' ? (
-          <button className="primary wide" disabled={usingLand || !landOwned(save, it.ref)} onClick={() => update((s) => ({ ...s, settings: { ...s.settings, landId: it.ref } })) && onClose()}>
-            {usingLand ? '使用中' : '套用這個土地造型'}
-          </button>
-        ) : (
-          <p className="small cond">✓ 已擁有，可以在「大自然交響樂」選它。</p>
-        )
-      ) : 'iap' in p ? (
-        <>
-          <button className="primary wide" disabled>
-            {p.iap} · 即將推出
-          </button>
-          <p className="small muted">付費購買會在 App 上架後開放，使用 Google Play 付款。</p>
-        </>
-      ) : confirming ? (
-        <div className="confirm-box">
-          <p>
-            確定用 <PriceTag it={it} /> 買{it.name}嗎？
-          </p>
-          <div className="row">
-            <button onClick={() => setConfirming(false)}>取消</button>
-            <button className="primary" onClick={buy}>
-              確定購買
-            </button>
-          </div>
-        </div>
-      ) : (
-        <>
-          <button className="primary wide" disabled={short > 0} onClick={() => setConfirming(true)}>
-            <span className="row">
-              <PriceTag it={it} /> 購買
-            </span>
-          </button>
-          {short > 0 && <p className="small muted">{'coins' in p ? `還差 ${short} 金幣，再專注 ${short} 分鐘就夠了。` : `還差 ${short} 顆寶石，可以到「貨幣資源」看看。`}</p>}
-        </>
-      )}
+      {it.kind === 'animal' && !have && <p className="small muted center-text">解鎖後，每次專注前都能選擇去找牠。</p>}
+      <div className="item-action">{action}</div>
     </Modal>
   );
 }

@@ -1,5 +1,5 @@
 // 成就：依存檔算進度，達成後可以領金幣（大的另外送寶石）。數值與清單都在這裡調。
-import { ANIMALS, SOUNDS, regionAnimals, regionProjects } from '../content/config';
+import { ANIMALS, SOUNDS, hasStages, regionAnimals, regionProjects } from '../content/config';
 import { localHourKey } from './focus';
 import { endedDayKeys, endedSessions, growthOf, hatchCounts, islandId, isDone, soundUnlocked } from './game';
 import type { PointTransaction, SaveFile } from './types';
@@ -64,8 +64,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'species_5', group: '探索與圖鑑', icon: '🔭', title: '初見森林', desc: '遇見 5 種不同的動物', target: 5, coins: 80, value: (s) => met(s) },
   { id: 'species_10', group: '探索與圖鑑', icon: '📖', title: '圖鑑漸漸豐富', desc: '遇見 10 種不同的動物', target: 10, coins: 200, value: (s) => met(s) },
   { id: 'species_tw', group: '探索與圖鑑', icon: '🏝️', title: '台灣森林全紀錄', desc: '遇見台灣所有的動物', target: regionAnimals('tw').length, coins: 800, gems: 40, value: (s) => met(s, regionAnimals('tw')) },
-  { id: 'adult_1', group: '探索與圖鑑', icon: '🦉', title: '看見成年的牠', desc: '第一次看到成年的動物', target: 1, coins: 50, value: (s) => ANIMALS.filter((a) => growthOf(s, a.id).stage === 2).length },
-  { id: 'adult_5', group: '探索與圖鑑', icon: '🐾', title: '穩定的族群', desc: '5 種動物都看到成年', target: 5, coins: 250, value: (s) => ANIMALS.filter((a) => growthOf(s, a.id).stage === 2).length },
+  { id: 'adult_1', group: '探索與圖鑑', icon: '🦉', title: '看見成年的牠', desc: '第一次看到成年的動物（有成長階段的種類）', target: 1, coins: 50, value: (s) => ANIMALS.filter((a) => hasStages(a) && growthOf(s, a.id).stage === 2).length },
+  { id: 'adult_5', group: '探索與圖鑑', icon: '🐾', title: '穩定的族群', desc: '5 種有成長階段的動物都看到成年', target: 5, coins: 250, value: (s) => ANIMALS.filter((a) => hasStages(a) && growthOf(s, a.id).stage === 2).length },
   // 修復與收集
   { id: 'project_1', group: '修復與收集', icon: '🛠️', title: '第一個工程', desc: '完成第一個修復工程', target: 1, coins: 40, value: (s) => fixed(s, 'tw') + fixed(s, 'jp') },
   { id: 'forest_done', group: '修復與收集', icon: '🌲', title: '森林回來了', desc: '修完台灣森林的所有工程', target: regionProjects('tw').length, coins: 600, gems: 30, value: (s) => fixed(s, 'tw') },

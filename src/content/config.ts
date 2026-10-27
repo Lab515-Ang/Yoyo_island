@@ -100,6 +100,8 @@ export interface AnimalDef {
   blurb: string;
   habitat: Habitat;
   region?: RegionId; // 沒寫就是台灣
+  /** false＝只有一種樣式（遇見就是成年的牠，不分幼年、亞成）；沒寫就有三個成長階段 */
+  stages?: false;
 }
 
 /**
@@ -141,14 +143,14 @@ export const ANIMALS: AnimalDef[] = [
   { id: 'marten', name: '黃喉貂', shape: 'mustelid', color: '#3b2e25', accent: '#f2c230', unlock: { kind: 'project', id: 'fo_spring' }, blurb: '喉嚨是亮黃色的，動作靈活，能在樹上快速移動。', habitat: { zone: 'mid', region: '全島原始林，中海拔最常見', elevation: '約 300～3,900 公尺', level: 3, lon: 121.12, lat: 24.3 } },
   { id: 'hawk_eagle', name: '熊鷹', shape: 'raptor', color: '#6b4b30', accent: '#efe2c8', unlock: { kind: 'project', id: 'fo_canopy' }, blurb: '大型的猛禽，在森林上空盤旋，翅膀寬大有力。', habitat: { zone: 'mid', region: '中海拔原始林', elevation: '約 300～2,800 公尺', level: 1, lon: 120.78, lat: 22.62 } },
   { id: 'black_bear', name: '台灣黑熊', shape: 'bear', color: '#2a2622', accent: '#f1ecdf', unlock: { kind: 'project', id: 'fo_rescue' }, blurb: '胸前有一道白色的 V 字形斑紋，是台灣森林的代表動物。', habitat: { zone: 'high', region: '中央山脈、玉山、雪霸、大武山一帶', elevation: '主要約 1,000～3,500 公尺', level: 1, lon: 121.02, lat: 23.42 } },
-  { id: 'civet', name: '小麝香貓', shape: 'cat', color: '#b7a07c', accent: '#4a3b2a', unlock: { kind: 'coins', price: 800 }, blurb: '身上有成排的黑色斑點，尾巴有一圈一圈的環紋。', habitat: { zone: 'low', region: '低海拔草生地與農墾地', elevation: '約 1,000 公尺以下', level: 2, lon: 120.75, lat: 22.12 } },
-  { id: 'mikado_pheasant', name: '帝雉', shape: 'pheasant', color: '#1f2f5c', accent: '#7fa3d8', unlock: { kind: 'coins', price: 1200 }, blurb: '住在中高海拔森林，羽毛在陽光下帶著藍紫色的光澤。', habitat: { zone: 'high', region: '中央山脈高山，常有雲霧的針闊葉林', elevation: '約 1,800～3,800 公尺', level: 2, lon: 121.27, lat: 24.12 } },
-  { id: 'serow', name: '長鬃山羊', shape: 'goat', color: '#6d5a48', accent: '#d9cbb5', unlock: { kind: 'coins', price: 1600 }, blurb: '擅長在陡峭的山壁上行走，脖子上有長長的鬃毛。', habitat: { zone: 'high', region: '中高海拔陡峭山壁，例如南湖大山、雪山圈谷', elevation: '200 公尺到高山，1,000 公尺以上較常見', level: 3, lon: 121.44, lat: 24.36 } },
+  { id: 'civet', stages: false, name: '小麝香貓', shape: 'cat', color: '#b7a07c', accent: '#4a3b2a', unlock: { kind: 'coins', price: 800 }, blurb: '身上有成排的黑色斑點，尾巴有一圈一圈的環紋。', habitat: { zone: 'low', region: '低海拔草生地與農墾地', elevation: '約 1,000 公尺以下', level: 2, lon: 120.75, lat: 22.12 } },
+  { id: 'mikado_pheasant', stages: false, name: '帝雉', shape: 'pheasant', color: '#1f2f5c', accent: '#7fa3d8', unlock: { kind: 'coins', price: 1200 }, blurb: '住在中高海拔森林，羽毛在陽光下帶著藍紫色的光澤。', habitat: { zone: 'high', region: '中央山脈高山，常有雲霧的針闊葉林', elevation: '約 1,800～3,800 公尺', level: 2, lon: 121.27, lat: 24.12 } },
+  { id: 'serow', stages: false, name: '長鬃山羊', shape: 'goat', color: '#6d5a48', accent: '#d9cbb5', unlock: { kind: 'coins', price: 1600 }, blurb: '擅長在陡峭的山壁上行走，脖子上有長長的鬃毛。', habitat: { zone: 'high', region: '中高海拔陡峭山壁，例如南湖大山、雪山圈谷', elevation: '200 公尺到高山，1,000 公尺以上較常見', level: 3, lon: 121.44, lat: 24.36 } },
   // 商店的新物種（保育類等級與棲息地上架前要再核對）
-  { id: 'crested_serpent_eagle', name: '大冠鷲', shape: 'raptor', color: '#5a4632', accent: '#f2d27a', unlock: { kind: 'coins', price: 1400 }, blurb: '常在山區上空盤旋，叫聲響亮，最愛吃蛇。', habitat: { zone: 'low', region: '全島低至中海拔山區', elevation: '約 2,000 公尺以下', level: 2, lon: 120.95, lat: 23.25 } },
-  { id: 'maroon_oriole', name: '朱鸝', shape: 'bird', color: '#8f1d2c', accent: '#2a1a1a', unlock: { kind: 'coins', price: 1800 }, blurb: '全身酒紅色、頭是黑色，數量稀少的美麗鳥兒。', habitat: { zone: 'low', region: '低海拔闊葉林，東部與南部較常見', elevation: '約 1,000 公尺以下', level: 2, lon: 121.3, lat: 22.9 } },
-  { id: 'yellow_tit', name: '黃山雀', shape: 'bird', color: '#f2c230', accent: '#1f2a3a', unlock: { kind: 'gems', price: 70 }, blurb: '台灣特有種，黃色的身體配上黑色的冠羽。', habitat: { zone: 'mid', region: '中海拔闊葉林', elevation: '約 1,000～2,500 公尺', level: 2, lon: 121.0, lat: 24.05 } },
-  { id: 'fish_owl', name: '黃魚鴞', shape: 'owl', color: '#c08a3e', accent: '#f2c230', unlock: { kind: 'gems', price: 90 }, blurb: '台灣最大的貓頭鷹，住在溪流旁，夜裡會抓魚。', habitat: { zone: 'mid', region: '中低海拔原始闊葉林的溪流沿岸', elevation: '約 500～2,000 公尺', level: 1, lon: 121.3, lat: 24.2 } },
+  { id: 'crested_serpent_eagle', stages: false, name: '大冠鷲', shape: 'raptor', color: '#5a4632', accent: '#f2d27a', unlock: { kind: 'coins', price: 1400 }, blurb: '常在山區上空盤旋，叫聲響亮，最愛吃蛇。', habitat: { zone: 'low', region: '全島低至中海拔山區', elevation: '約 2,000 公尺以下', level: 2, lon: 120.95, lat: 23.25 } },
+  { id: 'maroon_oriole', stages: false, name: '朱鸝', shape: 'bird', color: '#8f1d2c', accent: '#2a1a1a', unlock: { kind: 'coins', price: 1800 }, blurb: '全身酒紅色、頭是黑色，數量稀少的美麗鳥兒。', habitat: { zone: 'low', region: '低海拔闊葉林，東部與南部較常見', elevation: '約 1,000 公尺以下', level: 2, lon: 121.3, lat: 22.9 } },
+  { id: 'yellow_tit', stages: false, name: '黃山雀', shape: 'bird', color: '#f2c230', accent: '#1f2a3a', unlock: { kind: 'gems', price: 70 }, blurb: '台灣特有種，黃色的身體配上黑色的冠羽。', habitat: { zone: 'mid', region: '中海拔闊葉林', elevation: '約 1,000～2,500 公尺', level: 2, lon: 121.0, lat: 24.05 } },
+  { id: 'fish_owl', stages: false, name: '黃魚鴞', shape: 'owl', color: '#c08a3e', accent: '#f2c230', unlock: { kind: 'gems', price: 90 }, blurb: '台灣最大的貓頭鷹，住在溪流旁，夜裡會抓魚。', habitat: { zone: 'mid', region: '中低海拔原始闊葉林的溪流沿岸', elevation: '約 500～2,000 公尺', level: 1, lon: 121.3, lat: 24.2 } },
   // 日本（第二個區域；保育等級與棲息地上架前要再核對）
   { id: 'iriomote_cat', region: 'jp', name: '西表山貓', shape: 'cat', color: '#b49a74', accent: '#4a3b2a', unlock: { kind: 'start' }, blurb: '只住在西表島的野生貓，耳朵背面有白色斑點。', habitat: { zone: 'low', region: '西表島的亞熱帶森林與紅樹林', elevation: '低海拔', level: 1, lon: 123.82, lat: 24.33 } },
   { id: 'okinawa_woodpecker', region: 'jp', name: '野口啄木鳥', shape: 'bird', color: '#6b2a22', accent: '#c8433a', unlock: { kind: 'start' }, blurb: '只住在沖繩本島北部森林的啄木鳥，全身深紅褐色。', habitat: { zone: 'low', region: '沖繩本島北部（山原）的常綠闊葉林', elevation: '約 500 公尺以下', level: 1, lon: 128.2, lat: 26.73 } },
@@ -158,8 +160,8 @@ export const ANIMALS: AnimalDef[] = [
   { id: 'tsushima_cat', region: 'jp', name: '對馬山貓', shape: 'cat', color: '#a88a60', accent: '#4a3826', unlock: { kind: 'project', id: 'jp_bamboo' }, blurb: '只住在對馬島的石虎，額頭有白色條紋。', habitat: { zone: 'low', region: '長崎縣對馬島的森林與水田', elevation: '低海拔', level: 2, lon: 129.3, lat: 34.4 } },
   { id: 'steller_eagle', region: 'jp', name: '虎頭海鵰', shape: 'raptor', color: '#3a2e26', accent: '#f2a020', unlock: { kind: 'project', id: 'jp_stream' }, blurb: '有巨大的橘黃色嘴巴，冬天從俄羅斯飛來北海道。', habitat: { zone: 'low', region: '北海道的海岸與湖泊（冬候鳥）', elevation: '海岸與湖泊', level: 2, lon: 145.3, lat: 44.0 } },
   { id: 'moon_bear', region: 'jp', name: '月輪熊', shape: 'bear', color: '#221e1b', accent: '#f1ecdf', unlock: { kind: 'project', id: 'jp_rescue' }, blurb: '胸前有月牙形的白斑，四國的族群已經非常稀少。', habitat: { zone: 'mid', region: '本州、四國的山地森林', elevation: '約 500～2,500 公尺', level: 3, lon: 133.9, lat: 33.7 } },
-  { id: 'clouded_leopard', name: '台灣雲豹', shape: 'cat', color: '#c2a476', accent: '#5b4630', unlock: { kind: 'iap', price: 'NT$90' }, blurb: '身上有像雲朵的斑紋。野外已多年沒有確切紀錄，是森林裡的傳說。', habitat: { zone: 'legend', region: '過去分布在中低海拔原始林；2013 年研究團隊調查後認為台灣野外可能已滅絕', elevation: '已多年沒有確切紀錄', level: 1, lon: 120.9, lat: 22.8 } },
-  { id: 'black_eagle', name: '林鵰', shape: 'raptor', color: '#2b2622', accent: '#f2c230', unlock: { kind: 'iap', price: 'NT$60' }, blurb: '全身深色的大型猛禽，常貼著樹冠緩緩滑翔。', habitat: { zone: 'mid', region: '中低海拔原始闊葉林', elevation: '約 500～2,500 公尺', level: 2, lon: 121.45, lat: 23.85 } },
+  { id: 'clouded_leopard', stages: false, name: '台灣雲豹', shape: 'cat', color: '#c2a476', accent: '#5b4630', unlock: { kind: 'iap', price: 'NT$90' }, blurb: '身上有像雲朵的斑紋。野外已多年沒有確切紀錄，是森林裡的傳說。', habitat: { zone: 'legend', region: '過去分布在中低海拔原始林；2013 年研究團隊調查後認為台灣野外可能已滅絕', elevation: '已多年沒有確切紀錄', level: 1, lon: 120.9, lat: 22.8 } },
+  { id: 'black_eagle', stages: false, name: '林鵰', shape: 'raptor', color: '#2b2622', accent: '#f2c230', unlock: { kind: 'iap', price: 'NT$60' }, blurb: '全身深色的大型猛禽，常貼著樹冠緩緩滑翔。', habitat: { zone: 'mid', region: '中低海拔原始闊葉林', elevation: '約 500～2,500 公尺', level: 2, lon: 121.45, lat: 23.85 } },
 ];
 export const animalDef = (id: string | undefined) => ANIMALS.find((a) => a.id === id) ?? ANIMALS[0];
 // ---------- 探索與族群成長 ----------
@@ -171,6 +173,8 @@ export const GROWTH_MAX = GROWTH_AT[GROWTH_AT.length - 1];
 /** 一次探索帶來的成長：60 分鐘以上算 2 點（鼓勵長時間專注）。 */
 export const growthFor = (minutes: number) => (minutes >= 60 ? 2 : 1);
 /** 成長值 → 階段（0 幼年、1 亞成年、2 成年）。 */
+/** 有沒有成長階段：主線動物（各區一開始就有、修復工程帶回來的）有；商店買的新物種、特別探索只有一種樣式。 */
+export const hasStages = (a: AnimalDef) => a.stages !== false && a.unlock.kind !== 'iap';
 export const stageOfGrowth = (g: number) => (g >= GROWTH_AT[1] ? 2 : g >= GROWTH_AT[0] ? 1 : 0);
 const BIRD_SHAPES: AnimalShape[] = ['bird', 'owl', 'pheasant', 'raptor'];
 /** 階段名稱：鳥類「雛鳥／幼鳥／成鳥」，哺乳類「幼獸／亞成獸／成獸」。 */

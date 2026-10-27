@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { useSave } from '../app/store';
-import { ANIMALS, COPY, GROWTH_MAX, animalDef, stageName, tagColor, TAGS } from '../content/config';
+import { ANIMALS, COPY, GROWTH_MAX, animalDef, hasStages, stageName, tagColor, TAGS } from '../content/config';
 import { AnimalArt, TrackArt } from '../components/Animal';
 import { Coin, Modal, fmtMinutes } from '../components/ui';
 import { localDateKey } from '../domain/focus';
@@ -174,7 +174,7 @@ export function Summary({
               <strong>+{earned.points}</strong>
             </li>
           )}
-          {sight && animal.unlock.kind !== 'iap' && (
+          {sight && hasStages(animal) && (
             <li>
               <span>🌱 {animal.name}族群</span>
               <strong>{sight.grew ? `長大了！現在看得到${stageName(animal, stage)}` : stage === 2 ? `已經是${stageName(animal, 2)}` : `成長 ${Math.min(sight.growth, GROWTH_MAX)}/${GROWTH_MAX}`}</strong>
