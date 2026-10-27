@@ -1,5 +1,5 @@
 // 經濟、工程、探索動物與統計：全部是對 SaveFile 的純函式
-import { ANIMALS, HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, PROJECTS, SOUNDS, TEST_TOOLS, animalDef, animalRegion, regionDef, growthFor, projectDef, stageOfGrowth, type AnimalDef, type ProjectDef, type SoundUnlock } from '../content/config';
+import { ANIMALS, HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, PROJECTS, SOUNDS, TEST_TOOLS, TEST_UNLOCKED, animalDef, animalRegion, regionDef, growthFor, projectDef, stageOfGrowth, type AnimalDef, type ProjectDef, type SoundUnlock } from '../content/config';
 import { addSegmentsByDay, createSession, isOpen, localDateKey, settle, shiftDateKey } from './focus';
 import type { FocusSession, HabitatId, ID, SaveFile, TimerMode } from './types';
 
@@ -63,6 +63,7 @@ export function animalBought(save: SaveFile, animalId: string) {
 
 /** 這種動物能不能當探索目標：一開始就有、工程完成、或商店解鎖過（真錢品種上架後才開放）。 */
 export function animalUnlocked(save: SaveFile, a: AnimalDef) {
+  if (TEST_TOOLS && TEST_UNLOCKED.includes(a.id)) return true;
   const u = a.unlock;
   if (u.kind === 'start') return true;
   // 工程的動物也可以在商店用寶石提早解鎖

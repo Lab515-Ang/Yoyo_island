@@ -3,7 +3,7 @@ import { applyDeepFocus, dueAt, completeNow, createSession, elapsedMs, finish, p
 import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote, isDone, projectQuarter, remainingFor, applyFocusRewards, focusOutcome, animalUnlocked, chosenAnimal, endedSessions, hatchCounts, newAnimals, sceneAnimals, unlockAnimal, growthOf, sightings, weekRecap, communityRank, gems } from './game';
 import { buyItem, dailyPicks, exchangeCoins } from './shop';
 import { achievementState, claimAchievement } from './achievements';
-import { ANIMALS, CONTENT_VERSION, GROWTH_AT, SOUNDS, animalDef, projectDef, stageName } from '../content/config';
+import { ANIMALS, TEST_UNLOCKED, CONTENT_VERSION, GROWTH_AT, SOUNDS, animalDef, projectDef, stageName } from '../content/config';
 import { newSave, newDemoSave, validateSave, demoGrant } from './save';
 import { npsDue } from './feedback';
 import { claimQuest, dailyQuests, monthQuest, questPlan, questRewardOk, starterQuest, hasReward, MONTH_REWARD, STARTER_REWARD } from './quests';
@@ -603,7 +603,8 @@ describe('孵化動物', () => {
     save = applyFocusRewards(closeSession(save, done, T0 + 2 * MIN), done.id, T0 + 2 * MIN);
     expect(hatchCounts(save).get('scops_owl')).toBe(1);
     expect(isDone(save, 'fo_trail')).toBe(true);
-    expect(newAnimals(save).map((a) => a.id)).toEqual(['pangolin']); // 步道修好解鎖穿山甲，還沒孵過
+    // 步道修好解鎖穿山甲，還沒孵過（測試版預先解鎖的動物不算）
+    expect(newAnimals(save).map((a) => a.id).filter((id) => !TEST_UNLOCKED.includes(id))).toEqual(['pangolin']);
     const quit = finish(session(save, 'countdown', 25, T0 + 60 * MIN), T0 + 70 * MIN, 'abandoned');
     save = closeSession(save, quit, T0 + 70 * MIN);
     expect(endedSessions(save)).toHaveLength(2);

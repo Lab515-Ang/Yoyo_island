@@ -199,6 +199,8 @@ export const SOUNDS: SoundDef[] = [
 
 /** 測試工具（專注畫面的「立即完成」）。上線前改成 false。 */
 export const TEST_TOOLS = true;
+/** 測試版預先解鎖的動物（試放正式美術圖用）；TEST_TOOLS 關掉就沒有作用。 */
+export const TEST_UNLOCKED = ['leopard_cat'];
 
 /** 內容版本：3 = 陸地森林＋探索動物（舊的溫室／溪流、植物、寵物存檔載入時轉換，見 save.ts migrateForest）。 */
 export const CONTENT_VERSION = 3;
