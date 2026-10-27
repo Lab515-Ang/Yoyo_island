@@ -51,7 +51,7 @@ const NAV: { id: View; label: string; icon: LucideIcon; soon?: boolean }[] = [
 ];
 
 // 和大廳同一片深綠底的頁面（底色定義在 styles.css 的 --scene-bg）
-const SCENE = new Set<View>(['lobby', 'journey', 'codex', 'friends']);
+const SCENE = new Set<View>(['lobby', 'island', 'journey', 'codex', 'friends']);
 
 // 介面偏好，不屬於存檔：key 不用存檔前綴，避免觸發其他分頁的「存檔已更新」
 const NAV_KEY = 'qiguang-ui:navCollapsed';

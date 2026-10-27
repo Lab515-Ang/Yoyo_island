@@ -715,13 +715,6 @@ legend {
     transform: translateY(-3px);
   }
 }
-.island-map {
-  width: 100%;
-  display: block;
-}
-.map-spot.open {
-  cursor: pointer;
-}
 .creature-row {
   display: flex;
   flex-wrap: wrap;
@@ -5050,4 +5043,139 @@ label.set-row input.switch:checked {
   .modal.center-modal .modal-body::before {
     display: none;
   }
+}
+
+/* ---------- 我的小島：場景是主角，下面是工程和動物 ---------- */
+.island-stage {
+  position: relative;
+  height: min(54vh, 460px);
+  min-height: 300px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 16px 40px rgba(10, 30, 20, 0.35);
+}
+.island-stage .scene {
+  height: 100%;
+  max-height: none;
+  aspect-ratio: auto;
+}
+.stage-chip {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.85);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: var(--sage-deep);
+  font-weight: 700;
+  font-size: 0.85rem;
+  box-shadow: 0 4px 12px rgba(10, 30, 20, 0.15);
+  pointer-events: none;
+}
+.stage-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 1.6rem 1rem 0.7rem;
+  background: linear-gradient(180deg, transparent, rgba(20, 40, 28, 0.45));
+  color: #fffdf8;
+  font-size: 0.82rem;
+  text-align: center;
+  pointer-events: none;
+}
+.restore-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.restore-head .eyebrow {
+  margin: 0;
+}
+.restore-route {
+  display: inline-flex;
+  flex-direction: row;
+  white-space: nowrap;
+  align-items: center;
+  gap: 0.1rem;
+  min-height: 36px;
+  font-size: 0.85rem;
+}
+.deep .content .card .link {
+  color: var(--sage-deep);
+}
+.restore h2 {
+  margin: 0.2rem 0 0;
+}
+.restore > p.muted {
+  margin: 0.15rem 0 0.7rem;
+}
+.restore-bar .bar {
+  height: 12px;
+}
+.restore-nums {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.restore-nums strong {
+  font-family: var(--font-num);
+  color: var(--text);
+}
+.restore .next-back {
+  margin: 0.7rem 0;
+}
+/* 這座島的動物：橫向滑動 */
+.animal-strip {
+  display: flex;
+  gap: 0.6rem;
+  margin: 0.5rem -1.1rem -0.2rem;
+  padding: 0.2rem 1.1rem 0.5rem;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.animal-strip::-webkit-scrollbar {
+  display: none;
+}
+.animal-mini {
+  flex: 0 0 96px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  min-height: 0;
+  padding: 0.5rem 0.3rem 0.6rem;
+  border-radius: var(--radius);
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--text);
+}
+.animal-mini-art {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--sage-tint);
+}
+.animal-mini strong {
+  font-size: 0.82rem;
+}
+.animal-mini small {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+/* 橫向滑動的動物列不要把整頁撐寬 */
+.page.island {
+  grid-template-columns: minmax(0, 1fr);
 }
