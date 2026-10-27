@@ -2670,7 +2670,7 @@ label.toggle input.switch:checked::after {
   margin: 0.6rem 0;
 }
 .taiwan-map canvas {
-  touch-action: pan-y; /* 上下滑還是捲動頁面，左右拖曳才轉地圖 */
+  touch-action: none; /* 左右、上下拖曳都是轉地圖（地圖外面滑才捲動頁面） */
 }
 .taiwan-2d {
   width: 100%;

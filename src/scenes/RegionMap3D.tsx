@@ -21,6 +21,27 @@ function setUV(g: THREE.BufferGeometry, geo: Geo, [w, s, e, n]: [number, number,
   g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
 }
 
+/** 貼圖四邊淡出（只用綠色通道當透明度），海面和外圍的海接起來看不到方形的邊。 */
+let edgeFade: THREE.CanvasTexture | null = null;
+function fadeMask() {
+  if (edgeFade) return edgeFade;
+  const N = 64;
+  const c = document.createElement('canvas');
+  c.width = c.height = N;
+  const x = c.getContext('2d')!;
+  const img = x.createImageData(N, N);
+  const ramp = (t: number) => Math.min(1, Math.max(0, t / 0.1)) ** 2;
+  for (let j = 0; j < N; j++)
+    for (let i = 0; i < N; i++) {
+      const u = (i + 0.5) / N;
+      const v = (j + 0.5) / N;
+      const a = Math.round(255 * ramp(Math.min(u, 1 - u)) * ramp(Math.min(v, 1 - v)));
+      img.data.set([a, a, a, 255], (j * N + i) * 4);
+    }
+  x.putImageData(img, 0, 0);
+  return (edgeFade = new THREE.CanvasTexture(c));
+}
+
 /** 有手繪貼圖的區域：整張貼圖鋪成海面（海浪、沙灘），地形也貼同一張，山脈的起伏保留。 */
 function PaintedLand({ geo, terrain, art }: { geo: Geo; terrain: THREE.BufferGeometry; art: NonNullable<Geo['art']> }) {
   const invalidate = useThree((s) => s.invalidate);
@@ -44,7 +65,7 @@ function PaintedLand({ geo, terrain, art }: { geo: Geo; terrain: THREE.BufferGeo
   return (
     <>
       <mesh geometry={plane} position={[0, -0.004, 0]}>
-        <meshBasicMaterial map={tex} />
+        <meshBasicMaterial map={tex} alphaMap={fadeMask()} transparent depthWrite={false} />
       </mesh>
       <mesh geometry={terrain}>
         <meshLambertMaterial map={tex} />
@@ -120,7 +141,10 @@ function useCoast(geo: Geo) {
   }, [geo]);
 }
 
-/** 左右拖曳旋轉（上下滑交給頁面捲動）；只在有變化時重畫。 */
+/** 拖曳旋轉：左右轉、上下傾斜，各最多 35 度；只在有變化時重畫。 */
+const MAX_TURN = (35 * Math.PI) / 180;
+const clampTurn = (r: number) => Math.max(-MAX_TURN, Math.min(MAX_TURN, r));
+
 function DragRotate({ target }: { target: React.RefObject<THREE.Group | null> }) {
   const { gl, invalidate } = useThree();
   useEffect(() => {
@@ -130,7 +154,9 @@ function DragRotate({ target }: { target: React.RefObject<THREE.Group | null> })
     const move = (e: PointerEvent) => {
       const g = target.current;
       if (!last || !g) return;
-      g.rotation.y += (e.clientX - last.x) * 0.008;
+      // 左右、上下各最多轉 35 度
+      g.rotation.y = clampTurn(g.rotation.y + (e.clientX - last.x) * 0.008);
+      g.rotation.x = clampTurn(g.rotation.x + (e.clientY - last.y) * 0.008);
       last = { x: e.clientX, y: e.clientY };
       invalidate();
     };
