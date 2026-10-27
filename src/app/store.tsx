@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as storage from '../data/storage';
 import { newDemoSave } from '../domain/save';
+import { setCalendar } from '../domain/focus';
 import type { AppMode, SaveFile } from '../domain/types';
 
 interface Store {
@@ -107,6 +108,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     clearTimeout(toastTimer.current);
     toastTimer.current = window.setTimeout(() => setToast(null), 4200);
   }, []);
+
+  // 一天、一週的起點跟著設定走：先設好再讓畫面計算統計
+  if (loaded.status === 'ok') setCalendar(loaded.save.settings);
 
   const value = useMemo(
     () => ({ mode, loaded, save: loaded.status === 'ok' ? loaded.save : null, stale, writeError, update, replace, switchMode, resetDemo, resetAll, toast, notify }),

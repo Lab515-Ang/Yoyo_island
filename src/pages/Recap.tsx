@@ -5,15 +5,16 @@ import { animalDef } from '../content/config';
 import { AnimalArt } from '../components/Animal';
 import { ShareModal, renderRecapCard } from '../components/ShareCard';
 import { Modal } from '../components/ui';
-import { localDateKey, shiftDateKey, weekStartKey } from '../domain/focus';
+import { localDateKey, shiftDateKey, weekStartKey, weekStartsOn } from '../domain/focus';
 import { communityRank, growthOf, weekRecap } from '../domain/game';
 import type { SaveFile } from '../domain/types';
 
 const SEEN_KEY = 'qiguang-ui:recapSeen'; // 介面偏好：最後一次邀請回顧的是哪一週
-const DAY_NAMES = ['週一', '週二', '週三', '週四', '週五', '週六', '週日'];
-const DOTS = ['一', '二', '三', '四', '五', '六', '日'];
+// 一週從週一或週日開始（跟著設定）：第 k 天叫什麼
+const MON = ['一', '二', '三', '四', '五', '六', '日'];
+const dot = (k: number) => MON[(k + 7 - (1 - weekStartsOn())) % 7];
 
-/** 上一週的週一（依玩家時區）。 */
+/** 上一週的第一天（依玩家時區與每週起始日設定）。 */
 export const lastWeekStart = (tz: string) => shiftDateKey(weekStartKey(localDateKey(Date.now(), tz)), -7);
 const md = (key: string) => `${Number(key.slice(5, 7))}/${Number(key.slice(8))}`;
 export const weekRange = (weekStart: string) => `${md(weekStart)} – ${md(shiftDateKey(weekStart, 6))}`;
@@ -132,7 +133,7 @@ export function WeekRecap({ weekStart, onClose }: { weekStart: string; onClose: 
         <>
           <p className="recap-big">{r.focusDays}</p>
           <div className="recap-week">
-            {DOTS.map((d, k) => (
+            {MON.map((_, k) => dot(k)).map((d, k) => (
               <span key={d} className={r.days[k] ? 'on' : ''}>
                 <small>{d}</small>
                 <i aria-hidden="true">{r.days[k] ? '✓' : ''}</i>
@@ -157,7 +158,7 @@ export function WeekRecap({ weekStart, onClose }: { weekStart: string; onClose: 
           {r.days.map((ms, k) => (
             <span key={k} className={k === r.best ? 'best' : ''}>
               <i style={{ height: `${Math.max(3, (ms / peak) * 100)}%` }} />
-              <small>{DOTS[k]}</small>
+              <small>{dot(k)}</small>
             </span>
           ))}
         </div>
@@ -165,7 +166,7 @@ export function WeekRecap({ weekStart, onClose }: { weekStart: string; onClose: 
       text: (
         <>
           <p>
-            <b>{DAY_NAMES[r.best]}</b>最厲害，你專注了 <b>{Math.floor(r.days[r.best] / 60000)}</b> 分鐘
+            <b>週{dot(r.best)}</b>最厲害，你專注了 <b>{Math.floor(r.days[r.best] / 60000)}</b> 分鐘
           </p>
           <p>那天的你，完全進入狀態！</p>
         </>
@@ -277,7 +278,7 @@ export function WeekRecap({ weekStart, onClose }: { weekStart: string; onClose: 
               <small>專注天數</small>
             </span>
             <span>
-              👑 <b>{DAY_NAMES[r.best]}</b>
+              👑 <b>週{dot(r.best)}</b>
               <small>最佳日</small>
             </span>
             <span>
@@ -350,7 +351,7 @@ export function WeekRecap({ weekStart, onClose }: { weekStart: string; onClose: 
         <ShareModal
           title="分享上週回顧"
           fileName={`棲光小島-上週回顧-${weekStart}.png`}
-          make={() => renderRecapCard({ ...r, rankTop: rank.top, range: weekRange(weekStart), bestName: r.best >= 0 ? DAY_NAMES[r.best] : '—', topStage: top ? growthOf(save, top.id).stage : 2 })}
+          make={() => renderRecapCard({ ...r, rankTop: rank.top, range: weekRange(weekStart), bestName: r.best >= 0 ? `週${dot(r.best)}` : '—', topStage: top ? growthOf(save, top.id).stage : 2 })}
           onClose={() => setSharing(false)}
         />
       )}

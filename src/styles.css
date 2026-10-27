@@ -4080,3 +4080,58 @@ label.set-row input.switch:checked {
 .view-shop .avatar-btn {
   background: var(--panel);
 }
+
+/* 專注中：自訂鼓勵語句（上方）、延長計時達成目標後的完成按鈕 */
+.focus-quote {
+  position: relative;
+  margin: 3.4rem 0 auto;
+  max-width: 82%;
+  padding: 0.6rem 1.1rem;
+  border-radius: 18px;
+  background: rgba(255, 253, 248, 0.82);
+  color: var(--sage-deep);
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 0 6px 18px rgba(60, 50, 30, 0.12);
+}
+.icon-round.big.done {
+  background: var(--warm);
+  color: #5b4206;
+}
+/* 設定：時間、下拉選單、迷你分段切換、常見問題 */
+.set-row input.set-time,
+.set-row select.set-select {
+  width: auto;
+  min-height: 40px;
+  padding: 0.2rem 0.7rem;
+  border-radius: 12px;
+  font-family: var(--font-num), var(--font);
+}
+.segmented.mini {
+  margin: 0;
+  padding: 3px;
+  flex-wrap: nowrap;
+}
+.segmented.mini button {
+  min-height: 34px;
+  padding: 0 0.9rem;
+  font-size: 0.85rem;
+}
+.faq {
+  display: grid;
+  gap: 0.6rem;
+}
+.faq details {
+  padding: 0.9rem 1.1rem;
+}
+.faq summary {
+  font-weight: 700;
+  cursor: pointer;
+}
+.faq details p {
+  margin: 0.6rem 0 0;
+  color: var(--muted);
+}
+.terms h3 {
+  margin: 1rem 0 0.3rem;
+}

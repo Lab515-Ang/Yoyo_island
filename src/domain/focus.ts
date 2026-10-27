@@ -12,7 +12,7 @@ const iso = (t: number) => new Date(t).toISOString();
 export const isOpen = (s: FocusSession) => s.status === 'running' || s.status === 'paused';
 
 export function createSession(
-  input: { id: ID; userId: ID; islandId: ID; taskTitle: string; tag: string; habitatId: HabitatId; mode: TimerMode; targetSeconds: number | null; animalId?: string; deep?: boolean },
+  input: { id: ID; userId: ID; islandId: ID; taskTitle: string; tag: string; habitatId: HabitatId; mode: TimerMode; targetSeconds: number | null; animalId?: string; deep?: boolean; extend?: boolean },
   now: number,
 ): FocusSession {
   return {
@@ -29,6 +29,18 @@ export function createSession(
   };
 }
 
+/** 這段最多算到多久：倒數＝目標（延長計時可以繼續到 180 分鐘）；正向計時＝180 分鐘。 */
+function capMs(s: FocusSession) {
+  if (s.mode !== 'countdown') return STOPWATCH_CAP_MS;
+  const target = (s.targetSeconds ?? 0) * 1000;
+  return s.extend && target ? Math.max(target, STOPWATCH_CAP_MS) : target;
+}
+
+/** 倒數的目標時間到了沒（延長計時用：到了之後按停止就是完成）。 */
+export function targetReached(s: FocusSession, now: number) {
+  return s.mode === 'countdown' && !!s.targetSeconds && rawElapsedMs(s, now) >= s.targetSeconds * 1000;
+}
+
 /** 未封頂的有效時間（暫停期間不計）。時鐘倒退時不會變成負值。 */
 export function rawElapsedMs(s: FocusSession, now: number) {
   return s.accumulatedMs + (s.runningSince ? Math.max(0, now - ms(s.runningSince)) : 0);
@@ -36,7 +48,7 @@ export function rawElapsedMs(s: FocusSession, now: number) {
 
 export function elapsedMs(s: FocusSession, now: number) {
   const raw = rawElapsedMs(s, now);
-  return Math.min(raw, s.mode === 'countdown' && s.targetSeconds ? s.targetSeconds * 1000 : STOPWATCH_CAP_MS);
+  return Math.min(raw, capMs(s) || STOPWATCH_CAP_MS);
 }
 
 export function remainingMs(s: FocusSession, now: number) {
@@ -62,7 +74,7 @@ function closeRunning(s: FocusSession, endMs: number): FocusSession {
 export function settle(s: FocusSession, now: number): FocusSession {
   if (s.status === 'paused' && s.pauseLimitAt && now >= ms(s.pauseLimitAt)) s = resume(s, ms(s.pauseLimitAt));
   if (s.status !== 'running' || !s.runningSince) return s;
-  const target = s.mode === 'countdown' ? (s.targetSeconds ?? 0) * 1000 : STOPWATCH_CAP_MS;
+  const target = capMs(s);
   if (!target) return s;
   if (rawElapsedMs(s, now) < target) return s;
   const end = ms(s.runningSince) + (target - s.accumulatedMs);
@@ -92,7 +104,7 @@ export function wakeAt(s: FocusSession) {
  * 回傳 null＝不用看守（例如接電話的暫停）。
  */
 export function watchWindow(s: FocusSession) {
-  const target = s.mode === 'countdown' ? (s.targetSeconds ?? 0) * 1000 : STOPWATCH_CAP_MS;
+  const target = capMs(s);
   if (s.status === 'running' && s.runningSince) return { endAt: dueAt(s)!, freeUntil: 0, since: ms(s.runningSince) - s.accumulatedMs };
   if (s.status === 'paused' && s.pauseLimitAt) {
     const limit = ms(s.pauseLimitAt);
@@ -110,8 +122,7 @@ export function finish(s: FocusSession, now: number, status: 'completed' | 'aban
 /** 深度專注要看守到什麼時候：倒數歸零或正向計時滿 180 分鐘（不含之後的通話時間）。 */
 export function dueAt(s: FocusSession) {
   if (s.status !== 'running' || !s.runningSince) return null;
-  const target = s.mode === 'countdown' ? (s.targetSeconds ?? 0) * 1000 : STOPWATCH_CAP_MS;
-  return ms(s.runningSince) + target - s.accumulatedMs;
+  return ms(s.runningSince) + capMs(s) - s.accumulatedMs;
 }
 
 /**
@@ -155,15 +166,25 @@ function parts(t: number, tz: string) {
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
+// 一天、一週從什麼時候開始算（設定可改，預設午夜、週一）。存檔載入或設定改變時由 store 設定
+const cal = { dayStartHour: 0, weekStart: 1 as 0 | 1 };
+export function setCalendar(c: { dayStartHour: number; weekStart: 0 | 1 }) {
+  cal.dayStartHour = c.dayStartHour;
+  cal.weekStart = c.weekStart;
+}
+export const dayStartHour = () => cal.dayStartHour;
+export const weekStartsOn = () => cal.weekStart;
+const SHIFT = () => cal.dayStartHour * 3_600_000;
+
+/** 本地日期；一天從 dayStartHour 點開始（例如設 4 點，凌晨 2 點還算前一天）。 */
 export function localDateKey(t: number, tz: string) {
-  const p = parts(t, tz);
+  const p = parts(t - SHIFT(), tz);
   return `${p.year}-${pad(p.month)}-${pad(p.day)}`;
 }
 
 /** `YYYY-MM-DD HH`（本地時區），和 addSegmentsByHour 的 key 一樣。 */
 export function localHourKey(t: number, tz: string) {
-  const p = parts(t, tz);
-  return `${p.year}-${pad(p.month)}-${pad(p.day)} ${pad(p.hour)}`;
+  return `${localDateKey(t, tz)} ${pad(parts(t, tz).hour)}`;
 }
 
 function offsetAt(t: number, tz: string) {
@@ -171,8 +192,12 @@ function offsetAt(t: number, tz: string) {
   return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - Math.floor(t / 1000) * 1000;
 }
 
-/** t 之後下一個本地午夜（UTC 毫秒），處理日光節約時間的位移。 */
+/** t 之後下一次換日（本地午夜再加上一天的起始時間），處理日光節約時間的位移。 */
 export function nextLocalMidnight(t: number, tz: string) {
+  return nextMidnight(t - SHIFT(), tz) + SHIFT();
+}
+
+function nextMidnight(t: number, tz: string) {
   const p = parts(t, tz);
   const midnightAsUtc = Date.UTC(p.year, p.month - 1, p.day + 1);
   let next = midnightAsUtc - offsetAt(t, tz);
@@ -180,9 +205,13 @@ export function nextLocalMidnight(t: number, tz: string) {
   if (midnightAsUtc - off2 !== next) next = midnightAsUtc - off2;
   if (next > t) return next;
   // 午夜被日光節約時間跳過（例如智利、古巴）：找第一個換日的整點
-  const today = localDateKey(t, tz);
+  const day = (x: number) => {
+    const q = parts(x, tz);
+    return q.year * 400 + q.month * 32 + q.day;
+  };
+  const today = day(t);
   let h = Math.floor(t / 3_600_000) * 3_600_000 + 3_600_000;
-  while (localDateKey(h, tz) === today) h += 3_600_000;
+  while (day(h) === today) h += 3_600_000;
   return h;
 }
 
@@ -209,7 +238,7 @@ export function addSegmentsByHour(totals: Map<string, number>, segments: FocusSe
     while (a < b) {
       const p = parts(a, tz);
       const cut = Math.min(b, a + ((59 - p.minute) * 60 + (60 - p.second)) * 1000 - (a % 1000));
-      const key = `${p.year}-${pad(p.month)}-${pad(p.day)} ${pad(p.hour)}`;
+      const key = `${localDateKey(a, tz)} ${pad(p.hour)}`;
       totals.set(key, (totals.get(key) ?? 0) + (cut - a));
       a = cut;
     }
@@ -217,11 +246,11 @@ export function addSegmentsByHour(totals: Map<string, number>, segments: FocusSe
   return totals;
 }
 
-/** 週一為一週開始，回傳 YYYY-MM-DD。 */
+/** 這一週的第一天（設定可選週一或週日），回傳 YYYY-MM-DD。 */
 export function weekStartKey(dateKey: string) {
   const [y, m, d] = dateKey.split('-').map(Number);
   const t = Date.UTC(y, m - 1, d);
-  const dow = (new Date(t).getUTCDay() + 6) % 7;
+  const dow = (new Date(t).getUTCDay() + 7 - cal.weekStart) % 7;
   const s = new Date(t - dow * 86400000);
   return `${s.getUTCFullYear()}-${pad(s.getUTCMonth() + 1)}-${pad(s.getUTCDate())}`;
 }

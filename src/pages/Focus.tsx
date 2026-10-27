@@ -3,13 +3,13 @@ import { useNow, useSave } from '../app/store';
 import { APP_NAME, MIN_FOCUS_MINUTES, PAUSE_MINUTES, SOUNDS, TEST_TOOLS, animalDef } from '../content/config';
 import { Modal } from '../components/ui';
 import { TrackArt } from '../components/Animal';
-import { completeNow, elapsedMs, finish, pause, remainingMs, resume, watchWindow } from '../domain/focus';
+import { completeNow, elapsedMs, finish, pause, rawElapsedMs, remainingMs, resume, targetReached, watchWindow } from '../domain/focus';
 import { applyFocusRewards, cancelSession, closeSession, focusSoundFor, graceLeftMs, growthOf, putSession } from '../domain/game';
 import type { FocusSession, SaveFile } from '../domain/types';
 import { HabitatScene } from '../scenes/HabitatScene';
 import { useAmbient } from '../sound';
 import { DEEP_GRACE_MS, TimeGuard, cancelFocusEnd, isAndroid, scheduleFocusEnd } from '../platform';
-import { Lock, Pause, Play, Square, Volume2, VolumeX, Zap } from 'lucide-react';
+import { Check, Lock, Pause, Play, Square, Volume2, VolumeX, Zap } from 'lucide-react';
 
 const clock = (ms: number) => {
   const s = Math.floor(ms / 1000);
@@ -26,14 +26,17 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   const [ending, setEnding] = useState(false);
   const [testing, setTesting] = useState(false);
   const countdown = session.mode === 'countdown';
-  const shown = countdown ? remainingMs(session, now) : elapsedMs(session, now);
+  // 延長計時：目標到了之後改成往上數超過的時間，按停止就是完成
+  const reached = targetReached(session, now);
+  const over = !!session.extend && reached;
+  const shown = over ? rawElapsedMs(session, now) - (session.targetSeconds ?? 0) * 1000 : countdown ? remainingMs(session, now) : elapsedMs(session, now);
   const paused = session.status === 'paused';
   // 每 250ms 重繪一次：環境音只在存檔變了才重算
   const sound = useMemo(() => focusSoundFor(save, session.habitatId), [save, session.habitatId]);
   useAmbient(save.settings.soundEnabled && !paused, save.settings.soundVolume, sound);
 
   // 只在顯示的秒數變了才改分頁標題；離開專注畫面時還原
-  const label = clock(shown);
+  const label = (over ? '+' : '') + clock(shown);
   useEffect(() => {
     document.title = `${label} · ${APP_NAME}`;
   }, [label]);
@@ -66,6 +69,9 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   const grace = Math.ceil(graceLeftMs(session, now) / 1000);
   const soundOn = save.settings.soundEnabled;
   const soundName = SOUNDS.find((x) => x.id === sound)?.name;
+  // 自訂鼓勵語句：每 30 秒換一句
+  const quotes = save.settings.quotes;
+  const quote = quotes.length ? quotes[Math.floor(now / 30_000) % quotes.length] : null;
 
   // 保持螢幕開啟：鎖屏時網頁會暫停，開著螢幕倒數結束才能準時響鈴
   useEffect(() => {
@@ -82,16 +88,18 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
     };
   }, [save.settings.keepAwake, paused]);
 
-  const endAt = countdown && !paused ? new Date(now + remainingMs(session, now)).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) : null;
+  const endAt = countdown && !paused && !reached ? new Date(now + remainingMs(session, now)).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) : null;
 
-  // 倒數進行中：排定系統通知（App 版鎖屏也會準時跳出）；暫停、取消、放棄、結束時撤銷
-  const notifyAt = countdown ? (watchWindow(session)?.endAt ?? null) : null;
+  // 倒數進行中：在目標時間排定系統通知（App 版鎖屏也會準時跳出）；暫停、取消、放棄、結束時撤銷
+  // 延長計時的目標到了不會結算，通知改成「達成目標，可以繼續」
+  const notifyAt = countdown && session.status === 'running' && session.runningSince && !reached ? Date.parse(session.runningSince) + (session.targetSeconds ?? 0) * 1000 - session.accumulatedMs : null;
   useEffect(() => {
     if (!notifyAt || !save.settings.endNotify) return;
     const min = Math.round((session.targetSeconds ?? 0) / 60);
-    void scheduleFocusEnd(notifyAt, `${APP_NAME}・專注完成`, `「${session.taskTitle}」完成了 ${min} 分鐘，回來看看小島吧。`);
+    if (session.extend) void scheduleFocusEnd(notifyAt, `${APP_NAME}・達成目標`, `「${session.taskTitle}」達成 ${min} 分鐘目標了，想繼續就繼續專注吧。`);
+    else void scheduleFocusEnd(notifyAt, `${APP_NAME}・專注完成`, `「${session.taskTitle}」完成了 ${min} 分鐘，回來看看小島吧。`);
     return () => void cancelFocusEnd();
-  }, [notifyAt, save.settings.endNotify, session.taskTitle, session.targetSeconds]);
+  }, [notifyAt, save.settings.endNotify, session.taskTitle, session.targetSeconds, session.extend]);
 
   // 測試工具：立刻以指定分鐘完成，正常結算
   const finishNow = (minutes: number) => {
@@ -109,14 +117,16 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   const watchUntil = win?.endAt ?? null;
   const watchKey = `${session.id}:${session.runningSince ?? `p${session.pauseLimitAt}`}`;
   const allow = save.settings.focusAllow.map((a) => a.pkg).join(',');
-  const notifyEnd = countdown && save.settings.endNotify;
+  // 延長計時的完成時間不固定：結束通知由上面的「達成目標」負責
+  const notifyEnd = countdown && save.settings.endNotify && !session.extend;
   const doneText = `「${session.taskTitle}」完成了 ${Math.round((session.targetSeconds ?? 0) / 60)} 分鐘，回來看看小島吧。`;
   // 常駐通知（狀態列鎖頭）：倒數顯示剩下的時間，正向計時從已專注的時間往上數
   const watchText = `正在靠近${animalDef(session.animalId).name}・${session.tag}`;
   useEffect(() => {
     if (!watchUntil) return;
-    const chronoBase = countdown ? watchUntil : win!.since;
-    void TimeGuard.startFocusWatch({ key: watchKey, endAt: watchUntil, graceMs: DEEP_GRACE_MS, allow: allow ? allow.split(',') : [], notifyEnd, doneTitle: `${APP_NAME}・專注完成`, doneText, title: '🔭 專注中', text: watchText, chronoBase, chronoDown: countdown, freeUntil: win!.freeUntil });
+    const down = countdown && !session.extend;
+    const chronoBase = down ? watchUntil : win!.since;
+    void TimeGuard.startFocusWatch({ key: watchKey, endAt: watchUntil, graceMs: DEEP_GRACE_MS, allow: allow ? allow.split(',') : [], notifyEnd, doneTitle: `${APP_NAME}・專注完成`, doneText, title: '🔭 專注中', text: watchText, chronoBase, chronoDown: down, freeUntil: win!.freeUntil });
     return () => void TimeGuard.stopFocusWatch();
   }, [watchUntil, watchKey, allow, notifyEnd, doneText, watchText]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -147,12 +157,13 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
             {soundOn ? <Volume2 size={20} aria-hidden="true" /> : <VolumeX size={20} aria-hidden="true" />}
           </button>
         </div>
+        {quote && <p className="focus-quote">{quote}</p>}
         <div className="focus-plant">
           <TrackArt id={session.animalId} progress={progress} stage={stage} size="100%" />
         </div>
         <div className="focus-bubble">
-          <div className="focus-time" role="timer" aria-live="off" aria-label={countdown ? '剩餘時間' : '已專注時間'}>
-            {clock(shown)}
+          <div className="focus-time" role="timer" aria-live="off" aria-label={over ? '超過目標的時間' : countdown ? '剩餘時間' : '已專注時間'}>
+            {label}
           </div>
           {paused && (
             <p className="focus-status" aria-live="polite">
@@ -161,9 +172,9 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
           )}
         </div>
         <p className="focus-target" aria-live="polite">
-          {progress < 0.5 ? `正在靠近${animalDef(session.animalId).name}…` : progress < 1 ? `${animalDef(session.animalId).name}就在附近了…` : `找到${animalDef(session.animalId).name}了！`}
+          {over ? `找到${animalDef(session.animalId).name}了！想繼續就繼續，按 ■ 完成` : progress < 0.5 ? `正在靠近${animalDef(session.animalId).name}…` : progress < 1 ? `${animalDef(session.animalId).name}就在附近了…` : `找到${animalDef(session.animalId).name}了！`}
         </p>
-        {endAt && <p className="focus-endtime">預計 {endAt} 結束</p>}
+        {endAt && <p className="focus-endtime">預計 {endAt} {session.extend ? '達成目標' : '結束'}</p>}
         <div className="focus-controls">
           {grace > 0 && !paused ? (
             // 開始後 10 秒內：免費取消，不算放棄
@@ -172,8 +183,8 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
             </button>
           ) : (
             <>
-              <button className="icon-round big" onClick={() => (countdown || tooShort ? setEnding(true) : end('completed'))} aria-label={countdown || tooShort ? '提前結束' : '完成這段專注'}>
-                <Square size={18} fill="currentColor" aria-hidden="true" />
+              <button className={over ? 'icon-round big done' : 'icon-round big'} onClick={() => (over ? end('completed') : countdown || tooShort ? setEnding(true) : end('completed'))} aria-label={over || !(countdown || tooShort) ? '完成這段專注' : '提前結束'}>
+                {over ? <Check size={24} strokeWidth={3} aria-hidden="true" /> : <Square size={18} fill="currentColor" aria-hidden="true" />}
               </button>
               {paused ? (
                 <button className="icon-round big on" onClick={() => update((s) => putSession(s, resume(cur(s), Date.now())))} aria-label="恢復">

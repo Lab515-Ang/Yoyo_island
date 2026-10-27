@@ -31,6 +31,11 @@ export interface Settings {
   eggId: string; // 上次選的探索目標（要找的動物；欄位名沿用舊稱）
   deepFocus: boolean; // 深度專注：專注中離開小島超過 10 秒動物就會被嚇跑（Android）
   focusAllow: { pkg: string; label: string }[]; // 深度專注時可以使用的 App
+  quotes: string[]; // 自訂鼓勵語句：專注中輪流顯示
+  extendTimer: boolean; // 延長計時：倒數到了不自動結算，繼續累積到按完成（最多 180 分鐘）
+  weekStart: 0 | 1; // 統計的一週從週日（0）或週一（1）開始
+  dayStartHour: number; // 一天從幾點開始算（0～6，夜貓子可以把凌晨算進前一天）
+  dailyReminder: { on: boolean; hour: number; minute: number }; // 每天提醒專注（Android 通知）
 }
 
 export interface Island {
@@ -75,6 +80,7 @@ export interface FocusSession {
   outcome: Outcome | null;
   animalId?: string; // 這段專注要找（遇見）的動物；舊紀錄（植物時代）沒有時當作第一種
   deep?: boolean; // 深度專注（離開太久會放棄）
+  extend?: boolean; // 延長計時：倒數到了繼續累積，按完成才結算（最多 180 分鐘）
   note?: string; // 專注筆記（只存在自己的裝置，不分享）
   applied?: boolean; // 已經把這段的點數自動投入工程（避免重複）
 }

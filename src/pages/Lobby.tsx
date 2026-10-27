@@ -58,7 +58,7 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
 
   const begin = (useDeep: boolean) => {
     setSheet(null);
-    const next = update((s) => startFocus(s, { taskTitle: task, tag, habitatId: habitat, mode: 'countdown', targetSeconds: seconds, animalId: egg, deep: useDeep }, Date.now()));
+    const next = update((s) => startFocus(s, { taskTitle: task, tag, habitatId: habitat, mode: 'countdown', targetSeconds: seconds, animalId: egg, deep: useDeep, extend: st.extendTimer }, Date.now()));
     if (next) onStarted();
   };
   // 深度專注要先等原生端回覆權限：連點兩下不要跑兩次

@@ -4,7 +4,7 @@ import { TAGS, animalDef, tagColor } from '../content/config';
 import { fmtMinutes, Modal } from '../components/ui';
 import { renderShareCard, ShareModal } from '../components/ShareCard';
 import { AnimalArt, HatchPlot } from '../components/Animal';
-import { addSegmentsByHour, localDateKey, localHourKey, shiftDateKey, weekStartKey } from '../domain/focus';
+import { addSegmentsByHour, dayStartHour, localDateKey, localHourKey, shiftDateKey, weekStartKey, weekStartsOn } from '../domain/focus';
 import { endedDayKeys, endedSessions, perSave, sightings, weekRecap } from '../domain/game';
 import { WeekRecap, lastWeekStart } from './Recap';
 import type { SaveFile } from '../domain/types';
@@ -37,18 +37,24 @@ const shiftMonth = (key: string, n: number) => {
 };
 const md = (key: string) => `${Number(key.slice(5, 7))}/${Number(key.slice(8))}`;
 const daysInMonth = (key: string) => new Date(Date.UTC(Number(key.slice(0, 4)), Number(key.slice(5, 7)), 0)).getUTCDate();
-const weekdayOf = (key: string) => (new Date(`${key}T00:00:00Z`).getUTCDay() + 6) % 7; // 0 = 週一
+// 一週、一天的起點跟著設定：0 = 一週的第一天、一天的第一個小時
+const weekdayOf = (key: string) => (new Date(`${key}T00:00:00Z`).getUTCDay() + 7 - weekStartsOn()) % 7;
+const weekdayLabel = (i: number) => WEEKDAYS[(i + 7 - (1 - weekStartsOn())) % 7];
+const hourIdx = (hour: number) => (hour - dayStartHour() + 24) % 24;
+const hourAt = (i: number) => (i + dayStartHour()) % 24;
+const HOUR_AXIS = () => [0, 6, 12, 18, 23].map((i) => String(hourAt(i)));
+const WEEK_AXIS = () => WEEKDAYS.map((_, i) => weekdayLabel(i));
 const shiftRange = (range: Range, key: string, n: number) => (range === 'day' ? shiftDateKey(key, n) : range === 'week' ? shiftDateKey(key, 7 * n) : range === 'month' ? shiftMonth(key, n) : shiftMonth(key, 12 * n));
 const inRange = (range: Range, cursor: string, key: string) =>
   range === 'day' ? key === cursor : range === 'week' ? weekStartKey(key) === weekStartKey(cursor) : range === 'month' ? key.slice(0, 7) === cursor.slice(0, 7) : key.slice(0, 4) === cursor.slice(0, 4);
 /** 分布圖的第幾格：天＝小時、週＝星期、月＝日期、年＝月份 */
 const bucketOf = (range: Range, dateKey: string, hour: number) =>
-  range === 'day' ? hour : range === 'week' ? weekdayOf(dateKey) : range === 'month' ? Number(dateKey.slice(8)) - 1 : Number(dateKey.slice(5, 7)) - 1;
-const hourName = (i: number) => `${String(i).padStart(2, '0')}:00–${String(i + 1).padStart(2, '0')}:00`;
-const dayName = (i: number) => `週${WEEKDAYS[i]}`;
+  range === 'day' ? hourIdx(hour) : range === 'week' ? weekdayOf(dateKey) : range === 'month' ? Number(dateKey.slice(8)) - 1 : Number(dateKey.slice(5, 7)) - 1;
+const hourName = (i: number) => `${String(hourAt(i)).padStart(2, '0')}:00–${String(hourAt(i) + 1).padStart(2, '0')}:00`;
+const dayName = (i: number) => `週${weekdayLabel(i)}`;
 /** 在這一期裡的位置（用來和上一期「同一段時間」比較，例如今天到現在 vs 昨天同一時間）。 */
 const posIn = (range: Range, dateKey: string, hour: number) =>
-  range === 'day' ? hour : range === 'week' ? weekdayOf(dateKey) * 24 + hour : range === 'month' ? (Number(dateKey.slice(8)) - 1) * 24 + hour : (Number(dateKey.slice(5, 7)) * 32 + Number(dateKey.slice(8))) * 24 + hour;
+  range === 'day' ? hourIdx(hour) : range === 'week' ? weekdayOf(dateKey) * 24 + hourIdx(hour) : range === 'month' ? (Number(dateKey.slice(8)) - 1) * 24 + hourIdx(hour) : (Number(dateKey.slice(5, 7)) * 32 + Number(dateKey.slice(8))) * 24 + hourIdx(hour);
 const shortTime = (ms: number) => {
   const m = Math.round(ms / 60000);
   return m >= 60 ? `${Math.floor(m / 60)} 時 ${m % 60} 分` : `${m} 分`;
@@ -197,7 +203,7 @@ function Overview({ tags: picked, onTags, onRecap }: { tags: string[] | null; on
     if (inRange(range, cursor, dateKey)) {
       total += v;
       buckets[bucketOf(range, dateKey, hour)] += v;
-      byHour[hour] += v;
+      byHour[hourIdx(hour)] += v;
       byWeekday[weekdayOf(dateKey)] += v;
     } else if (inRange(range, prev, dateKey) && (!isNow || posIn(range, dateKey, hour) <= nowPos)) prevTotal += v;
   }
@@ -247,9 +253,9 @@ function Overview({ tags: picked, onTags, onRecap }: { tags: string[] | null; on
           : `${cursor.slice(0, 4)} 年`;
   const axis =
     range === 'day'
-      ? ['0', '6', '12', '18', '23']
+      ? HOUR_AXIS()
       : range === 'week'
-        ? WEEKDAYS
+        ? WEEK_AXIS()
         : range === 'month'
           ? ['1', '10', '20', String(n)]
           : ['1', '3', '6', '9', '12'];
@@ -406,16 +412,16 @@ function Overview({ tags: picked, onTags, onRecap }: { tags: string[] | null; on
             <section className="card">
               <h2>專注習慣</h2>
               <p className="small">
-                最常在 <strong>{String(bestHour).padStart(2, '0')}:00</strong> 左右專注
+                最常在 <strong>{String(hourAt(bestHour)).padStart(2, '0')}:00</strong> 左右專注
                 {range !== 'week' && (
                   <>
-                    ，一週裡最常在 <strong>週{WEEKDAYS[bestDay]}</strong>
+                    ，一週裡最常在 <strong>週{weekdayLabel(bestDay)}</strong>
                   </>
                 )}
                 。
               </p>
-              <Bars key={`h${range}${cursor}`} values={byHour} labels={['0', '6', '12', '18', '23']} names={hourName} />
-              {range !== 'week' && <Bars key={`w${range}${cursor}`} values={byWeekday} labels={WEEKDAYS} names={dayName} />}
+              <Bars key={`h${range}${cursor}`} values={byHour} labels={HOUR_AXIS()} names={hourName} />
+              {range !== 'week' && <Bars key={`w${range}${cursor}`} values={byWeekday} labels={WEEK_AXIS()} names={dayName} />}
             </section>
           )}
         </>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyDeepFocus, dueAt, completeNow, createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, addSegmentsByHour, weekStartKey, wakeAt, watchWindow } from './focus';
+import { applyDeepFocus, dueAt, completeNow, createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, addSegmentsByHour, weekStartKey, wakeAt, watchWindow, setCalendar, localDateKey, nextLocalMidnight, targetReached } from './focus';
 import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote, isDone, projectQuarter, remainingFor, applyFocusRewards, focusOutcome, animalUnlocked, chosenAnimal, endedSessions, hatchCounts, newAnimals, sceneAnimals, unlockAnimal, growthOf, sightings, weekRecap, communityRank } from './game';
 import { ANIMALS, CONTENT_VERSION, GROWTH_AT, SOUNDS, animalDef, projectDef, stageName } from '../content/config';
 import { newSave, newDemoSave, validateSave, demoGrant } from './save';
@@ -133,6 +133,31 @@ describe('專注計時', () => {
     expect(weekStartKey('2026-10-22')).toBe('2026-10-19');
     expect(weekStartKey('2026-10-19')).toBe('2026-10-19');
     expect(weekStartKey('2026-10-25')).toBe('2026-10-19');
+  });
+
+  it('設定可以改成週日開始、一天從凌晨 4 點開始', () => {
+    setCalendar({ weekStart: 0, dayStartHour: 4 });
+    try {
+      expect(weekStartKey('2026-10-22')).toBe('2026-10-18');
+      expect(weekStartKey('2026-10-25')).toBe('2026-10-25');
+      // 台北凌晨 2 點還算前一天；4 點之後才換日
+      expect(localDateKey(Date.parse('2026-10-22T18:00:00Z'), 'Asia/Taipei')).toBe('2026-10-22');
+      expect(localDateKey(Date.parse('2026-10-22T20:00:00Z'), 'Asia/Taipei')).toBe('2026-10-23');
+      expect(nextLocalMidnight(Date.parse('2026-10-22T18:00:00Z'), 'Asia/Taipei')).toBe(Date.parse('2026-10-22T20:00:00Z'));
+    } finally {
+      setCalendar({ weekStart: 1, dayStartHour: 0 });
+    }
+  });
+
+  it('延長計時：倒數到了繼續累積，按停止才算完成', () => {
+    const save = fresh();
+    const s = { ...session(save, 'countdown', 25), extend: true };
+    expect(settle(s, T0 + 30 * MIN).status).toBe('running');
+    expect(targetReached(s, T0 + 30 * MIN)).toBe(true);
+    const done = finish(s, T0 + 40 * MIN, 'completed');
+    expect(done.accumulatedMs).toBe(40 * MIN);
+    // 最多算到 180 分鐘
+    expect(settle(s, T0 + 200 * MIN).accumulatedMs).toBe(180 * MIN);
   });
 });
 

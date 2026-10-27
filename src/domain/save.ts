@@ -23,6 +23,11 @@ export const defaultSettings = (): Settings => ({
   eggId: ANIMALS[0].id,
   deepFocus: true,
   focusAllow: [],
+  quotes: [],
+  extendTimer: false,
+  weekStart: 1,
+  dayStartHour: 0,
+  dailyReminder: { on: false, hour: 20, minute: 0 },
 });
 
 export const deviceTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -160,6 +165,12 @@ export function validateSave(input: unknown, now = Date.now()): Validation {
   // 設定欄位型別不對（匯入的檔案、舊版本）就用預設值，避免畫面當掉
   if (!Array.isArray(settings.focusAllow) || !settings.focusAllow.every((a: unknown) => isObj(a) && isStr((a as { pkg?: unknown }).pkg))) settings.focusAllow = [];
   if (typeof settings.deepFocus !== 'boolean') settings.deepFocus = true;
+  if (!Array.isArray(settings.quotes) || !settings.quotes.every(isStr)) settings.quotes = [];
+  if (typeof settings.extendTimer !== 'boolean') settings.extendTimer = false;
+  if (settings.weekStart !== 0 && settings.weekStart !== 1) settings.weekStart = 1;
+  if (!Number.isInteger(settings.dayStartHour) || settings.dayStartHour < 0 || settings.dayStartHour > 6) settings.dayStartHour = 0;
+  const r = settings.dailyReminder as unknown;
+  if (!isObj(r) || typeof r.on !== 'boolean' || !Number.isInteger(r.hour) || !Number.isInteger(r.minute) || (r.hour as number) < 0 || (r.hour as number) > 23 || (r.minute as number) < 0 || (r.minute as number) > 59) settings.dailyReminder = defaultSettings().dailyReminder;
   if (!isStr(settings.eggId)) settings.eggId = defaultSettings().eggId;
   if (!HABITAT_IDS.includes(settings.preferredHabitatId)) settings.preferredHabitatId = 'forest';
   const save = { ...raw, settings } as unknown as SaveFile;

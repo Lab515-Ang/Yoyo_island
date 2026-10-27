@@ -34,7 +34,7 @@ export function putSession(save: SaveFile, s: FocusSession): SaveFile {
 }
 
 /** 開始專注：同時最多一個未結算 session；只能選可進入的棲地、已解鎖的動物。 */
-export function startFocus(save: SaveFile, p: { taskTitle: string; tag: string; habitatId: HabitatId; mode: TimerMode; targetSeconds: number | null; animalId?: string; deep?: boolean }, now: number): SaveFile {
+export function startFocus(save: SaveFile, p: { taskTitle: string; tag: string; habitatId: HabitatId; mode: TimerMode; targetSeconds: number | null; animalId?: string; deep?: boolean; extend?: boolean }, now: number): SaveFile {
   if (openSession(save) || !habitatOpen(save, p.habitatId)) return save;
   // 倒數 10～180 分鐘；示範存檔允許 10 秒快轉
   const t = p.targetSeconds ?? 0;
@@ -330,7 +330,7 @@ export function minutesByDay(save: SaveFile, userId: ID = save.profile.id) {
 }
 
 /**
- * 一週回顧（weekStart 是週一的 YYYY-MM-DD）：每天專注時間、專注天數、最佳日、最常遇見的動物、探索收穫，
+ * 一週回顧（weekStart 是一週第一天的 YYYY-MM-DD）：每天專注時間、專注天數、最佳日、最常遇見的動物、探索收穫，
  * 以及和前一週比較。時間含提前結束的那幾段（和專注紀錄一致）；遇見只算完成的探索。
  */
 export function weekRecap(save: SaveFile, weekStart: string) {
@@ -363,7 +363,7 @@ export function weekRecap(save: SaveFile, weekStart: string) {
     total,
     prevTotal,
     focusDays: days.filter(Boolean).length,
-    best: total ? days.indexOf(Math.max(...days)) : -1, // 0 = 週一
+    best: total ? days.indexOf(Math.max(...days)) : -1, // 0 = 一週的第一天
     top: top ? { id: top[0], ...top[1] } : null,
     animals: ranked.map(([id]) => id),
     species: met.size,

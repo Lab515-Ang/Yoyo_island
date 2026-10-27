@@ -28,6 +28,25 @@ export async function requestNotifyPermission(): Promise<boolean> {
   }
 }
 
+const DAILY_REMINDER_ID = 2;
+
+/**
+ * 每日專注提醒（參考 Forest 的種植提醒）：每天固定時間跳一則通知。外掛會在重開機後重新排程。
+ * 回傳 false＝通知權限被拒絕（設定要提示玩家）。網頁版不支援，直接略過。
+ */
+export async function setDailyReminder(r: { on: boolean; hour: number; minute: number }, body: string): Promise<boolean> {
+  if (!isNative) return true;
+  try {
+    await LocalNotifications.cancel({ notifications: [{ id: DAILY_REMINDER_ID }] });
+    if (!r.on) return true;
+    if (!(await requestNotifyPermission())) return false;
+    await LocalNotifications.schedule({ notifications: [{ id: DAILY_REMINDER_ID, title: '棲光小島', body, schedule: { on: { hour: r.hour, minute: r.minute }, allowWhileIdle: true } }] });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** 排定倒數結束通知：App 版用系統本機通知，鎖屏、關掉 App 也會準時跳出。網頁版不排程（網頁在回到頁面時提醒）。 */
 export async function scheduleFocusEnd(at: number, title: string, body: string) {
   if (!isNative || at <= Date.now()) return;
