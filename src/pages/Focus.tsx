@@ -188,12 +188,13 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
           </button>
         </div>
         {quote && <p className="focus-quote">{quote}</p>}
+        {/* 足跡提示：浮在上方天空 */}
+        {moment && (
+          <p className="focus-moment" role="status">
+            {moment}
+          </p>
+        )}
         <div className="focus-plant">
-          {moment && (
-            <p className="focus-moment" role="status">
-              {moment}
-            </p>
-          )}
           <TrackArt id={session.animalId} progress={progress} stage={stage} size="100%" />
           {/* 足跡：靠近越多，留下的腳印越多 */}
           <div className="focus-tracks" aria-hidden="true">
