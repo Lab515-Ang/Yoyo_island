@@ -89,7 +89,7 @@ export const projectDef = (id: string) => PROJECTS.find((p) => p.id === id);
  */
 export type AnimalShape = 'bird' | 'owl' | 'raptor' | 'pheasant' | 'pangolin' | 'cat' | 'mustelid' | 'bear' | 'goat';
 // gems：只在商店用寶石解鎖的物種；project 的動物也可以在商店用寶石提早解鎖（見 content/shop.ts）
-export type AnimalUnlock = { kind: 'start' } | { kind: 'project'; id: string } | { kind: 'coins'; price: number } | { kind: 'gems'; price: number } | { kind: 'iap'; price: string };
+export type AnimalUnlock = { kind: 'start' } | { kind: 'project'; id: string } | { kind: 'coins'; price: number } | { kind: 'gems'; price: number } | { kind: 'iap'; price: string }; // iap：Plus 會員專屬
 export interface AnimalDef {
   id: string;
   name: string;
@@ -160,8 +160,10 @@ export const ANIMALS: AnimalDef[] = [
   { id: 'tsushima_cat', region: 'jp', name: '對馬山貓', shape: 'cat', color: '#a88a60', accent: '#4a3826', unlock: { kind: 'project', id: 'jp_bamboo' }, blurb: '只住在對馬島的石虎，額頭有白色條紋。', habitat: { zone: 'low', region: '長崎縣對馬島的森林與水田', elevation: '低海拔', level: 2, lon: 129.3, lat: 34.4 } },
   { id: 'steller_eagle', region: 'jp', name: '虎頭海鵰', shape: 'raptor', color: '#3a2e26', accent: '#f2a020', unlock: { kind: 'project', id: 'jp_stream' }, blurb: '有巨大的橘黃色嘴巴，冬天從俄羅斯飛來北海道。', habitat: { zone: 'low', region: '北海道的海岸與湖泊（冬候鳥）', elevation: '海岸與湖泊', level: 2, lon: 145.3, lat: 44.0 } },
   { id: 'moon_bear', region: 'jp', name: '月輪熊', shape: 'bear', color: '#221e1b', accent: '#f1ecdf', unlock: { kind: 'project', id: 'jp_rescue' }, blurb: '胸前有月牙形的白斑，四國的族群已經非常稀少。', habitat: { zone: 'mid', region: '本州、四國的山地森林', elevation: '約 500～2,500 公尺', level: 3, lon: 133.9, lat: 33.7 } },
-  { id: 'clouded_leopard', stages: false, name: '台灣雲豹', shape: 'cat', color: '#c2a476', accent: '#5b4630', unlock: { kind: 'iap', price: 'NT$90' }, blurb: '身上有像雲朵的斑紋。野外已多年沒有確切紀錄，是森林裡的傳說。', habitat: { zone: 'legend', region: '過去分布在中低海拔原始林；2013 年研究團隊調查後認為台灣野外可能已滅絕', elevation: '已多年沒有確切紀錄', level: 1, lon: 120.9, lat: 22.8 } },
-  { id: 'black_eagle', stages: false, name: '林鵰', shape: 'raptor', color: '#2b2622', accent: '#f2c230', unlock: { kind: 'iap', price: 'NT$60' }, blurb: '全身深色的大型猛禽，常貼著樹冠緩緩滑翔。', habitat: { zone: 'mid', region: '中低海拔原始闊葉林', elevation: '約 500～2,500 公尺', level: 2, lon: 121.45, lat: 23.85 } },
+  { id: 'clouded_leopard', stages: false, name: '台灣雲豹', shape: 'cat', color: '#c2a476', accent: '#5b4630', unlock: { kind: 'iap', price: 'Plus 會員' }, blurb: '身上有像雲朵的斑紋。野外已多年沒有確切紀錄，是森林裡的傳說。', habitat: { zone: 'legend', region: '過去分布在中低海拔原始林；2013 年研究團隊調查後認為台灣野外可能已滅絕', elevation: '已多年沒有確切紀錄', level: 1, lon: 120.9, lat: 22.8 } },
+  { id: 'black_eagle', stages: false, name: '林鵰', shape: 'raptor', color: '#2b2622', accent: '#f2c230', unlock: { kind: 'iap', price: 'Plus 會員' }, blurb: '全身深色的大型猛禽，常貼著樹冠緩緩滑翔。', habitat: { zone: 'mid', region: '中低海拔原始闊葉林', elevation: '約 500～2,500 公尺', level: 2, lon: 121.45, lat: 23.85 } },
+  { id: 'lanyu_scops_owl', stages: false, name: '蘭嶼角鴞', shape: 'owl', color: '#a0703f', accent: '#f2c230', unlock: { kind: 'iap', price: 'Plus 會員' }, blurb: '只住在蘭嶼的小貓頭鷹，夜裡會發出「嘟—嘟—嘟噗」的叫聲。', habitat: { zone: 'low', region: '蘭嶼的熱帶雨林', elevation: '約 400 公尺以下', level: 2, lon: 121.55, lat: 22.05 } },
+  { id: 'hill_partridge', stages: false, name: '台灣山鷓鴣', shape: 'pheasant', color: '#6e5a3e', accent: '#2f3a4a', unlock: { kind: 'iap', price: 'Plus 會員' }, blurb: '台灣特有的地棲鳥，很少現身，常在落葉堆裡翻找食物。', habitat: { zone: 'mid', region: '中低海拔原始闊葉林的林下', elevation: '約 100～2,500 公尺', level: 3, lon: 121.0, lat: 23.5 } },
 ];
 export const animalDef = (id: string | undefined) => ANIMALS.find((a) => a.id === id) ?? ANIMALS[0];
 // ---------- 探索與族群成長 ----------

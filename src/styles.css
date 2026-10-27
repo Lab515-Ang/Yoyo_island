@@ -5468,3 +5468,58 @@ label.set-row input.switch:checked {
     animation: none;
   }
 }
+
+/* ---------- 彈出面板打開時，背景頁不跟著滑 ---------- */
+html:has(dialog[open]) {
+  overflow: hidden;
+}
+.modal {
+  overscroll-behavior: contain;
+}
+
+/* ---------- 大廳：找動物清單（我的動物／Plus／還沒解鎖） ---------- */
+.pick-head {
+  margin: 1rem 0 0.5rem;
+  font-size: 1.05rem;
+}
+.pick-head:first-of-type {
+  margin-top: 0.4rem;
+}
+.plus-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.6rem;
+}
+.plus-divider::before,
+.plus-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+.plus-divider span {
+  padding: 0.1rem 0.6rem;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--sage), var(--sage-deep));
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+.plus-hero {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 1rem 0;
+  border-radius: var(--radius);
+  background: linear-gradient(160deg, var(--sage-tint), var(--bg));
+}
+.plus-perks {
+  margin: 1rem 0;
+  padding-left: 1.2rem;
+  line-height: 1.8;
+}
+.plus-modal .primary {
+  width: 100%;
+}

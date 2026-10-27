@@ -72,11 +72,11 @@ export function animalUnlocked(save: SaveFile, a: AnimalDef) {
   return false;
 }
 
-/** 大廳預設的探索目標：上次選的；還沒解鎖或不是目前區域的，就用這個區域第一種解鎖的。 */
+/** 大廳預設的探索目標：上次選的（任何區域都可以）；還沒解鎖的，就用目前區域第一種解鎖的。 */
 export const chosenAnimal = (save: SaveFile) => {
   const region = currentRegion(save);
   const a = animalDef(save.settings.eggId);
-  return animalUnlocked(save, a) && animalRegion(a) === region ? a : (ANIMALS.find((x) => animalRegion(x) === region && animalUnlocked(save, x)) ?? ANIMALS[0]);
+  return animalUnlocked(save, a) ? a : (ANIMALS.find((x) => animalRegion(x) === region && animalUnlocked(save, x)) ?? ANIMALS[0]);
 };
 
 // ---------- 區域：修完前一個區域才開放（看該區主棲地的開放條件） ----------

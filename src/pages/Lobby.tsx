@@ -1,16 +1,16 @@
 import { useRef, useState, type CSSProperties } from 'react';
 import { useSave } from '../app/store';
-import { MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, TAGS, animalDef, animalRegion, clampMinutes, regionAnimals, tagColor } from '../content/config';
+import { ANIMALS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, TAGS, animalDef, animalRegion, clampMinutes, projectDef, regionDef, tagColor, type AnimalDef } from '../content/config';
 import { Modal, fmtMinutes } from '../components/ui';
 import { AnimalArt, TrackArt } from '../components/Animal';
 import { GrowthTag, unlockText } from '../components/ui';
-import { activeProject, animalUnlocked, animalsUnlockedBy, chosenAnimal, currentHabitat, currentRegion, growthOf, hatchCounts, newAnimals, remainingFor, startFocus } from '../domain/game';
+import { activeProject, animalUnlocked, animalsUnlockedBy, chosenAnimal, currentHabitat, growthOf, regionOpen, hatchCounts, newAnimals, remainingFor, startFocus } from '../domain/game';
 import { DEEP_GRACE_MS, TimeGuard, isAndroid, isNative, requestNotifyPermission, type GuardApp } from '../platform';
 import { AppPicker } from './Guard';
 import { DeepSetup, deepPerm, deepSetupSeen } from '../components/DeepSetup';
 import { ChevronDown, PencilLine } from 'lucide-react';
 
-type Sheet = 'tag' | 'title' | 'time' | 'egg' | 'allow' | 'deep' | 'deepInfo' | null;
+type Sheet = 'tag' | 'title' | 'time' | 'egg' | 'plus' | 'allow' | 'deep' | 'deepInfo' | null;
 
 /** 首頁大廳（參考 Forest 構圖）：左上標籤與標題、中央棲地泡泡、大字時間、開始按鈕；細項點了才展開。 */
 export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: () => void }) {
@@ -24,11 +24,11 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
   });
   // 舊存檔可能記著 5 分鐘：收進 10～180 分鐘（示範的 10 秒例外）
   const [seconds, setSeconds] = useState(mode === 'demo' && st.lastTargetSeconds === 10 ? 10 : clampMinutes(st.lastTargetSeconds / 60) * 60);
-  // 專注的場景跟著目前的區域（台灣森林、日本里山…）
-  const habitat = currentHabitat(save);
-  const region = currentRegion(save);
   // 選的探索目標直接記進設定：去商店或其他頁再回來也不會跑掉
   const egg = chosenAnimal(save).id;
+  // 專注的場景跟著要找的動物住的區域（台灣森林、日本里山…）
+  const eggRegion = animalRegion(animalDef(egg));
+  const habitat = regionOpen(save, eggRegion) ? regionDef(eggRegion).habitatId : currentHabitat(save);
   const setEgg = (id: string) => update((s) => ({ ...s, settings: { ...s.settings, eggId: id } }));
   const [sheet, setSheet] = useState<Sheet>(null);
   const [draft, setDraft] = useState('');
@@ -43,8 +43,13 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
   const shown = seconds < 60 ? `00:${String(seconds).padStart(2, '0')}` : `${Math.round(seconds / 60)}:00`;
 
   // 可以去找、但還沒遇見過的動物：標「新」，遇見一次就消失
-  const fresh = newAnimals(save).filter((a) => animalRegion(a) === region);
+  const fresh = newAnimals(save);
   const counts = hatchCounts(save);
+  // 找動物的清單：已解鎖的不分區域都能選；Plus 專屬另外一區
+  const isPlus = (a: AnimalDef) => a.unlock.kind === 'iap';
+  const mine = ANIMALS.filter((a) => animalUnlocked(save, a));
+  const plus = ANIMALS.filter(isPlus);
+  const locked = ANIMALS.filter((a) => !isPlus(a) && !animalUnlocked(save, a) && regionOpen(save, animalRegion(a)));
   // 下一步：第一次就是完成一段專注；之後是目前工程還差多久、修好後誰會回來（1 點＝專注 1 分鐘）
   const project = activeProject(save);
   const back = project ? animalsUnlockedBy(project.id).map((a) => a.name).join('、') : '';
@@ -303,9 +308,10 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
       {sheet === 'egg' && (
         <Modal title="這次想去找誰？" onClose={() => setSheet(null)}>
           <p className="small muted">專注時牠會慢慢靠近，完成就遇見牠，留下一筆觀察紀錄；提前放棄牠就被嚇跑了。同一種動物遇見越多次，族群越穩定，看到的就越成熟（60 分鐘以上的探索算 2 點成長）。</p>
-          <div className="plant-pick" role="radiogroup" aria-label="動物">
-            {regionAnimals(region).map((a) => {
-              const ok = animalUnlocked(save, a);
+          {/* 我的動物：已經可以去找的（不分區域） */}
+          <h3 className="pick-head">我的動物</h3>
+          <div className="plant-pick" role="radiogroup" aria-label="我的動物">
+            {mine.map((a) => {
               const g = growthOf(save, a.id);
               const met = (counts.get(a.id) ?? 0) > 0;
               return (
@@ -313,32 +319,96 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
                   key={a.id}
                   role="radio"
                   aria-checked={egg === a.id}
-                  // 還沒解鎖的點了直接去商店（工程的動物也可以用寶石提早解鎖）
                   className={egg === a.id ? 'plant-option on' : 'plant-option'}
                   onClick={() => {
                     setSheet(null);
-                    if (ok) setEgg(a.id);
-                    else onShop();
+                    setEgg(a.id);
                   }}
                 >
-                  {ok && met ? <AnimalArt id={a.id} stage={g.stage} size={56} /> : ok ? <TrackArt id={a.id} size={56} /> : <AnimalArt id={a.id} size={56} hidden />}
+                  {met ? <AnimalArt id={a.id} stage={g.stage} size={56} /> : <TrackArt id={a.id} size={56} />}
                   <span>
                     {a.name}
                     {fresh.includes(a) && <span className="new-badge">新</span>}
                   </span>
-                  {ok ? (
-                    met ? <GrowthTag a={a} g={g} /> : <span className="small muted">還沒遇見過</span>
-                  ) : (
-                    <span className="small muted">{unlockText(a)}</span>
-                  )}
+                  {met ? <GrowthTag a={a} g={g} /> : <span className="small muted">還沒遇見過</span>}
                 </button>
               );
             })}
           </div>
+          {/* Plus 會員專屬：直接給看彩色的樣子，點了介紹 Plus 會員 */}
+          <h3 className="pick-head">更多動物</h3>
+          <div className="plus-divider">
+            <span>PLUS</span>
+          </div>
+          <div className="plant-pick">
+            {plus.map((a) => (
+              <button key={a.id} className="plant-option plus" onClick={() => setSheet('plus')}>
+                <AnimalArt id={a.id} size={56} />
+                <span>{a.name}</span>
+                <span className="small muted">Plus 會員專屬</span>
+              </button>
+            ))}
+          </div>
+          {locked.length > 0 && (
+            <>
+              <h3 className="pick-head">還沒解鎖</h3>
+              <div className="plant-pick">
+                {locked.map((a) => (
+                  // 修復工程或商店（金幣、寶石）解鎖的動物：點了去商店
+                  <button
+                    key={a.id}
+                    className="plant-option"
+                    onClick={() => {
+                      setSheet(null);
+                      onShop();
+                    }}
+                  >
+                    <AnimalArt id={a.id} size={56} hidden />
+                    <span>{a.name}</span>
+                    <span className="small muted">{shortUnlock(a)}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </Modal>
       )}
 
+      {sheet === 'plus' && <PlusSheet onClose={() => setSheet('egg')} />}
+
     </div>
+  );
+}
+
+/** 清單格子裡的短版解鎖方式（完整說明在商店）。 */
+const shortUnlock = (a: AnimalDef) => {
+  const u = a.unlock;
+  if (u.kind === 'project') return `修好「${projectDef(u.id)?.title}」`;
+  if (u.kind === 'coins') return `商店 ${u.price} 金幣`;
+  if (u.kind === 'gems') return `商店 ${u.price} 寶石`;
+  return unlockText(a);
+};
+
+/** Plus 會員介紹：還沒有訂閱系統，上架後才開放購買。 */
+function PlusSheet({ onClose }: { onClose: () => void }) {
+  const plus = ANIMALS.filter((a) => a.unlock.kind === 'iap');
+  return (
+    <Modal title="棲光 Plus 會員" onClose={onClose} className="plus-modal">
+      <div className="plus-hero" aria-hidden="true">
+        {plus.slice(0, 4).map((a) => (
+          <AnimalArt key={a.id} id={a.id} size={64} />
+        ))}
+      </div>
+      <ul className="plus-perks">
+        <li>解鎖 {plus.length} 種 Plus 專屬保育動物，之後新增的也包含在內</li>
+        <li>每月贈送寶石</li>
+        <li>支持保育專案的推廣</li>
+      </ul>
+      <button className="primary" disabled>
+        上架後開放訂閱
+      </button>
+      <p className="small muted center">目前是測試版，還不能購買。</p>
+    </Modal>
   );
 }
 

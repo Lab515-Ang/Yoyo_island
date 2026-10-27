@@ -68,7 +68,7 @@ export function unlockText(a: AnimalDef) {
   if (u.kind === 'project') return `完成「${projectDef(u.id)?.title}」後，牠會回到森林（也可以在商店用寶石提早解鎖）`;
   if (u.kind === 'coins') return `商店用 ${u.price} 金幣解鎖探索路線`;
   if (u.kind === 'gems') return `商店用 ${u.price} 顆寶石解鎖探索路線`;
-  return `商店特別探索（${u.price}）`;
+  return 'Plus 會員專屬';
 }
 
 /** 三個成長階段的小圖（看得到的階段上色，還沒看到的是剪影）。 */
