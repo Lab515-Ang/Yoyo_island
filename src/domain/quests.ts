@@ -131,12 +131,13 @@ export function claimQuest(save: SaveFile, key: string, now: number): Claim {
  */
 /** 存檔檢查用：寶箱送的寶石（只有新手任務、本月挑戰）。 */
 export function questGemOk(key: string, amount: number) {
-  return Number.isInteger(amount) && amount > 0 && amount <= 1000 && (key === 'quest:starter:gems' || /^quest:month:\d{4}-\d{2}:gems$/.test(key));
+  return Number.isInteger(amount) && amount > 0 && amount <= 1000 && (key === 'quest:starter:gems' || /^quest:month:\d{4}-\d{2}:gems$/.test(key) || /^ach:[a-z0-9_]+:gems$/.test(key)); // ach：成就的大獎
 }
 
 export function questRewardOk(key: string, amount: number, animalId?: string) {
   if (!Number.isInteger(amount) || amount <= 0 || amount > 1000) return false;
   if (key === 'quest:starter') return !animalId || ANIMALS.some((a) => a.id === animalId);
   if (animalId) return false;
+  if (/^ach:[a-z0-9_]+$/.test(key)) return true; // 成就獎勵（見 achievements.ts）
   return /^quest:month:\d{4}-\d{2}$/.test(key) || /^quest:\d{4}-\d{2}-\d{2}:[0-2]$/.test(key);
 }

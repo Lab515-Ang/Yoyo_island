@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyDeepFocus, dueAt, completeNow, createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, addSegmentsByHour, weekStartKey, wakeAt, watchWindow, setCalendar, localDateKey, nextLocalMidnight, targetReached } from './focus';
 import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote, isDone, projectQuarter, remainingFor, applyFocusRewards, focusOutcome, animalUnlocked, chosenAnimal, endedSessions, hatchCounts, newAnimals, sceneAnimals, unlockAnimal, growthOf, sightings, weekRecap, communityRank, gems } from './game';
 import { buyItem, dailyPicks, exchangeCoins } from './shop';
+import { achievementState, claimAchievement } from './achievements';
 import { ANIMALS, CONTENT_VERSION, GROWTH_AT, SOUNDS, animalDef, projectDef, stageName } from '../content/config';
 import { newSave, newDemoSave, validateSave, demoGrant } from './save';
 import { npsDue } from './feedback';
@@ -703,5 +704,17 @@ describe('商店與寶石', () => {
     expect(bought.ok).toBe(true);
     if (!bought.ok) return;
     expect(validateSave(JSON.parse(JSON.stringify(bought.save)), T0).ok).toBe(true);
+  });
+});
+
+describe('成就', () => {
+  it('完成第一段專注可以領取，領過不能再領，存檔檢查通過', () => {
+    const save = focus(fresh(), 30);
+    expect(achievementState(save).find((x) => x.a.id === 'first_focus')!.ready).toBe(true);
+    const got = claimAchievement(save, 'first_focus', T0)!;
+    expect(coins(got) - coins(save)).toBe(20);
+    expect(claimAchievement(got, 'first_focus', T0)).toBeNull();
+    expect(claimAchievement(save, 'hours_10', T0)).toBeNull();
+    expect(validateSave(JSON.parse(JSON.stringify(got)), T0).ok).toBe(true);
   });
 });

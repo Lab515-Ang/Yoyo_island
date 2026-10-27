@@ -65,4 +65,22 @@ public class ImageSharePlugin extends Plugin {
             call.reject("無法分享");
         }
     }
+
+    /** 文字檔（存檔備份 JSON、專注紀錄 CSV）：寫到暫存資料夾，再用系統分享選單存到雲端硬碟或傳給自己。 */
+    @PluginMethod
+    public void shareText(PluginCall call) {
+        try {
+            String name = call.getString("name", "qiguang.txt").replaceAll("[\\\\/:*?\"<>|]", "_");
+            File f = new File(getContext().getCacheDir(), name);
+            try (FileOutputStream out = new FileOutputStream(f)) {
+                out.write(call.getString("text", "").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+            Uri uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", f);
+            Intent send = new Intent(Intent.ACTION_SEND).setType(call.getString("mime", "text/plain")).putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            getActivity().startActivity(Intent.createChooser(send, call.getString("title", "分享")));
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("無法分享");
+        }
+    }
 }

@@ -1,22 +1,22 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useSave } from '../app/store';
-import { AVATARS, GROWTH_AT, GROWTH_MAX, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, PAUSE_MINUTES, avatarEmoji } from '../content/config';
+import { AVATARS, GROWTH_AT, GROWTH_MAX, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, PAUSE_MINUTES, animalDef, avatarEmoji } from '../content/config';
 import { validateSave } from '../domain/save';
-import { openSession } from '../domain/game';
+import { endedSessions, openSession } from '../domain/game';
 import { notifySupported, playChime } from '../sound';
-import { DEEP_GRACE_MS, TimeGuard, defaultGuardConfig, isAndroid, isNative, onResume, requestNotifyPermission, setDailyReminder, type GuardApp } from '../platform';
+import { DEEP_GRACE_MS, TimeGuard, defaultGuardConfig, isAndroid, isNative, onResume, requestNotifyPermission, setDailyReminder, shareFile, type GuardApp } from '../platform';
 import { Modal } from '../components/ui';
 import { Tour } from '../components/Tour';
 import { FeedbackSheet } from '../components/Feedback';
 import { AppPicker } from './Guard';
 import { PrivacyNote } from './Onboarding';
 import type { SaveFile } from '../domain/types';
-import { BarChart3, Bell, ChevronLeft, ChevronRight, Database, Info, Monitor, Timer, X } from 'lucide-react';
+import { BarChart3, Bell, ChevronLeft, ChevronRight, Clock, Database, Info, Monitor, PencilLine, Timer, X } from 'lucide-react';
 import { version } from '../../package.json';
 
 const TIMEZONES: string[] = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
 
-type Sub = 'profile' | 'data' | 'allow' | 'quotes' | 'faq' | 'terms' | null;
+type Sub = 'profile' | 'account' | 'data' | 'allow' | 'quotes' | 'faq' | 'terms' | null;
 
 const PLAY_URL = 'https://play.google.com/store/apps/details?id=tw.qiguang.island';
 const REMINDER_TEXT = '今天也來小島專注一下吧，森林裡的動物在等你。';
@@ -112,6 +112,7 @@ export function SettingsPage() {
   const [touring, setTouring] = useState(false);
   const [feedback, setFeedback] = useState(false);
   const [privacy, setPrivacy] = useState(false);
+  const [picking, setPicking] = useState<'avatar' | 'name' | null>(null);
   const [quoteDraft, setQuoteDraft] = useState('');
   const [reminderMsg, setReminderMsg] = useState<string | null>(null);
   // Android：沒有「鬧鐘與提醒」權限時，倒數結束通知可能晚一點跳出
@@ -163,17 +164,27 @@ export function SettingsPage() {
   const saveNames = () => {
     const n = nickname.trim();
     const i = island.trim();
-    if (!n || !i) return notify('暱稱與島名不能空白。');
+    if (!n || !i) {
+      notify('暱稱與島名不能空白。');
+      return false;
+    }
     update((s) => ({ ...s, profile: { ...s.profile, nickname: n }, islands: s.islands.map((x) => (x.id === s.profile.activeIslandId ? { ...x, name: i } : x)) }));
     notify('已更新名稱。');
+    return true;
   };
 
-  const exportSave = () => {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([JSON.stringify(save, null, 2)], { type: 'application/json' }));
-    a.download = `qiguang-island-${mode}-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+  const day = new Date().toISOString().slice(0, 10);
+  // App 版用系統分享選單（存到雲端硬碟、傳給自己）；網頁版下載
+  const exportSave = () => void shareFile(JSON.stringify(save, null, 2), `qiguang-island-${mode}-${day}.json`, 'application/json', '備份棲光小島存檔').catch(() => notify('無法匯出，請再試一次。'));
+  // 輸出你的資料（參考 Forest）：每段專注一列，Excel 打得開（加 BOM 才不會亂碼）
+  const exportCsv = async () => {
+    const q = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+    const when = (iso: string) => new Date(iso).toLocaleString('zh-TW', { hour12: false, timeZone: save.profile.timezone });
+    const rows = endedSessions(save)
+      .filter((x) => x.userId === save.profile.id)
+      .map((x) => [when(x.startedAt), when(x.endedAt!), Math.floor(x.accumulatedMs / 60000), x.status === 'completed' ? '遇見' : '被嚇跑', animalDef(x.animalId).name, x.tag, x.taskTitle, x.note ?? ''].map(q).join(','));
+    const csv = '\uFEFF' + ['開始時間,結束時間,專注分鐘,結果,動物,標籤,標題,筆記', ...rows].join('\r\n');
+    await shareFile(csv, `棲光小島-專注紀錄-${day}.csv`, 'text/csv', '輸出專注紀錄').catch(() => notify('無法輸出，請再試一次。'));
   };
 
   const pickFile = async (file: File | undefined) => {
@@ -192,44 +203,139 @@ export function SettingsPage() {
     setPreview(v.save);
   };
 
-  if (sub === 'profile')
+  // 重設全部資料的確認（設定首頁、帳號管理共用）
+  const resetModal = (
+    <Modal title="重設全部資料" onClose={() => setConfirmReset(false)}>
+      <p>這會清除這台裝置上棲光小島的所有資料（包含示範存檔），無法復原。建議先到「備份與還原」匯出。</p>
+      <div className="row editor-actions">
+        <button onClick={() => setConfirmReset(false)}>取消</button>
+        <button
+          className="danger"
+          onClick={() => {
+            // 原生端的時間守護與深度專注設定也要清掉，不然重設後還會繼續攔截 App
+            if (isAndroid) void TimeGuard.setConfig({ config: defaultGuardConfig() }).then(() => TimeGuard.stopFocusWatch(), () => undefined);
+            resetAll();
+          }}
+        >
+          確認全部重設
+        </button>
+      </div>
+    </Modal>
+  );
+
+  if (sub === 'profile') {
+    // 參考 Forest 的帳戶頁：頭像、名字、總專注時間、三個數字；下面是帳號管理和輸出資料
+    const ended = endedSessions(save).filter((x) => x.userId === save.profile.id);
+    const met = ended.filter((x) => x.status === 'completed').length;
+    const fled = ended.length - met;
+    const totalMin = Math.floor(ended.reduce((t, x) => t + x.accumulatedMs, 0) / 60000);
+    const d = Math.floor(totalMin / 1440);
+    const h = Math.floor((totalMin % 1440) / 60);
     return (
       <SubPage title="個人資料" onBack={() => setSub(null)}>
-        <section className="card">
-          <label>
-            暱稱
-            <input value={nickname} onChange={(e) => setNickname(e.target.value)} maxLength={20} />
-          </label>
-          <label>
-            島名
-            <input value={island} onChange={(e) => setIsland(e.target.value)} maxLength={20} />
-          </label>
-          <button className="primary" onClick={saveNames}>
-            儲存名稱
+        <section className="card profile-card">
+          <button className="profile-avatar" onClick={() => setPicking('avatar')} aria-label="更換頭像">
+            {avatarEmoji(save.profile.avatarId)}
           </button>
-        </section>
-        <section className="card">
-          <h2>頭像</h2>
-          <div className="avatar-grid">
-            {AVATARS.map((a) => (
-              <button key={a.id} className={a.id === save.profile.avatarId ? 'avatar-opt selected' : 'avatar-opt'} aria-pressed={a.id === save.profile.avatarId} aria-label={a.label} onClick={() => update((s) => ({ ...s, profile: { ...s.profile, avatarId: a.id } }))}>
-                {a.emoji}
-              </button>
-            ))}
+          <button className="profile-name" onClick={() => setPicking('name')} aria-label="更改暱稱與島名">
+            {save.profile.nickname}
+            <PencilLine size={16} aria-hidden="true" />
+          </button>
+          <span className="small muted">{save.islands[0]?.name}</span>
+          <span className="profile-total">
+            <Clock size={15} aria-hidden="true" /> {d ? `${d} 天 ` : ''}
+            {h ? `${h} 小時 ` : ''}
+            {totalMin % 60} 分鐘
+          </span>
+          <div className="profile-stats">
+            <span>
+              <strong>{ended.length ? Math.round((met / ended.length) * 100) : 0}%</strong>
+              <small>成功率</small>
+            </span>
+            <span>
+              <strong>{met}</strong>
+              <small>遇見</small>
+            </span>
+            <span>
+              <strong>{fled}</strong>
+              <small>被嚇跑</small>
+            </span>
           </div>
         </section>
-        {TIMEZONES.length > 0 && (
-          <section className="card">
-            <label>
-              時區（每日統計依此計算）
-              <select value={save.profile.timezone} onChange={(e) => update((s) => ({ ...s, profile: { ...s.profile, timezone: e.target.value } }))}>
+        <div className="set-list">
+          <LinkRow label="帳號管理" onClick={() => setSub('account')} />
+          <LinkRow label="輸出你的資料" value="專注紀錄 CSV" onClick={() => void exportCsv()} />
+        </div>
+        <p className="small muted center-text">ID {save.profile.id.slice(0, 8)}・資料只存在這支手機</p>
+        {picking === 'avatar' && (
+          <Modal title="更換頭像" onClose={() => setPicking(null)}>
+            <div className="avatar-grid">
+              {AVATARS.map((av) => (
+                <button
+                  key={av.id}
+                  className={av.id === save.profile.avatarId ? 'avatar-opt selected' : 'avatar-opt'}
+                  aria-pressed={av.id === save.profile.avatarId}
+                  aria-label={av.label}
+                  onClick={() => (update((x) => ({ ...x, profile: { ...x.profile, avatarId: av.id } })), setPicking(null))}
+                >
+                  {av.emoji}
+                </button>
+              ))}
+            </div>
+          </Modal>
+        )}
+        {picking === 'name' && (
+          <Modal title="暱稱與島名" onClose={() => setPicking(null)}>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (saveNames()) setPicking(null);
+              }}
+            >
+              <label>
+                暱稱
+                <input value={nickname} onChange={(e) => setNickname(e.target.value)} maxLength={20} autoFocus />
+              </label>
+              <label>
+                島名
+                <input value={island} onChange={(e) => setIsland(e.target.value)} maxLength={20} />
+              </label>
+              <button className="primary wide" type="submit">
+                儲存
+              </button>
+            </form>
+          </Modal>
+        )}
+      </SubPage>
+    );
+  }
+
+  if (sub === 'account')
+    return (
+      <SubPage title="帳號管理" onBack={() => setSub('profile')}>
+        <div className="set-list">
+          <LinkRow label="暱稱與島名" value={save.profile.nickname} onClick={() => (setSub('profile'), setPicking('name'))} />
+          <LinkRow label="頭像" value={avatarEmoji(save.profile.avatarId)} onClick={() => (setSub('profile'), setPicking('avatar'))} />
+          {TIMEZONES.length > 0 && (
+            <label className="set-row">
+              <span>
+                時區
+                <small>每日統計依此計算</small>
+              </span>
+              <select className="set-select" value={save.profile.timezone} onChange={(e) => update((x) => ({ ...x, profile: { ...x.profile, timezone: e.target.value } }))}>
                 {TIMEZONES.map((tz) => (
                   <option key={tz}>{tz}</option>
                 ))}
               </select>
             </label>
-          </section>
-        )}
+          )}
+          <LinkRow label="備份與還原" onClick={() => setSub('data')} />
+        </div>
+        <p className="small muted">目前不需要註冊帳號，進度只存在這支手機。之後開放雲端同步時，會在這裡登入。</p>
+        <div className="set-list">
+          <LinkRow label="刪除所有資料…" danger onClick={() => setConfirmReset(true)} />
+        </div>
+        {confirmReset && resetModal}
       </SubPage>
     );
 
@@ -453,7 +559,7 @@ export function SettingsPage() {
 
       <Group icon={<Database size={18} aria-hidden="true" />} title="資料">
         <LinkRow label="備份與還原" value="匯出／匯入存檔" onClick={() => setSub('data')} />
-        <LinkRow label="時區" value={save.profile.timezone} onClick={() => setSub('profile')} />
+        <LinkRow label="時區" value={save.profile.timezone} onClick={() => setSub('account')} />
       </Group>
 
       <Group icon={<Info size={18} aria-hidden="true" />} title="關於棲光小島">
@@ -480,24 +586,7 @@ export function SettingsPage() {
           <Tour onDone={() => setTouring(false)} doneLabel="知道了" />
         </Modal>
       )}
-      {confirmReset && (
-        <Modal title="重設全部資料" onClose={() => setConfirmReset(false)}>
-          <p>這會清除這台裝置上棲光小島的所有資料（包含示範存檔），無法復原。建議先到「備份與還原」匯出。</p>
-          <div className="row editor-actions">
-            <button onClick={() => setConfirmReset(false)}>取消</button>
-            <button
-              className="danger"
-              onClick={() => {
-                // 原生端的時間守護與深度專注設定也要清掉，不然重設後還會繼續攔截 App
-                if (isAndroid) void TimeGuard.setConfig({ config: defaultGuardConfig() }).then(() => TimeGuard.stopFocusWatch(), () => undefined);
-                resetAll();
-              }}
-            >
-              確認全部重設
-            </button>
-          </div>
-        </Modal>
-      )}
+      {confirmReset && resetModal}
     </div>
   );
 }

@@ -155,7 +155,11 @@ export const TimeGuard = registerPlugin<TimeGuardNative>('TimeGuard');
 
 // ---------- 圖片：存到相簿、分享（專注成果統計圖） ----------
 
-const ImageShare = registerPlugin<{ save(o: { dataUrl: string; name: string }): Promise<void>; share(o: { dataUrl: string; title: string }): Promise<void> }>('ImageShare');
+const ImageShare = registerPlugin<{
+  save(o: { dataUrl: string; name: string }): Promise<void>;
+  share(o: { dataUrl: string; title: string }): Promise<void>;
+  shareText(o: { text: string; name: string; mime: string; title: string }): Promise<void>;
+}>('ImageShare');
 const toFile = async (dataUrl: string, name: string) => new File([await (await fetch(dataUrl)).blob()], `${name}.png`, { type: 'image/png' });
 const download = (dataUrl: string, name: string) => {
   const a = document.createElement('a');
@@ -176,6 +180,16 @@ export async function shareImage(dataUrl: string, name: string, title: string) {
   const file = await toFile(dataUrl, name);
   if (navigator.canShare?.({ files: [file] })) return navigator.share({ files: [file], title }).catch(() => undefined);
   download(dataUrl, name);
+}
+
+/** 文字檔（存檔備份、專注紀錄 CSV）：App 版用系統分享選單（存到雲端硬碟、傳給自己）；網頁版下載。 */
+export async function shareFile(text: string, name: string, mime: string, title: string) {
+  if (isAndroid) return ImageShare.shareText({ text, name, mime, title });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: mime }));
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 /** Android 返回鍵：有監聽時系統不會直接關掉 App，由 cb 決定怎麼回上一步。網頁版不處理。 */

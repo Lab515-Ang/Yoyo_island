@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useSave } from '../app/store';
 import { ANIMALS, avatarEmoji, COPY, projectDef } from '../content/config';
 import { Progress, fmtDateTime, fmtMinutes } from '../components/ui';
-import { UserPlus } from 'lucide-react';
+import { InviteCard } from '../components/Invite';
 import { completeNow, createSession, localDateKey, shiftDateKey, weekStartKey } from '../domain/focus';
 import { activeProject, animalUnlocked, balance, closeSession, contribute, contributionsByUser, islandId, minutesByDay, unlockAnimal } from '../domain/game';
 import { demoGrant } from '../domain/save';
@@ -94,9 +94,7 @@ export function Together() {
           </li>
         ))}
       </ol>
-      <button className="board-invite" disabled title={COPY.multiplayerOff}>
-        <UserPlus size={18} aria-hidden="true" /> 邀請好友（{COPY.multiplayerOff}）
-      </button>
+      <InviteCard />
 
       {demo ? (
         <div className="notice demo">

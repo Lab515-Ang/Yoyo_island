@@ -21,6 +21,8 @@ import { npsDue } from './domain/feedback';
 import { Sounds } from './pages/Sounds';
 import { Journey } from './pages/Journey';
 import { Codex } from './pages/Codex';
+import { Achievements } from './pages/Achievements';
+import { achievementReady } from './domain/achievements';
 import { Together } from './pages/Together';
 import { SettingsPage } from './pages/Settings';
 import { Shop } from './pages/Shop';
@@ -42,7 +44,7 @@ const NAV: { id: View; label: string; icon: LucideIcon; soon?: boolean }[] = [
   { id: 'journey', label: '我的歷程', icon: BookOpen },
   { id: 'codex', label: '觀察圖鑑', icon: PawPrint },
   { id: 'friends', label: '好友', icon: Users },
-  { id: 'achievements', label: '成就', icon: Medal, soon: true },
+  { id: 'achievements', label: '成就', icon: Medal },
   { id: 'shop', label: '商店', icon: ShoppingBag },
   { id: 'news', label: '活動消息', icon: Bell, soon: true },
   { id: 'settings', label: '設定', icon: SettingsIcon },
@@ -115,6 +117,7 @@ function Main() {
   const [resting, setResting] = useState(false);
   const [recordsTag, setRecordsTag] = useState<string | null>(null);
   const reward = useMemo(() => hasReward(save, Date.now()), [save]); // 有寶箱可以開：選單上的小紅點
+  const achieved = useMemo(() => achievementReady(save), [save]); // 有成就可以領
   const [askNps, setAskNps] = useState(false);
   const [navOpen, setNavOpen] = useState(false); // 手機：抽屜
   const [collapsed, setCollapsedState] = useState(readCollapsed); // 桌面：收合成圖示列
@@ -307,7 +310,7 @@ function Main() {
             aria-controls="sidenav"
           >
             <Menu size={22} strokeWidth={2.2} aria-hidden="true" />
-            {reward && <span className="nav-dot" aria-hidden="true" />}
+            {(reward || achieved) && <span className="nav-dot" aria-hidden="true" />}
           </button>
           {/* 專注紀錄把「總覽」放在這一排中間（Records 用 portal 放進來） */}
           {view === 'records' ? (
@@ -342,6 +345,7 @@ function Main() {
               <span className="nav-label">{n.label}</span>
               {n.soon && <span className="soon">未開放</span>}
               {n.id === 'quests' && reward && <span className="nav-dot" aria-label="有寶箱可以打開" />}
+              {n.id === 'achievements' && achieved && <span className="nav-dot" aria-label="有成就可以領取" />}
             </button>
           ))}
         </nav>
@@ -360,7 +364,7 @@ function Main() {
           {view === 'journey' && <Journey />}
           {view === 'codex' && <Codex />}
           {view === 'friends' && <Together />}
-          {view === 'achievements' && <NotYet title="成就" />}
+          {view === 'achievements' && <Achievements />}
           {view === 'shop' && <Shop onLobby={() => go('lobby')} />}
           {view === 'news' && <NotYet title="活動消息" />}
           {view === 'settings' && <SettingsPage />}
