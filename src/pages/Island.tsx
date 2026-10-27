@@ -1,11 +1,12 @@
 import { useCallback, useState } from 'react';
 import { useSave } from '../app/store';
-import { COPY, habitatName, hasStages, regionAnimals, regionDef, regionProjects, stageName } from '../content/config';
+import { COPY, animalDef, animalRegion, habitatName, hasStages, regionAnimals, regionDef, regionProjects, stageName } from '../content/config';
 import { RegionChip } from '../components/Region';
 import { AnimalCard, Flag, Modal, Progress, fmtMinutes } from '../components/ui';
 import { AnimalArt } from '../components/Animal';
 import { animalsUnlockedBy, balance, contribute, currentRegion, growthOf, habitatProgress, habitatSound, hatchCounts, isDone, projectRow, regionOpen, remainingFor, sceneAnimals } from '../domain/game';
 import { HabitatScene } from '../scenes/HabitatScene';
+import forestArt from '../assets/scenes/forest.webp';
 import { useAmbient } from '../sound';
 import { ChevronRight, Sprout } from 'lucide-react';
 import { PageTip } from '../components/PageTip';
@@ -33,7 +34,7 @@ export function IslandPage({ onLobby, onCodex }: { onLobby: () => void; onCodex:
       </div>
       <PageTip id="island">這是你的小島。每次專注完成，時間會自動拿來修復森林；工程修好，就有新的動物回來。</PageTip>
       <section className="island-stage">
-        <HabitatScene habitatId={habitat} onSelect={pick} />
+        {habitat === 'forest' ? <ForestArt onSelect={pick} /> : <HabitatScene habitatId={habitat} onSelect={pick} />}
         <span className="stage-chip">
           <Sprout size={15} aria-hidden="true" /> {habitatName(habitat)}・修復 {pct > 0 ? Math.max(1, Math.round(pct * 100)) : 0}%
         </span>
@@ -42,6 +43,38 @@ export function IslandPage({ onLobby, onCodex }: { onLobby: () => void; onCodex:
       <RestorePanel />
       <IslandAnimals onCard={setCard} onLobby={onLobby} onCodex={onCodex} />
       {card && <AnimalCard save={save} animalId={card} onClose={() => setCard(null)} />}
+    </div>
+  );
+}
+
+// 插畫草地上的站位（left %、bottom %、大小 px）：前排大、後排小，看起來有遠近
+const SPOTS: [number, number, number][] = [
+  [50, 20, 96],
+  [22, 24, 84],
+  [78, 25, 84],
+  [35, 40, 66],
+  [66, 42, 64],
+  [50, 52, 52],
+];
+
+/** 台灣森林的插畫場景：最近遇見的動物（最多 6 隻）站在草地上，點了看動物卡。 */
+function ForestArt({ onSelect }: { onSelect: (sid: string) => void }) {
+  const { save } = useSave();
+  const animals = sceneAnimals(save, 24)
+    .filter((a) => animalRegion(animalDef(a.animalId)) === 'tw')
+    .slice(0, SPOTS.length);
+  return (
+    <div className="forest-art">
+      <img src={forestArt} alt="" />
+      {/* 後排先畫，前排的動物蓋在上面 */}
+      {animals
+        .map((a, i) => ({ a, spot: SPOTS[i], i }))
+        .reverse()
+        .map(({ a, spot: [x, y, size], i }) => (
+          <button key={a.id} className="forest-animal" style={{ left: `${x}%`, bottom: `${y}%`, animationDelay: `${i * 0.6}s` }} onClick={() => onSelect(a.id)} aria-label={`${animalDef(a.animalId).name}，看動物卡`}>
+            <AnimalArt id={a.animalId} stage={a.stage} size={size} />
+          </button>
+        ))}
     </div>
   );
 }

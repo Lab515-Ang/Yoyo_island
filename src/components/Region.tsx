@@ -3,7 +3,7 @@ import { useSave } from '../app/store';
 import { REGIONS, TEST_TOOLS, regionAnimals, regionDef, regionProjects } from '../content/config';
 import { currentRegion, hatchCounts, isDone, regionOpen } from '../domain/game';
 import { Flag, Modal, Progress } from './ui';
-import { REGION_XY, WORLD_LAND, WORLD_SPHERE, WORLD_W } from '../content/worldMap';
+import worldMap from '../assets/scenes/world-map.webp';
 import { ChevronDown, Lock } from 'lucide-react';
 
 /** 區域膠囊（觀察圖鑑、我的小島的標題旁）：點了打開區域清單。 */
@@ -22,6 +22,11 @@ export function RegionChip() {
   );
 }
 
+// 插畫地圖縮成 360 寬的座標（原圖 1816×866）；各區域在圖上的位置
+const MAP_W = 360;
+const MAP_H = (866 / 1816) * MAP_W;
+const MAP_XY: Record<string, [number, number]> = { tw: [158, 80.3], jp: [175, 68.8] };
+
 /** 區域選單：上面是世界地圖（點區域切換），下面是每個區域的遇見數、工程進度；還沒開放的寫開放條件。 */
 function RegionSheet({ onClose }: { onClose: () => void }) {
   const { save, update } = useSave();
@@ -34,11 +39,10 @@ function RegionSheet({ onClose }: { onClose: () => void }) {
   return (
     <Modal title="切換區域" onClose={onClose}>
       {/* 世界地圖：已開放的區域是彩色的點，使用中的有光圈，還沒開放的是灰色的鎖 */}
-      <svg className="world-map" viewBox={`0 0 ${WORLD_W} 168`} role="group" aria-label="世界地圖">
-        <path d={WORLD_SPHERE} fill="#cfe7ea" />
-        <path d={WORLD_LAND} fill="#e9e2cf" stroke="#d3c8ad" strokeWidth="0.4" />
+      <svg className="world-map" viewBox={`0 0 ${MAP_W} ${MAP_H}`} role="group" aria-label="世界地圖">
+        <image href={worldMap} width={MAP_W} height={MAP_H} />
         {REGIONS.map((r) => {
-          const [x, y] = REGION_XY[r.id] ?? [0, 0];
+          const [x, y] = MAP_XY[r.id] ?? [0, 0];
           const open = regionOpen(save, r.id);
           const on = r.id === cur;
           // 台灣和日本很近：台灣的名字放左邊、其他放右邊
