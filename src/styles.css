@@ -5326,7 +5326,7 @@ label.set-row input.switch:checked {
 /* ---------- 專注中的回饋：小事件泡泡、足跡、修復進度、光線、螢火蟲 ---------- */
 .focus-moment {
   position: absolute;
-  top: 15%;
+  top: 9%;
   left: 50%;
   z-index: 2;
   width: max-content;
