@@ -1,5 +1,5 @@
-// 島嶼總覽：中央的棲光森林（目前唯一開放的陸地），水域與海岸留待日後改版
-import { HABITATS, REGIONS } from '../content/config';
+// 島嶼總覽：中央是這個區域的主棲地（台灣森林、日本里山），水域與海岸留待日後改版
+import { HABITATS, animalDef, animalRegion, type RegionId } from '../content/config';
 import { AnimalArt } from '../components/Animal';
 import { habitatOpen, habitatProgress, sceneAnimals } from '../domain/game';
 import type { HabitatId, SaveFile } from '../domain/types';
@@ -9,15 +9,16 @@ const POS: Record<HabitatId, [number, number]> = {
   wetland: [262, 70],
   coast: [292, 196],
   bay: [52, 206],
-  satoyama: [0, 0], // 日本是另一座島，不畫在台灣的小島地圖上
+  satoyama: [170, 118], // 日本的小島：主棲地一樣放在中央
 };
-// 只畫台灣這座島上的棲地（其他區域的主棲地不在這張圖）
-const HERE = HABITATS.filter((h) => !REGIONS.some((r) => r.id !== 'tw' && r.habitatId === h.id));
 
-export function IslandMap({ save, onEnter }: { save: SaveFile; onEnter: (h: HabitatId) => void }) {
-  const prog = habitatProgress(save, 'forest');
+export function IslandMap({ save, region = 'tw', main = 'forest', onEnter }: { save: SaveFile; region?: RegionId; main?: HabitatId; onEnter: (h: HabitatId) => void }) {
+  const prog = habitatProgress(save, main);
   const trees = 5 + Math.round(prog * 9);
-  const animals = sceneAnimals(save, 3);
+  const animals = sceneAnimals(save, 24).filter((a) => animalRegion(animalDef(a.animalId)) === region).slice(0, 3);
+  // 主棲地＋之後才開放的水域與海岸
+  const spots = [main, 'wetland', 'coast', 'bay'].map((id) => HABITATS.find((h) => h.id === id)!);
+  const sakura = main === 'satoyama';
   return (
     <svg viewBox="0 0 360 250" className="island-map" role="img" aria-label="小島總覽地圖">
       <rect width="360" height="250" fill="#cfe9ea" />
@@ -33,11 +34,12 @@ export function IslandMap({ save, onEnter }: { save: SaveFile; onEnter: (h: Habi
         return (
           <g key={i}>
             <rect x={x - 1.5} y={y} width="3" height="7" fill="#8a6c4f" />
-            <circle cx={x} cy={y - 2} r="7" fill={i % 3 ? '#6f9a6e' : '#5f8a5e'} />
+            {/* 日本里山：混幾棵櫻花 */}
+            <circle cx={x} cy={y - 2} r="7" fill={sakura && i % 4 === 1 ? '#f2b8c6' : i % 3 ? '#6f9a6e' : '#5f8a5e'} />
           </g>
         );
       })}
-      {HERE.map((h) => {
+      {spots.map((h) => {
         const [x, y] = POS[h.id];
         const open = habitatOpen(save, h.id);
         // 有進度就至少顯示 1%（第一個工程很小，四捨五入會變成 0%）

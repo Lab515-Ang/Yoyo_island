@@ -1,11 +1,11 @@
-// 觀察圖鑑的立體台灣：低多邊形地形，動物站在牠的棲息地；可以拖曳旋轉、點動物看動物卡。
+// 觀察圖鑑的立體地圖（台灣、日本…）：低多邊形地形，動物站在牠的棲息地；可以拖曳旋轉、點動物看動物卡。
 import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { animalDef } from '../content/config';
 import { AnimalArt, TrackArt } from '../components/Animal';
-import { HEIGHT, OUTLINE, colorAt, heightAt, inside, project } from './taiwanGeo';
+import { HEIGHT, colorAt, type Geo } from './geo';
 import { useSvgTexture } from './svgTexture';
 
 export interface MapPin {
@@ -18,18 +18,21 @@ export interface MapPin {
  * 地形：四個角都在島內的格子才畫，每個角依高度抬起、上色（平面著色，低多邊形風格）。
  * 海岸線用整個輪廓做一片平地墊在下面，邊緣才是平滑的、不會是鋸齒格子。
  */
-let terrainCache: THREE.BufferGeometry | null = null; // 地形不會變，切換分頁回來不用重算
-function useTerrain() {
-  return useMemo(() => (terrainCache ??= buildTerrain()), []);
+const terrainCache = new Map<string, THREE.BufferGeometry>(); // 地形不會變，切換分頁回來不用重算
+function useTerrain(geo: Geo) {
+  return useMemo(() => {
+    let g = terrainCache.get(geo.id);
+    if (!g) terrainCache.set(geo.id, (g = buildTerrain(geo)));
+    return g;
+  }, [geo]);
 }
-function buildTerrain() {
+function buildTerrain({ bounds: [west, south, east, north], step, inside, heightAt, project }: Geo) {
   {
-    const step = 0.018;
     // 每個格點只判斷一次在不在島內（四個角共用）
-    const cols = Math.ceil((122.0 - 119.98) / step) + 1;
-    const rows = Math.ceil((25.32 - 21.88) / step) + 1;
+    const cols = Math.ceil((east - west) / step) + 1;
+    const rows = Math.ceil((north - south) / step) + 1;
     const ins: boolean[] = [];
-    for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) ins.push(inside(119.98 + i * step, 21.88 + j * step));
+    for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) ins.push(inside(west + i * step, south + j * step));
     const at = (i: number, j: number) => ins[i * rows + j];
     const pos: number[] = [];
     const col: number[] = [];
@@ -44,8 +47,8 @@ function buildTerrain() {
     for (let i = 0; i < cols - 1; i++)
       for (let j = 0; j < rows - 1; j++) {
         if (!(at(i, j) && at(i + 1, j) && at(i, j + 1) && at(i + 1, j + 1))) continue;
-        const lon = 119.98 + i * step;
-        const lat = 21.88 + j * step;
+        const lon = west + i * step;
+        const lat = south + j * step;
         // 兩個三角形（逆時針，法線朝上）
         vert(lon, lat);
         vert(lon + step, lat);
@@ -62,14 +65,14 @@ function buildTerrain() {
   }
 }
 
-/** 平滑的海岸線：整個島的輪廓（平地）。 */
-function useCoast() {
+/** 平滑的海岸線：每座島的輪廓（平地）。 */
+function useCoast(geo: Geo) {
   return useMemo(() => {
-    const shape = new THREE.Shape(OUTLINE.map(([lon, lat]) => new THREE.Vector2(...project(lon, lat))));
-    const g = new THREE.ShapeGeometry(shape);
+    const shapes = geo.outlines.map((o) => new THREE.Shape(o.map(([lon, lat]) => new THREE.Vector2(...geo.project(lon, lat)))));
+    const g = new THREE.ShapeGeometry(shapes);
     g.rotateX(Math.PI / 2); // 平面座標的 y 是南北（z）
     return g;
-  }, []);
+  }, [geo]);
 }
 
 /** 左右拖曳旋轉（上下滑交給頁面捲動）；只在有變化時重畫。 */
@@ -107,10 +110,10 @@ function DragRotate({ target }: { target: React.RefObject<THREE.Group | null> })
   return null;
 }
 
-function Pin({ pin, onSelect }: { pin: MapPin; onSelect: (id: string) => void }) {
+function Pin({ geo, pin, onSelect }: { geo: Geo; pin: MapPin; onSelect: (id: string) => void }) {
   const a = animalDef(pin.id);
-  const [x, z] = project(a.habitat.lon, a.habitat.lat);
-  const y = heightAt(a.habitat.lon, a.habitat.lat) * HEIGHT;
+  const [x, z] = geo.project(a.habitat.lon, a.habitat.lat);
+  const y = geo.heightAt(a.habitat.lon, a.habitat.lat) * HEIGHT;
   const tex = useSvgTexture(pin.state === 'met' ? `animal:${a.id}:${pin.stage}` : `track:${a.id}`, () =>
     renderToStaticMarkup(pin.state === 'met' ? <AnimalArt id={a.id} stage={pin.stage} size={256} /> : <TrackArt id={a.id} size={256} />),
   );
@@ -147,12 +150,12 @@ function Pin({ pin, onSelect }: { pin: MapPin; onSelect: (id: string) => void })
   );
 }
 
-export default function TaiwanMap3D({ pins, onSelect }: { pins: MapPin[]; onSelect: (id: string) => void }) {
-  const terrain = useTerrain();
-  const coast = useCoast();
+export default function RegionMap3D({ geo, pins, onSelect }: { geo: Geo; pins: MapPin[]; onSelect: (id: string) => void }) {
+  const terrain = useTerrain(geo);
+  const coast = useCoast(geo);
   const group = useRef<THREE.Group>(null);
   return (
-    <Canvas frameloop="demand" dpr={[1, 1.5]} camera={{ fov: 36, position: [0, 7.2, 3.6], near: 0.1, far: 50 }} gl={{ antialias: true, powerPreference: 'low-power' }} aria-label="立體台灣地圖">
+    <Canvas frameloop="demand" dpr={[1, 1.5]} camera={{ fov: 36, position: [0, 7.2, 3.6], near: 0.1, far: 50 }} gl={{ antialias: true, powerPreference: 'low-power' }} aria-label={`立體${geo.name}地圖`}>
       <color attach="background" args={['#bfe0e6']} />
       <hemisphereLight args={['#fff6e0', '#6f8f7a', 1.1]} />
       <directionalLight position={[3, 6, 2]} intensity={1.3} color="#fff2d8" />
@@ -168,7 +171,7 @@ export default function TaiwanMap3D({ pins, onSelect }: { pins: MapPin[]; onSele
           <meshLambertMaterial vertexColors flatShading />
         </mesh>
         {pins.map((p) => (
-          <Pin key={p.id} pin={p} onSelect={onSelect} />
+          <Pin key={p.id} geo={geo} pin={p} onSelect={onSelect} />
         ))}
       </group>
       <DragRotate target={group} />

@@ -3,6 +3,7 @@ import { useSave } from '../app/store';
 import { REGIONS, TEST_TOOLS, regionAnimals, regionDef, regionProjects } from '../content/config';
 import { currentRegion, hatchCounts, isDone, regionOpen } from '../domain/game';
 import { Modal, Progress } from './ui';
+import { REGION_XY, WORLD_LAND, WORLD_SPHERE, WORLD_W } from '../content/worldMap';
 import { ChevronDown, Lock } from 'lucide-react';
 
 /** 區域膠囊（觀察圖鑑、我的小島的標題旁）：點了打開區域清單。 */
@@ -21,14 +22,48 @@ export function RegionChip() {
   );
 }
 
-/** 區域清單：每個區域的遇見數、工程進度；還沒開放的寫開放條件。 */
+/** 區域選單：上面是世界地圖（點區域切換），下面是每個區域的遇見數、工程進度；還沒開放的寫開放條件。 */
 function RegionSheet({ onClose }: { onClose: () => void }) {
   const { save, update } = useSave();
   const cur = currentRegion(save);
   const counts = hatchCounts(save);
+  const pick = (id: string) => {
+    if (id !== cur) update((s) => ({ ...s, settings: { ...s.settings, regionId: id } }));
+    onClose();
+  };
   return (
     <Modal title="切換區域" onClose={onClose}>
-      <p className="small muted">每個區域是一座自己的小島，有不同的動物和修復工程；金幣和寶石全部共用。</p>
+      {/* 世界地圖：已開放的區域是彩色的點，使用中的有光圈，還沒開放的是灰色的鎖 */}
+      <svg className="world-map" viewBox={`0 0 ${WORLD_W} 168`} role="group" aria-label="世界地圖">
+        <path d={WORLD_SPHERE} fill="#cfe7ea" />
+        <path d={WORLD_LAND} fill="#e9e2cf" stroke="#d3c8ad" strokeWidth="0.4" />
+        {REGIONS.map((r) => {
+          const [x, y] = REGION_XY[r.id] ?? [0, 0];
+          const open = regionOpen(save, r.id);
+          const on = r.id === cur;
+          // 台灣和日本很近：台灣的名字放左邊、其他放右邊
+          const left = r.id === 'tw';
+          return (
+            <g
+              key={r.id}
+              className="world-pin"
+              role="button"
+              tabIndex={open ? 0 : -1}
+              aria-label={open ? `切換到${r.name}` : `${r.name}（還沒開放）`}
+              onClick={() => open && pick(r.id)}
+              onKeyDown={(e) => open && (e.key === 'Enter' || e.key === ' ') && pick(r.id)}
+            >
+              <circle cx={x} cy={y} r="14" fill="transparent" />
+              {on && <circle cx={x} cy={y} r="11" fill="rgba(90,140,85,.28)" />}
+              <circle cx={x} cy={y} r="5.8" fill={open ? (on ? '#5a8c55' : '#f29b7f') : '#a8a296'} stroke="#fffdf8" strokeWidth="1.4" />
+              <text x={x + (left ? -10 : 10)} y={y + 3.4} textAnchor={left ? 'end' : 'start'} fontSize="10.5" fontWeight="700" fill="#36302a" stroke="#fffdf8" strokeWidth="2.2" paintOrder="stroke">
+                {open ? r.name : `🔒${r.name}`}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      <p className="small muted">每個區域是一座自己的小島，有不同的動物和修復工程；金幣和寶石全部共用。點地圖上的點也可以切換。</p>
       <div className="region-list">
         {REGIONS.map((r, i) => {
           const open = regionOpen(save, r.id);
@@ -45,10 +80,7 @@ function RegionSheet({ onClose }: { onClose: () => void }) {
               key={r.id}
               className={r.id === cur ? 'region-row on' : 'region-row'}
               disabled={!open}
-              onClick={() => {
-                if (r.id !== cur) update((s) => ({ ...s, settings: { ...s.settings, regionId: r.id } }));
-                onClose();
-              }}
+              onClick={() => pick(r.id)}
             >
               <span className="region-flag" aria-hidden="true">
                 {r.flag}

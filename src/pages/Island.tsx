@@ -41,12 +41,10 @@ export function IslandPage({ onLobby, onCodex }: { onLobby: () => void; onCodex:
       <RestorePanel />
       <ForestAnimals onCard={setCard} onLobby={onLobby} onCodex={onCodex} />
 
-      {region === 'tw' && (
-        <section className="card flush">
-          <IslandMap save={save} onEnter={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
-          <p className="small muted pad">溪流濕地、潮間帶海岸、海灣水下會在日後改版開放，到時候會有新的動物等你去找。</p>
-        </section>
-      )}
+      <section className="card flush">
+        <IslandMap save={save} region={region} main={habitat} onEnter={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
+        <p className="small muted pad">溪流濕地、潮間帶海岸、海灣水下會在日後改版開放，到時候會有新的動物等你去找。</p>
+      </section>
       {card && <AnimalCard save={save} animalId={card} onClose={() => setCard(null)} />}
     </div>
   );
