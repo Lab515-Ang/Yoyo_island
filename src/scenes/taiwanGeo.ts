@@ -35,5 +35,5 @@ export const TAIWAN = makeGeo({
   k: 1.45,
   bounds: [119.98, 21.88, 122.0, 25.32],
   step: 0.018,
-  art: { src: art, bounds: [119.5266, 21.55, 122.4734, 25.6], sea: '#91c4c1' },
+  art: { src: art, bounds: [119.5266, 21.55, 122.4734, 25.6], sea: '#80c5c7' },
 });
