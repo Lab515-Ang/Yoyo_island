@@ -112,17 +112,7 @@ export function Shop({ onLobby }: { onLobby: () => void }) {
 
   return (
     <div className="page shop">
-      <div className="shop-head">
-        <h1>商店</h1>
-        <span className="shop-wallet">
-          <span>
-            <Coin /> {wallet.toLocaleString('en-US')}
-          </span>
-          <span>
-            <Gem /> {jewels.toLocaleString('en-US')}
-          </span>
-        </span>
-      </div>
+      {/* 金幣、寶石顯示在最上面那一排（同一個錢包，不要重複） */}
       <PageTip id="shop">用專注賺到的金幣，可以解鎖新的動物探索路線、環境音和土地造型。</PageTip>
       <div className="shop-tabs" role="tablist" aria-label="商店分類">
         {TABS.map(([k, l]) => (

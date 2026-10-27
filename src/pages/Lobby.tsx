@@ -1,7 +1,7 @@
 import { useRef, useState, type CSSProperties } from 'react';
 import { useSave } from '../app/store';
 import { ANIMALS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, TAGS, animalDef, animalRegion, clampMinutes, projectDef, regionDef, tagColor, type AnimalDef } from '../content/config';
-import { Modal, fmtMinutes } from '../components/ui';
+import { LEAVE_MS, Modal, SHEET_OUT_MS, fmtMinutes } from '../components/ui';
 import { AnimalArt, TrackArt } from '../components/Animal';
 import { GrowthTag, RegionFlag, unlockText } from '../components/ui';
 import { activeProject, animalUnlocked, animalsUnlockedBy, chosenAnimal, currentHabitat, growthOf, regionOpen, hatchCounts, newAnimals, remainingFor, startFocus } from '../domain/game';
@@ -31,6 +31,17 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
   const habitat = regionOpen(save, eggRegion) ? regionDef(eggRegion).habitatId : currentHabitat(save);
   const setEgg = (id: string) => update((s) => ({ ...s, settings: { ...s.settings, eggId: id } }));
   const [sheet, setSheet] = useState<Sheet>(null);
+  // 關掉底部選單：先讓它滑下去再拿掉；then 是滑完才做的事（例如換探索目標，換的動畫才看得到）
+  const [closing, setClosing] = useState(false);
+  const closeSheet = (then?: () => void) => {
+    setClosing(true);
+    window.setTimeout(() => {
+      setSheet(null);
+      setClosing(false);
+      then?.();
+    }, SHEET_OUT_MS);
+  };
+  const [leaving, setLeaving] = useState(false); // 按下開始：大廳先淡出，再進專注畫面
   const [draft, setDraft] = useState('');
   const [custom, setCustom] = useState('');
   const [customOpen, setCustomOpen] = useState(false);
@@ -69,9 +80,15 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
     });
 
   const begin = (useDeep: boolean) => {
+    if (leaving) return;
     setSheet(null);
-    const next = update((s) => startFocus(s, { taskTitle: task, tag, habitatId: habitat, mode: 'countdown', targetSeconds: seconds, animalId: egg, deep: useDeep, extend: st.extendTimer }, Date.now()));
-    if (next) onStarted();
+    setLeaving(true);
+    const t = Date.now(); // 從按下的那一刻開始算
+    window.setTimeout(() => {
+      const next = update((s) => startFocus(s, { taskTitle: task, tag, habitatId: habitat, mode: 'countdown', targetSeconds: seconds, animalId: egg, deep: useDeep, extend: st.extendTimer }, t));
+      if (next) onStarted();
+      else setLeaving(false);
+    }, LEAVE_MS);
   };
   // 深度專注要先等原生端回覆權限：連點兩下不要跑兩次
   const starting = useRef(false);
@@ -106,7 +123,7 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
   };
 
   return (
-    <div className="lobby">
+    <div className={leaving ? 'lobby leaving' : 'lobby'}>
       {/* 這次要做什麼：標籤＋標題 */}
       <div className="lobby-task">
         <button className="tag-chip" onClick={() => setSheet('tag')} aria-label={`標籤：${tag}，點一下更換`}>
@@ -129,7 +146,10 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
       {/* 找誰：整頁漸層，中間一圈是這次的探索目標（還沒出發，只看得到剪影） */}
       <div className="lobby-target">
         <button className="lobby-ring" onClick={() => setSheet('egg')} aria-label={`探索目標：${animalDef(egg).name}${fresh.length ? '，有新的足跡' : ''}，點一下更換`}>
-          <TrackArt id={egg} stage={growthOf(save, egg).stage} size="72%" />
+          {/* key：換了探索目標就重新進場（從小彈到大） */}
+          <span className="ring-art" key={egg}>
+            <TrackArt id={egg} stage={growthOf(save, egg).stage} size="72%" />
+          </span>
           {/* 有還沒遇見過的動物可以去找：圓圈右下角一個驚嘆號 */}
           {fresh.length > 0 && (
             <span className="ring-alert" aria-hidden="true">
@@ -152,7 +172,7 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
       <InstallHint />
 
       {sheet === 'tag' && (
-        <Modal title="標籤" onClose={() => setSheet(null)}>
+        <Modal title="標籤" onClose={() => setSheet(null)} closing={closing}>
           <div className="sheet-list" role="radiogroup" aria-label="標籤">
             {tags.map((t) => (
               <div key={t} className="tag-row">
@@ -188,7 +208,7 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
       )}
 
       {sheet === 'title' && (
-        <Modal title="專注標題" onClose={() => setSheet(null)}>
+        <Modal title="專注標題" onClose={() => setSheet(null)} closing={closing}>
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -205,7 +225,7 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
       )}
 
       {sheet === 'time' && (
-        <Modal title="專注時間" onClose={() => setSheet(null)}>
+        <Modal title="專注時間" onClose={() => setSheet(null)} closing={closing}>
           {/* 參考 Forest：滑動軌拉時間，另外可以自訂分鐘、開關深度專注 */}
           <div className="time-sheet">
             <p className="time-value">
@@ -306,7 +326,7 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
       )}
 
       {sheet === 'egg' && (
-        <Modal title="這次想去找誰？" onClose={() => setSheet(null)}>
+        <Modal title="這次想去找誰？" onClose={() => setSheet(null)} closing={closing}>
           <p className="small muted">專注時牠會慢慢靠近，完成就遇見牠，留下一筆觀察紀錄；提前放棄牠就被嚇跑了。同一種動物遇見越多次，族群越穩定，看到的就越成熟（60 分鐘以上的探索算 2 點成長）。</p>
           {/* 我的動物：已經可以去找的（不分區域） */}
           <h3 className="pick-head">我的動物</h3>
@@ -320,10 +340,7 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
                   role="radio"
                   aria-checked={egg === a.id}
                   className={egg === a.id ? 'plant-option on' : 'plant-option'}
-                  onClick={() => {
-                    setSheet(null);
-                    setEgg(a.id);
-                  }}
+                  onClick={() => closeSheet(() => setEgg(a.id))}
                 >
                   <RegionFlag id={a.id} />
                   {met ? <AnimalArt id={a.id} stage={g.stage} size={56} /> : <TrackArt id={a.id} size={56} />}
@@ -360,10 +377,7 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
                   <button
                     key={a.id}
                     className="plant-option"
-                    onClick={() => {
-                      setSheet(null);
-                      onShop();
-                    }}
+                    onClick={() => closeSheet(onShop)}
                   >
                     <RegionFlag id={a.id} />
                     <AnimalArt id={a.id} size={56} hidden />

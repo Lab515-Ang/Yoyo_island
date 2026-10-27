@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useGame, useSave } from './app/store';
 import { APP_NAME, COPY, avatarEmoji } from './content/config';
-import { applyFocusRewards, closeSession, coins, openSession, putSession, settleOpenSessions } from './domain/game';
+import { applyFocusRewards, closeSession, coins, gems, openSession, putSession, settleOpenSessions } from './domain/game';
 import * as storage from './data/storage';
 import { applyDeepFocus, dueAt, wakeAt } from './domain/focus';
 import { notifyEnd, playChime } from './sound';
@@ -26,7 +26,7 @@ import { Together } from './pages/Together';
 import { SettingsPage } from './pages/Settings';
 import { Shop } from './pages/Shop';
 import { GuardPage, GuardScreen } from './pages/Guard';
-import { Coin, Modal } from './components/ui';
+import { Coin, Gem, Modal } from './components/ui';
 import { Tour } from './components/Tour';
 import { hasReward } from './domain/quests';
 import { BarChart3, Bell, BookOpen, Home, ListChecks, Medal, Menu, Music, PawPrint, Settings as SettingsIcon, ShieldCheck, ShoppingBag, Trees, Users, type LucideIcon } from 'lucide-react';
@@ -301,6 +301,17 @@ function Main() {
     window.scrollTo(0, 0);
   };
 
+  // 進出專注畫面（開始、完成、放棄、取消）：換畫面的那一刻蓋一層深綠，再慢慢淡掉。
+  // 搭配大廳、專注畫面離開前的淡出，就不會硬切。用 layout effect：新畫面畫出來之前就蓋上
+  const screen = open ? 'focus' : resting ? 'rest' : summaryId ? 'summary' : 'shell';
+  const lastScreen = useRef(screen);
+  const [veil, setVeil] = useState(0);
+  useLayoutEffect(() => {
+    if (lastScreen.current === screen) return;
+    if (screen === 'focus' || lastScreen.current === 'focus') setVeil((v) => v + 1);
+    lastScreen.current = screen;
+  }, [screen]);
+
   let body;
   if (open) body = <Focus session={open} onFinished={setSummaryId} />;
   else if (resting) body = <Break onDone={() => (setResting(false), go('lobby'))} />;
@@ -349,8 +360,14 @@ function Main() {
               <span className="muted small">{save.islands[0]?.name}</span>
             </button>
           )}
-          <button className="wallet" title="金幣：在商店解鎖動物" onClick={() => go('shop')} aria-label={`金幣 ${coins(save)}，前往商店`}>
+          <button className="wallet" title="金幣：在商店解鎖動物" onClick={() => go('shop')} aria-label={view === 'shop' ? `金幣 ${coins(save)}、寶石 ${gems(save)}` : `金幣 ${coins(save)}，前往商店`}>
             <Coin /> <strong>{coins(save).toLocaleString('en-US')}</strong>
+            {/* 商店裡連寶石一起顯示 */}
+            {view === 'shop' && (
+              <>
+                <Gem /> <strong>{gems(save).toLocaleString('en-US')}</strong>
+              </>
+            )}
           </button>
           <button className="avatar-btn" onClick={() => go('settings')} aria-label="設定">
             {avatarEmoji(save.profile.avatarId)}
@@ -412,9 +429,10 @@ function Main() {
       )}
       {writeError && <div className="error-bar" role="alert">{writeError}</div>}
       {/* 專注、結算、休息與一般頁面之間切換時淡入 */}
-      <div className="screen-in" key={open ? 'focus' : resting ? 'rest' : summaryId ? 'summary' : 'shell'}>
+      <div className="screen-in" key={screen}>
         {body}
       </div>
+      {veil > 0 && <div key={veil} className="veil" aria-hidden="true" />}
       {guardApp && <GuardScreen key={guardApp.at} app={guardApp} onClose={() => setGuardApp(null)} />}
       {toast && (
         <div className="toast" role="status">

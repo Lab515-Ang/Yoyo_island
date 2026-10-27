@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { GROWTH_MAX, ZONE_NAME, animalDef, animalRegion, regionDef, hasStages, levelName, projectDef, stageName, type AnimalDef } from '../content/config';
 import { animalUnlocked, growthOf, hatchCounts } from '../domain/game';
 import type { SaveFile } from '../domain/types';
@@ -6,27 +6,39 @@ import { AnimalArt } from './Animal';
 import { X } from 'lucide-react';
 
 /** CSS 畫的金幣圖示（🪙 在 Windows 10 的表情字型裡沒有）。 */
+// 轉場時間（和 styles.css 的動畫一致）：底部選單滑下去、進出專注畫面的淡出
+export const SHEET_OUT_MS = 220;
+export const LEAVE_MS = 420;
+
 export const Coin = () => <span className="coin" aria-hidden="true" />;
 /** CSS 畫的寶石（六角形）。 */
 export const Gem = () => <span className="gem" aria-hidden="true" />;
 
 /** 原生 <dialog>：焦點、Esc 關閉都由瀏覽器處理。被瀏覽器直接關掉時也通知（重新打開過的就不算，例如開發模式的重掛載）。 */
-export function Modal({ title, onClose, children, className }: { title: string; onClose: () => void; children: ReactNode; className?: string }) {
+export function Modal({ title, onClose, children, className, closing }: { title: string; onClose: () => void; children: ReactNode; className?: string; closing?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
+  // 關掉時先播滑下去的動畫，播完才真的關（不要硬切）
+  const [leaving, setLeaving] = useState(false);
+  const dismiss = () => {
+    if (leaving) return;
+    setLeaving(true);
+    window.setTimeout(onClose, SHEET_OUT_MS);
+  };
+  const cls = ['modal', className, (leaving || closing) && 'closing'].filter(Boolean).join(' ');
   useEffect(() => {
     const d = ref.current!;
     if (!d.open) d.showModal();
     return () => d.close();
   }, []);
   return (
-    <dialog ref={ref} className={className ? `modal ${className}` : 'modal'} onCancel={(e) => e.target === e.currentTarget && (e.preventDefault(), onClose())} onClose={(e) => e.target === e.currentTarget && !ref.current?.open && onClose()} onClick={(e) => e.target === ref.current && onClose()}>
+    <dialog ref={ref} className={cls} onCancel={(e) => e.target === e.currentTarget && (e.preventDefault(), dismiss())} onClose={(e) => e.target === e.currentTarget && !ref.current?.open && onClose()} onClick={(e) => e.target === ref.current && dismiss()}>
       <div className="modal-body">
         <header className="modal-head">
           {/* 打開時焦點放在標題（讀屏先唸標題），不要讓關閉按鈕一打開就亮起焦點框 */}
           <h2 tabIndex={-1} autoFocus style={{ outline: 'none' }}>
             {title}
           </h2>
-          <button className="icon-btn" onClick={onClose} aria-label="關閉">
+          <button className="icon-btn" onClick={dismiss} aria-label="關閉">
             <X size={20} strokeWidth={2.4} aria-hidden="true" />
           </button>
         </header>

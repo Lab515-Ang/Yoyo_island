@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useNow, useSave } from '../app/store';
 import { APP_NAME, MIN_FOCUS_MINUTES, PAUSE_MINUTES, SOUNDS, TEST_TOOLS, animalDef } from '../content/config';
-import { Modal } from '../components/ui';
+import { LEAVE_MS, Modal } from '../components/ui';
 import { TrackArt } from '../components/Animal';
 import { completeNow, elapsedMs, finish, pause, rawElapsedMs, remainingMs, resume, targetReached, watchWindow } from '../domain/focus';
 import { applyFocusRewards, cancelSession, closeSession, focusSoundFor, graceLeftMs, growthOf, putSession } from '../domain/game';
@@ -51,9 +51,19 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
 
   // 結束一律依實際有效時間結算點數
   // 正向計時結束＝完成；倒數提前結束＝放棄（沒有點數與金幣）
+  const [leaving, setLeaving] = useState(false);
+  const leave = (commit: () => boolean) => {
+    if (leaving) return;
+    setLeaving(true);
+    window.setTimeout(() => commit() || setLeaving(false), LEAVE_MS);
+  };
   const end = (status: 'completed' | 'abandoned') => {
     const t = Date.now();
-    if (update((s) => applyFocusRewards(closeSession(s, finish(cur(s), t, status), t), session.id, t))) onFinished(session.id);
+    leave(() => {
+      const ok = !!update((s) => applyFocusRewards(closeSession(s, finish(cur(s), t, status), t), session.id, t));
+      if (ok) onFinished(session.id);
+      return ok;
+    });
   };
   // 一律以存檔中的最新狀態為準，重複點擊不會重複結算
   const cur = (s: SaveFile) => s.sessions.find((x) => x.id === session.id)!;
@@ -111,7 +121,11 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   // 測試工具：立刻以指定分鐘完成，正常結算
   const finishNow = (minutes: number) => {
     const t = Date.now();
-    if (update((s) => applyFocusRewards(closeSession(s, completeNow(cur(s), t, minutes), t), session.id, t))) onFinished(session.id);
+    leave(() => {
+      const ok = !!update((s) => applyFocusRewards(closeSession(s, completeNow(cur(s), t, minutes), t), session.id, t));
+      if (ok) onFinished(session.id);
+      return ok;
+    });
   };
 
   // 探索中：動物從剪影慢慢走近、現出顏色。倒數依進度；正向計時以 45 分鐘為一輪（分 20 段，避免每次重繪都變）
@@ -154,13 +168,18 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   }, [watchUntil, watchKey, allow, notifyEnd, doneText, watchText]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cancel = () => {
-    if (update((s) => cancelSession(s, session.id, Date.now()))) notify('已取消，這次不算數。');
+    const t = Date.now();
+    leave(() => {
+      const ok = !!update((s) => cancelSession(s, session.id, t));
+      if (ok) notify('已取消，這次不算數。');
+      return ok;
+    });
   };
   const toggleSound = () => update((s) => ({ ...s, settings: { ...s.settings, soundEnabled: !s.settings.soundEnabled } }));
 
   return (
     <>
-      <div className="focus">
+      <div className={leaving ? 'focus leaving' : 'focus'}>
         <div className="focus-bg" aria-hidden="true">
           <img src={focusBg} alt="" draggable={false} />
         </div>
@@ -259,7 +278,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
         </Modal>
       )}
       {ending && (
-        <Modal title="要放棄這次專注嗎？" onClose={() => setEnding(false)}>
+        <Modal title="要放棄這次專注嗎？" onClose={() => setEnding(false)} closing={leaving}>
           <p>
             {tooShort ? `還不到 ${MIN_FOCUS_MINUTES} 分鐘。` : ''}已專注的 {elapsedMin} 分鐘不會修復森林、也拿不到金幣，{animalDef(session.animalId).name}也會被嚇跑，只會留下時間紀錄。
           </p>

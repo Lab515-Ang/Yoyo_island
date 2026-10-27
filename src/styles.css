@@ -6281,3 +6281,153 @@ label.toggle input.switch::after {
     animation: none;
   }
 }
+
+/* ---------- 轉場：不要硬切 ---------- */
+/* 底部選單關掉：滑下去、背景一起淡掉（時間 = SHEET_OUT_MS） */
+.modal.closing {
+  animation: sheet-down 0.22s cubic-bezier(0.4, 0, 1, 1) both;
+}
+.modal.closing::backdrop {
+  animation: backdrop-out 0.22s ease both;
+}
+.modal.center-modal.closing {
+  animation: modal-out 0.2s ease both;
+}
+@keyframes sheet-down {
+  to {
+    transform: translateY(100%);
+  }
+}
+@keyframes modal-out {
+  to {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+@keyframes backdrop-out {
+  to {
+    opacity: 0;
+  }
+}
+/* 大廳圓圈換了探索目標：新的動物從小彈出來 */
+.lobby .ring-art {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  animation: ring-swap 0.55s cubic-bezier(0.3, 1.5, 0.5, 1) both;
+}
+@keyframes ring-swap {
+  from {
+    opacity: 0;
+    transform: scale(0.5) translateY(12px);
+  }
+}
+/* 按下開始專注（時間 = LEAVE_MS）：上下的東西淡出，圓圈先縮一下再放大淡掉，像走進森林 */
+.lobby.leaving > :not(.lobby-target),
+.lobby.leaving .next-step {
+  animation: lobby-out 0.35s ease both;
+}
+.shell:has(.lobby.leaving) .topbar {
+  animation: lobby-out 0.35s ease both;
+}
+.lobby.leaving .lobby-ring {
+  animation: ring-go 0.45s cubic-bezier(0.5, 0, 0.7, 0.4) both;
+}
+@keyframes lobby-out {
+  to {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+@keyframes ring-go {
+  30% {
+    transform: scale(0.94);
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+/* 專注畫面結束（完成、放棄、取消）：慢慢暗成深綠 */
+.focus::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  background: #2c4d3c;
+  opacity: 0;
+  pointer-events: none;
+}
+.focus.leaving::after {
+  animation: veil-in 0.42s ease both;
+}
+.focus.leaving .focus-plant {
+  animation: lobby-out 0.4s ease both;
+}
+@keyframes veil-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+/* 換畫面的那一刻蓋上深綠，再淡掉（App 的 .veil） */
+.veil {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: #2c4d3c;
+  pointer-events: none;
+  animation: veil-out 0.7s 0.05s ease both;
+}
+@keyframes veil-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+/* 進到專注畫面：夜景從稍微放大慢慢退回來，動物、計時、按鈕依序浮上來 */
+.focus-bg img {
+  animation: focus-bg-in 1.4s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+@keyframes focus-bg-in {
+  from {
+    transform: scale(1.12);
+  }
+}
+.focus > :is(.focus-plant, .focus-bubble, .focus-target, .focus-endtime, .focus-controls) {
+  animation: rise-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+.focus > .focus-bubble { animation-delay: 0.1s; }
+.focus > .focus-target { animation-delay: 0.2s; }
+.focus > .focus-endtime { animation-delay: 0.25s; }
+.focus > .focus-controls { animation-delay: 0.3s; }
+/* 結算畫面：內容依序浮上來 */
+.screen-in > .result > * {
+  animation: rise-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+.screen-in > .result > :nth-child(2) { animation-delay: 0.08s; }
+.screen-in > .result > :nth-child(3) { animation-delay: 0.16s; }
+.screen-in > .result > :nth-child(n + 4) { animation-delay: 0.24s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .modal.closing,
+  .modal.closing::backdrop,
+  .lobby .ring-art,
+  .lobby.leaving > *,
+  .lobby.leaving .lobby-ring,
+  .lobby.leaving .next-step,
+  .focus.leaving .focus-plant,
+  .focus-bg img,
+  .focus > *,
+  .screen-in > .result > * {
+    animation: none;
+  }
+  .lobby.leaving {
+    opacity: 0;
+  }
+}
