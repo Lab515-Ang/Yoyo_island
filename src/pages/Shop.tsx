@@ -3,7 +3,7 @@ import { useNow, useSave } from '../app/store';
 import { SOUNDS, animalDef, animalRegion, hasStages, levelName, regionDef, type AnimalDef } from '../content/config';
 import { COIN_PACKS, GEM_PACKS, REFRESH_COINS, landDef, type ShopItem } from '../content/shop';
 import { AnimalArt, TrackArt } from '../components/Animal';
-import { Coin, Gem, Modal } from '../components/ui';
+import { Coin, Gem, Modal, RegionFlag } from '../components/ui';
 import { coins, gems, type ActionResult } from '../domain/game';
 import { buyItem, dailyPicks, exchangeCoins, featuredItems, landOwned, owned, refreshPicks, shopItems } from '../domain/shop';
 import { Check, Play, RefreshCw, Square } from 'lucide-react';
@@ -93,6 +93,7 @@ export function Shop({ onLobby }: { onLobby: () => void }) {
     return (
       <button key={it.id} className={have ? 'shop-item owned' : 'shop-item'} onClick={() => setPick(it)} aria-label={have ? `${it.name}（已擁有）` : `${it.name}，購買`}>
         <span className="shop-art">
+          {it.kind === 'animal' && <RegionFlag id={it.ref} />}
           <ItemArt it={it} size={64} />
         </span>
         <span className="shop-name">{it.name}</span>
@@ -139,6 +140,7 @@ export function Shop({ onLobby }: { onLobby: () => void }) {
               {featured.map((it) => (
                 <button key={it.id} className={`shop-hero kind-${it.kind}`} onClick={() => setPick(it)}>
                   <span className="eyebrow">{kindName[it.kind]}</span>
+                  {it.kind === 'animal' && <RegionFlag id={it.ref} />}
                   <ItemArt it={it} size={150} />
                   <strong>{it.name}</strong>
                   <span className="price-pill big">{owned(save, it) ? '已擁有' : <PriceTag it={it} />}</span>

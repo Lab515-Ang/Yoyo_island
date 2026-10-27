@@ -3,7 +3,7 @@ import { useSave } from '../app/store';
 import { ANIMALS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, TAGS, animalDef, animalRegion, clampMinutes, projectDef, regionDef, tagColor, type AnimalDef } from '../content/config';
 import { Modal, fmtMinutes } from '../components/ui';
 import { AnimalArt, TrackArt } from '../components/Animal';
-import { GrowthTag, unlockText } from '../components/ui';
+import { GrowthTag, RegionFlag, unlockText } from '../components/ui';
 import { activeProject, animalUnlocked, animalsUnlockedBy, chosenAnimal, currentHabitat, growthOf, regionOpen, hatchCounts, newAnimals, remainingFor, startFocus } from '../domain/game';
 import { DEEP_GRACE_MS, TimeGuard, isAndroid, isNative, requestNotifyPermission, type GuardApp } from '../platform';
 import { AppPicker } from './Guard';
@@ -325,6 +325,7 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
                     setEgg(a.id);
                   }}
                 >
+                  <RegionFlag id={a.id} />
                   {met ? <AnimalArt id={a.id} stage={g.stage} size={56} /> : <TrackArt id={a.id} size={56} />}
                   <span>
                     {a.name}
@@ -343,6 +344,7 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
           <div className="plant-pick">
             {plus.map((a) => (
               <button key={a.id} className="plant-option plus" onClick={() => setSheet('plus')}>
+                <RegionFlag id={a.id} />
                 <AnimalArt id={a.id} size={56} />
                 <span>{a.name}</span>
                 <span className="small muted">Plus 會員專屬</span>
@@ -363,6 +365,7 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
                       onShop();
                     }}
                   >
+                    <RegionFlag id={a.id} />
                     <AnimalArt id={a.id} size={56} hidden />
                     <span>{a.name}</span>
                     <span className="small muted">{shortUnlock(a)}</span>

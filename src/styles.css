@@ -5523,3 +5523,23 @@ html:has(dialog[open]) {
 .plus-modal .primary {
   width: 100%;
 }
+
+/* ---------- 動物格子右上角的國旗（主要分布國家） ---------- */
+.plant-option,
+.shop-art,
+.shop-hero {
+  position: relative;
+}
+.region-flag {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-size: 0.95rem;
+  line-height: 1;
+  pointer-events: none;
+}
+.shop-hero .region-flag {
+  top: 12px;
+  right: 12px;
+  font-size: 1.2rem;
+}

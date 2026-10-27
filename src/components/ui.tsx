@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { GROWTH_MAX, ZONE_NAME, animalDef, hasStages, levelName, projectDef, stageName, type AnimalDef } from '../content/config';
+import { GROWTH_MAX, ZONE_NAME, animalDef, animalRegion, regionDef, hasStages, levelName, projectDef, stageName, type AnimalDef } from '../content/config';
 import { animalUnlocked, growthOf, hatchCounts } from '../domain/game';
 import type { SaveFile } from '../domain/types';
 import { AnimalArt } from './Animal';
@@ -33,6 +33,16 @@ export function Modal({ title, onClose, children, className }: { title: string; 
         {children}
       </div>
     </dialog>
+  );
+}
+
+/** 動物主要分布的國家：格子右上角的小國旗。 */
+export function RegionFlag({ id }: { id: string }) {
+  const r = regionDef(animalRegion(animalDef(id)));
+  return (
+    <span className="region-flag" title={r.name} aria-label={r.name}>
+      {r.flag}
+    </span>
   );
 }
 
