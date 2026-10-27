@@ -316,7 +316,6 @@ function Main() {
         }}
         onProject={() => go('island')}
         onShop={() => go('shop')}
-        onQuests={() => go('quests')}
         onRecords={(tag) => {
           go('records');
           setRecordsTag(tag);

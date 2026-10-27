@@ -6,8 +6,8 @@ import { AnimalArt, TrackArt } from '../components/Animal';
 import { Coin, Modal, fmtMinutes } from '../components/ui';
 import { localDateKey } from '../domain/focus';
 import { activeProject, animalUnlocked, animalsUnlockedBy, balance, coins, earnedFor, editSessionNote, endedSessions, focusOutcome, minutesByDay, NOTE_MAX, endedDayKeys, remainingFor, sightings } from '../domain/game';
-import { hasReward } from '../domain/quests';
 import { HabitatScene } from '../scenes/HabitatScene';
+import doneBg from '../assets/scenes/focus-done.webp';
 import { toPng } from '../components/ShareCard';
 import { TimeGuard, isAndroid } from '../platform';
 import type { SaveFile } from '../domain/types';
@@ -47,7 +47,6 @@ export function Summary({
   onRecords,
   onBreak,
   onShop,
-  onQuests,
 }: {
   sessionId: string;
   onDone: () => void;
@@ -55,7 +54,6 @@ export function Summary({
   onRecords: (tag: string) => void;
   onBreak: () => void;
   onShop: () => void;
-  onQuests: () => void;
 }) {
   const { save } = useSave();
   const s = save.sessions.find((x) => x.id === sessionId);
@@ -140,7 +138,7 @@ export function Summary({
 
       <div className={done ? 'result-card' : 'result-card faded'}>
         <div className="result-card-scene" aria-hidden="true">
-          <HabitatScene habitatId={s.habitatId} bubble hide={s.id} />
+          <img className="result-bg" src={doneBg} alt="" draggable={false} />
           {/* 這次遇見的動物直接出現在場景裡；放棄的話是跑走的剪影。完整紀錄在「我的歷程」 */}
           <div className="result-plant">{done ? <AnimalArt id={s.animalId} stage={stage} size="100%" /> : <TrackArt id={s.animalId} fled size="100%" />}</div>
         </div>
@@ -223,11 +221,6 @@ export function Summary({
           返回首頁
         </button>
 
-        {hasReward(save, Date.now()) && (
-          <button className="link-light" onClick={onQuests}>
-            🎁 挑戰完成了，去打開寶箱
-          </button>
-        )}
         {canBuild && (
           <button className="link-light" onClick={onProject}>
             點數夠了，去修「{project.title}」

@@ -6,7 +6,7 @@ import { TrackArt } from '../components/Animal';
 import { completeNow, elapsedMs, finish, pause, rawElapsedMs, remainingMs, resume, targetReached, watchWindow } from '../domain/focus';
 import { activeProject, applyFocusRewards, cancelSession, closeSession, focusSoundFor, graceLeftMs, growthOf, projectRow, putSession } from '../domain/game';
 import type { FocusSession, SaveFile } from '../domain/types';
-import { HabitatScene } from '../scenes/HabitatScene';
+import focusBg from '../assets/scenes/focus-night.webp';
 import { useAmbient } from '../sound';
 import { DEEP_GRACE_MS, TimeGuard, cancelFocusEnd, isAndroid, scheduleFocusEnd, tapHaptic } from '../platform';
 import { Check, Lock, Pause, Play, Square, Volume2, VolumeX, Zap } from 'lucide-react';
@@ -167,7 +167,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
     <>
       <div className="focus">
         <div className="focus-bg" aria-hidden="true">
-          <HabitatScene habitatId={session.habitatId} calm />
+          <img src={focusBg} alt="" draggable={false} />
         </div>
         {/* 時間越久光線越暖，森林裡的小生物（螢火蟲）越多 */}
         <div className="focus-light" style={{ opacity: progress * 0.45 }} aria-hidden="true" />

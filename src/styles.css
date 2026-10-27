@@ -851,6 +851,13 @@ fieldset {
   position: absolute;
   inset: 0;
 }
+/* 專注畫面：夜晚山景（直式），山在上方，下方草地留給動物 */
+.focus-bg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 0;
+}
 .focus-bg .scene {
   height: 100%;
   max-height: none;
@@ -1635,6 +1642,12 @@ button.danger-fill {
   border-radius: 20px;
   overflow: hidden;
 }
+/* 專注完成：白天山景（橫式） */
+.result-bg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .result-card-scene .scene,
 .note-scene .scene {
   height: 100%;
@@ -1824,8 +1837,8 @@ button.danger-fill {
   position: relative;
   margin: -0.8rem 0 0;
   font-size: 0.82rem;
-  color: var(--text);
-  text-shadow: 0 1px 6px rgba(255, 255, 255, 0.9);
+  color: #f4efe2;
+  text-shadow: 0 1px 6px rgba(20, 25, 40, 0.8);
 }
 .tour {
   display: grid;
