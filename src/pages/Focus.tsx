@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useNow, useSave } from '../app/store';
-import { APP_NAME, MIN_FOCUS_MINUTES, PAUSE_MINUTES, SOUNDS, TEST_TOOLS, animalDef, levelName } from '../content/config';
+import { APP_NAME, MIN_FOCUS_MINUTES, PAUSE_MINUTES, SOUNDS, TEST_TOOLS, animalDef } from '../content/config';
 import { Modal } from '../components/ui';
 import { TrackArt } from '../components/Animal';
 import { completeNow, elapsedMs, finish, pause, rawElapsedMs, remainingMs, resume, targetReached, watchWindow } from '../domain/focus';
-import { activeProject, applyFocusRewards, cancelSession, closeSession, focusSoundFor, graceLeftMs, growthOf, projectRow, putSession } from '../domain/game';
+import { applyFocusRewards, cancelSession, closeSession, focusSoundFor, graceLeftMs, growthOf, putSession } from '../domain/game';
 import type { FocusSession, SaveFile } from '../domain/types';
 import focusBg from '../assets/scenes/focus-night.webp';
 import { useAmbient } from '../sound';
@@ -76,12 +76,9 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   const grace = Math.ceil(graceLeftMs(session, now) / 1000);
   const soundOn = save.settings.soundEnabled;
   const soundName = SOUNDS.find((x) => x.id === sound)?.name;
-  // 自訂鼓勵語句：每 30 秒換一句
+  // 自訂鼓勵語句（設定裡加的）：每 30 秒換一句；沒設定就不顯示
   const quotes = save.settings.quotes;
-  // 沒有自訂鼓勵語句時，輪流顯示這隻動物的小知識（每 40 秒換一則）
-  const ad = animalDef(session.animalId);
-  const facts = [ad.blurb, `牠住在：${ad.habitat.region}`, `牠出沒的海拔：${ad.habitat.elevation}`, `保育等級：${levelName(ad)}`];
-  const quote = quotes.length ? quotes[Math.floor(now / 30_000) % quotes.length] : `你知道嗎？${facts[Math.floor(now / 40_000) % facts.length]}`;
+  const quote = quotes.length ? quotes[Math.floor(now / 30_000) % quotes.length] : null;
 
   // 保持螢幕開啟：鎖屏時網頁會暫停，開著螢幕倒數結束才能準時響鈴
   useEffect(() => {
@@ -129,15 +126,13 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
     const was = prevStep.current;
     prevStep.current = step;
     if (step <= was || step >= 4 || paused) return;
-    setMoment(MOMENTS[step - 1](ad.name));
+    setMoment(MOMENTS[step - 1](animalDef(session.animalId).name));
     tapHaptic();
     const t = window.setTimeout(() => setMoment(null), 5000);
     return () => clearTimeout(t);
   }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 當下就看得到修復進度：這次專注完成後，目前工程會到幾 %
-  const project = activeProject(save);
-  const repairPct = project ? Math.min(100, Math.floor((((projectRow(save, project.id)?.contributedPoints ?? 0) + elapsedMin) / project.requiredPoints) * 100)) : null;
 
   // 深度專注：進行中與玩家按的暫停都請原生端看守（暫停期間離開不算，自動繼續後還在外面就算離開）
   // key 相同（同一段、同一次開始計時）時原生端會保留背景期間的紀錄，App 重開也不會洗掉
@@ -220,11 +215,6 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
         <p className="focus-target" aria-live="polite">
           {over ? `找到${animalDef(session.animalId).name}了！想繼續就繼續，按 ■ 完成` : progress < 0.5 ? `正在靠近${animalDef(session.animalId).name}…` : progress < 1 ? `${animalDef(session.animalId).name}就在附近了…` : `找到${animalDef(session.animalId).name}了！`}
         </p>
-        {project && repairPct !== null && elapsedMin > 0 && (
-          <p className="focus-repair">
-            完成後 +{elapsedMin} → 「{project.title}」{repairPct}%
-          </p>
-        )}
         {endAt && <p className="focus-endtime">預計 {endAt} {session.extend ? '達成目標' : '結束'}</p>}
         <div className="focus-controls">
           {grace > 0 && !paused ? (

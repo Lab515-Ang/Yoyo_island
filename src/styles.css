@@ -36,8 +36,13 @@
   --radius-sm: 12px;
   --radius: 20px;
   --radius-lg: 28px;
-  --shadow: 0 1px 2px rgba(90, 70, 40, 0.04), 0 6px 18px rgba(90, 70, 40, 0.07);
-  --shadow-lift: 0 2px 4px rgba(90, 70, 40, 0.05), 0 12px 28px rgba(90, 70, 40, 0.12);
+  /* 立體感：外陰影＋下緣一圈較深（像黏土的厚度）＋上緣亮邊 */
+  --shadow: inset 0 -3px 0 rgba(90, 70, 40, 0.06), inset 0 2px 0 rgba(255, 255, 255, 0.9), 0 2px 3px rgba(90, 70, 40, 0.07), 0 8px 20px rgba(90, 70, 40, 0.1);
+  --shadow-lift: inset 0 -4px 0 rgba(90, 70, 40, 0.07), inset 0 2px 0 rgba(255, 255, 255, 0.9), 0 3px 5px rgba(90, 70, 40, 0.08), 0 14px 30px rgba(90, 70, 40, 0.15);
+  /* 按鈕：上半部微亮的光澤、亮色與深色按鈕的邊 */
+  --sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 60%);
+  --bevel-light: inset 0 -3px 0 rgba(90, 70, 40, 0.09), inset 0 2px 0 rgba(255, 255, 255, 0.95);
+  --bevel-dark: inset 0 -3px 0 rgba(20, 45, 20, 0.28), inset 0 2px 0 rgba(255, 255, 255, 0.28);
   --font: 'Chiron GoRound TC Variable', 'PingFang TC', 'Microsoft JhengHei', system-ui, sans-serif;
   --font-title: 'Huninn', var(--font);
   --font-num: 'Nunito Variable', var(--font);
@@ -5611,4 +5616,27 @@ html:has(dialog[open]) {
   .forest-animal {
     animation: none;
   }
+}
+
+/* ---------- 立體感：按鈕像黏土塊（上亮下厚，按下去會沉） ---------- */
+button.primary,
+.icon-round.on,
+.chip.on {
+  background-image: var(--sheen);
+  box-shadow: var(--bevel-dark), 0 6px 16px rgba(70, 120, 65, 0.3);
+}
+.pill,
+.icon-round:not(.on),
+.link-light,
+.focus-target,
+.focus-pill {
+  background-image: var(--sheen);
+  box-shadow: var(--bevel-light), 0 5px 14px rgba(60, 50, 30, 0.16);
+}
+.chip:not(.on) {
+  box-shadow: inset 0 0 0 1.5px var(--line), inset 0 -2px 0 rgba(90, 70, 40, 0.07), 0 2px 5px rgba(90, 70, 40, 0.08);
+}
+:is(button.primary, .icon-round, .chip, .pill, .link-light):active:not(:disabled) {
+  transform: translateY(2px) scale(0.98);
+  box-shadow: inset 0 2px 4px rgba(40, 30, 20, 0.16);
 }
