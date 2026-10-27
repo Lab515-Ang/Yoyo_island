@@ -43,6 +43,9 @@
   --sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 60%);
   --bevel-light: inset 0 -3px 0 rgba(90, 70, 40, 0.09), inset 0 2px 0 rgba(255, 255, 255, 0.95);
   --bevel-dark: inset 0 -3px 0 rgba(20, 45, 20, 0.28), inset 0 2px 0 rgba(255, 255, 255, 0.28);
+  /* 凸起的小塊（格子、列、標籤）與凹下去的槽（分頁底、進度條、輸入框） */
+  --raise: inset 0 -3px 0 rgba(90, 70, 40, 0.08), inset 0 2px 0 rgba(255, 255, 255, 0.85), 0 3px 8px rgba(90, 70, 40, 0.1);
+  --sink: inset 0 2px 4px rgba(90, 70, 40, 0.13), inset 0 -1px 0 rgba(255, 255, 255, 0.7);
   --font: 'Chiron GoRound TC Variable', 'PingFang TC', 'Microsoft JhengHei', system-ui, sans-serif;
   --font-title: 'Huninn', var(--font);
   --font-num: 'Nunito Variable', var(--font);
@@ -5376,16 +5379,6 @@ label.set-row input.switch:checked {
 .focus-tracks span:nth-child(even) {
   transform: translateY(-6px);
 }
-.focus-repair {
-  position: relative;
-  margin: -0.6rem 0 0;
-  padding: 0.25rem 0.8rem;
-  border-radius: 999px;
-  background: rgba(255, 253, 248, 0.82);
-  color: var(--sage-deep);
-  font-size: 0.8rem;
-  font-weight: 700;
-}
 .focus-light {
   position: absolute;
   inset: 0;
@@ -5639,4 +5632,103 @@ button.primary,
 :is(button.primary, .icon-round, .chip, .pill, .link-light):active:not(:disabled) {
   transform: translateY(2px) scale(0.98);
   box-shadow: inset 0 2px 4px rgba(40, 30, 20, 0.16);
+}
+
+/* ---------- 立體感（第二輪）：每個淺色塊都有厚度，槽是凹的 ---------- */
+.segmented button.on,
+.nav-item.active,
+.notice,
+.icon-btn,
+.avatar-btn,
+.shop-card,
+.codex-card,
+.tl-day,
+.install-hint,
+.sheet-row,
+.plant-option,
+.minute-pill,
+.result .note-btn,
+.reward-chips span,
+.quest-card,
+.quest-month-chest,
+.region-row,
+.recap-card,
+.recap-tiles span,
+.recap-chips span,
+.ach-icon,
+.price-pill,
+.shop-wallet > span,
+.shop-art,
+.item-chip,
+.invite-gift,
+.invite-count,
+.invite-more,
+.ach-cel-rewards span,
+.profile-avatar,
+.animal-mini-art,
+.reward-chance,
+.confirm-box,
+.deep-box,
+.ob-pair figure,
+.tl-card {
+  box-shadow: var(--raise);
+}
+/* 選中狀態：保留原本的框線，再疊上厚度 */
+.sheet-row.on {
+  box-shadow: inset 0 0 0 1.5px var(--sage), var(--raise);
+}
+.plant-option.on {
+  box-shadow: inset 0 0 0 2px var(--sage), var(--raise);
+}
+.region-row.on {
+  box-shadow: inset 0 0 0 2px var(--primary), var(--raise);
+}
+.quest-card.ready {
+  box-shadow: inset 0 0 0 2px var(--warm), var(--raise);
+}
+/* 凹槽 */
+.segmented,
+.bar,
+textarea,
+.note-input,
+.tag-search,
+label.toggle input.switch {
+  box-shadow: var(--sink);
+}
+/* 進度條的填色、開關的圓鈕：像一條黏土 */
+.bar span,
+.bar i {
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.35), inset 0 -2px 0 rgba(20, 45, 20, 0.15);
+}
+label.toggle input.switch::after {
+  background: linear-gradient(180deg, #fff, #f1ece0);
+  box-shadow: inset 0 -2px 0 rgba(90, 70, 40, 0.1), 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+/* 大廳：深綠底上的半透明標籤、提示也有上亮下暗的邊 */
+.lobby .tag-chip,
+.lobby .title-chip,
+.next-step {
+  box-shadow: inset 0 0 0 1px rgba(255, 253, 248, 0.22), inset 0 1.5px 0 rgba(255, 255, 255, 0.25), inset 0 -2px 0 rgba(0, 20, 10, 0.18), 0 3px 8px rgba(0, 20, 10, 0.15);
+}
+/* 大廳中間的圓：像一顆壓扁的黏土球 */
+.lobby .lobby-ring {
+  box-shadow:
+    inset 0 -10px 18px rgba(80, 110, 70, 0.22),
+    inset 0 6px 10px rgba(255, 255, 255, 0.8),
+    0 0 0 12px rgba(255, 253, 248, 0.1),
+    0 0 0 26px rgba(255, 253, 248, 0.05),
+    0 20px 44px rgba(10, 30, 20, 0.35);
+}
+
+.lobby .start {
+  background-image: var(--sheen);
+  box-shadow: var(--bevel-light), 0 10px 26px rgba(10, 30, 20, 0.3);
+}
+.focus-quote,
+.focus-moment,
+.stage-chip {
+  box-shadow: var(--bevel-light), 0 6px 18px rgba(30, 50, 30, 0.22);
+}
+.ach-cel-card {
+  box-shadow: inset 0 -5px 0 rgba(90, 70, 40, 0.08), inset 0 2px 0 #fff, 0 24px 60px rgba(0, 0, 0, 0.35);
 }
