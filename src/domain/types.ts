@@ -38,6 +38,7 @@ export interface Settings {
   dailyReminder: { on: boolean; hour: number; minute: number }; // 每天提醒專注（Android 通知）
   landId: string; // 土地造型（專注紀錄的草地）
   regionId: string; // 目前的區域（台灣、日本…）：大廳、小島、圖鑑只顯示這個區域
+  testAllRegions?: boolean; // 測試工具：先開放所有區域（測試版沒設定時視為開啟）
 }
 
 export interface Island {

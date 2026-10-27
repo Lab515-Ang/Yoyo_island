@@ -338,13 +338,13 @@ legend {
 .shell {
   max-width: 1080px;
   margin: 0 auto;
-  padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(2rem + var(--bottom-inset, var(--safe-area-inset-bottom, env(safe-area-inset-bottom))));
 }
 .topbar {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: calc(0.1rem + env(safe-area-inset-top)) 1rem 0.35rem;
+  padding: calc(0.1rem + var(--top-inset, var(--safe-area-inset-top, env(safe-area-inset-top)))) 1rem 0.35rem;
   position: sticky;
   top: 0;
   z-index: 5;
@@ -409,7 +409,7 @@ legend {
   background: var(--panel);
   border-radius: 0 28px 28px 0;
   box-shadow: var(--shadow-lift);
-  padding: calc(1.2rem + env(safe-area-inset-top)) 0.8rem calc(1rem + env(safe-area-inset-bottom));
+  padding: calc(1.2rem + var(--top-inset, var(--safe-area-inset-top, env(safe-area-inset-top)))) 0.8rem calc(1rem + var(--bottom-inset, var(--safe-area-inset-bottom, env(safe-area-inset-bottom))));
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
@@ -849,7 +849,7 @@ fieldset {
   align-items: center;
   justify-content: flex-end;
   gap: 1.4rem;
-  padding: 1rem 1rem calc(9vh + env(safe-area-inset-bottom));
+  padding: 1rem 1rem calc(9vh + var(--bottom-inset, var(--safe-area-inset-bottom, env(safe-area-inset-bottom))));
   overflow: hidden;
   cursor: default;
   user-select: none;
@@ -919,7 +919,7 @@ fieldset {
 }
 .focus-top {
   position: absolute;
-  top: calc(0.8rem + env(safe-area-inset-top));
+  top: calc(0.8rem + var(--top-inset, var(--safe-area-inset-top, env(safe-area-inset-top))));
   left: 1rem;
   right: 1rem;
   display: flex;
@@ -1010,7 +1010,7 @@ button.danger-fill {
     margin: auto 0 0;
     border-radius: 28px 28px 0 0;
     max-height: calc(100dvh - 48px);
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: var(--bottom-inset, var(--safe-area-inset-bottom, env(safe-area-inset-bottom)));
   }
   .modal[open] {
     animation: sheet-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -1062,7 +1062,7 @@ button.danger-fill {
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(24px + env(safe-area-inset-bottom));
+  bottom: calc(24px + var(--bottom-inset, var(--safe-area-inset-bottom, env(safe-area-inset-bottom))));
   transform: translateX(-50%);
   z-index: 20;
   background: var(--text);
@@ -1182,7 +1182,7 @@ button.danger-fill {
 @media (max-width: 420px) {
   .topbar {
     gap: 0.5rem;
-    padding: calc(0.1rem + env(safe-area-inset-top)) 0.75rem 0.35rem;
+    padding: calc(0.1rem + var(--top-inset, var(--safe-area-inset-top, env(safe-area-inset-top)))) 0.75rem 0.35rem;
   }
   .brand .small {
     display: none;
@@ -1238,7 +1238,7 @@ button.danger-fill {
 }
 .shell.deep {
   isolation: isolate; /* 底圖的 z-index: -1 留在 shell 裡，不會被 body 的底色蓋掉 */
-  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(1rem + var(--bottom-inset, var(--safe-area-inset-bottom, env(safe-area-inset-bottom))));
 }
 /* 不顯示 App 名稱（保留位置讓金幣、頭像靠右） */
 .deep .brand {
@@ -1274,7 +1274,7 @@ button.danger-fill {
 .lobby {
   max-width: 520px;
   margin: 0 auto;
-  min-height: calc(100dvh - 7.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  min-height: calc(100dvh - 7.5rem - var(--top-inset, var(--safe-area-inset-top, env(safe-area-inset-top))) - var(--bottom-inset, var(--safe-area-inset-bottom, env(safe-area-inset-bottom))));
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -1539,7 +1539,7 @@ button.danger-fill {
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  padding: calc(2rem + env(safe-area-inset-top)) 1.25rem calc(2rem + env(safe-area-inset-bottom));
+  padding: calc(2rem + var(--top-inset, var(--safe-area-inset-top, env(safe-area-inset-top)))) 1.25rem calc(2rem + var(--bottom-inset, var(--safe-area-inset-bottom, env(safe-area-inset-bottom))));
   background:
     radial-gradient(120% 60% at 50% 0%, #fdf0cf 0%, rgba(253, 240, 207, 0) 70%),
     var(--bg);
@@ -1809,8 +1809,8 @@ button.danger-fill {
   bottom: 0;
   z-index: 2;
   width: calc(100% + 2.5rem);
-  margin-bottom: calc(-2rem - env(safe-area-inset-bottom));
-  padding: 1.4rem 1.25rem calc(1rem + env(safe-area-inset-bottom));
+  margin-bottom: calc(-2rem - var(--bottom-inset, var(--safe-area-inset-bottom, env(safe-area-inset-bottom))));
+  padding: 1.4rem 1.25rem calc(1rem + var(--bottom-inset, var(--safe-area-inset-bottom, env(safe-area-inset-bottom))));
   background: linear-gradient(180deg, rgba(251, 246, 236, 0) 0%, var(--bg) 30%);
 }
 .result.break .chip {
@@ -2065,7 +2065,7 @@ button.wallet {
 }
 .test-btn {
   position: fixed;
-  top: calc(0.8rem + env(safe-area-inset-top));
+  top: calc(0.8rem + var(--top-inset, var(--safe-area-inset-top, env(safe-area-inset-top))));
   left: 1rem;
   z-index: 5;
   min-height: 32px;
@@ -2781,7 +2781,7 @@ label.toggle input.switch:checked::after {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: max(env(safe-area-inset-top), 0.6rem) 16px 0.4rem;
+  padding: max(var(--top-inset, var(--safe-area-inset-top, env(safe-area-inset-top))), 0.6rem) 16px 0.4rem;
 }
 .recap-top .icon-btn {
   color: var(--text);
@@ -2970,7 +2970,7 @@ label.toggle input.switch:checked::after {
   flex-direction: column;
   align-items: center;
   gap: 0.3rem;
-  padding: 0.6rem 16px max(env(safe-area-inset-bottom), 1rem);
+  padding: 0.6rem 16px max(var(--bottom-inset, var(--safe-area-inset-bottom, env(safe-area-inset-bottom))), 1rem);
 }
 .recap-foot .primary {
   width: min(100%, 360px);
@@ -3383,7 +3383,7 @@ label.toggle input.switch:checked::after {
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  padding: max(env(safe-area-inset-top), 12px) 16px max(env(safe-area-inset-bottom), 16px);
+  padding: max(var(--top-inset, var(--safe-area-inset-top, env(safe-area-inset-top))), 12px) 16px max(var(--bottom-inset, var(--safe-area-inset-bottom, env(safe-area-inset-bottom))), 16px);
   box-sizing: border-box;
 }
 .ob-landing {
@@ -3629,11 +3629,11 @@ button.link.inline {
 /* 上方拆成幾條滿版深綠帶：總覽列、天週月年、日期列、草地。總覽列和日期列往下滑時釘在頂部列下面 */
 .page.records {
   gap: 0;
-  --topbar-h: calc(38px + 0.45rem + env(safe-area-inset-top));
+  --topbar-h: calc(38px + 0.45rem + var(--top-inset, var(--safe-area-inset-top, env(safe-area-inset-top))));
   --head-h: calc(44px + 0.7rem);
 }
 .mode-demo .page.records {
-  --topbar-h: calc(82px + 0.45rem + env(safe-area-inset-top));
+  --topbar-h: calc(82px + 0.45rem + var(--top-inset, var(--safe-area-inset-top, env(safe-area-inset-top))));
 }
 .records-band {
   margin: 0 -1.25rem;
@@ -3651,7 +3651,7 @@ button.link.inline {
 }
 .sticky-date {
   position: sticky;
-  top: calc(var(--topbar-h) + var(--head-h));
+  top: var(--topbar-h);
   z-index: 4;
 }
 .records-hero {
@@ -4380,4 +4380,36 @@ label.set-row input.switch:checked {
 /* 日本里山：沿用森林場景，色調偏暖一點 */
 .scene.scene-satoyama {
   filter: hue-rotate(-14deg) saturate(1.08);
+}
+
+/* 專注紀錄：「總覽」放在頂部列中間，小一點 */
+.topbar-slot {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+}
+.view-records .topbar .tag-select {
+  gap: 0.2rem;
+  min-height: 34px;
+  padding: 0 0.7rem 0 0.95rem;
+  font-size: 0.95rem;
+  color: #fffdf8;
+  background: rgba(0, 0, 0, 0.18);
+  border: none;
+}
+/* 上週回顧、分享：放在草地上方兩側 */
+.hero-tools {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: -2.4rem;
+}
+.test-btn-inline {
+  width: 100%;
+  margin-top: 0.4rem;
+  background: var(--honey-soft);
+  color: #6b4f0e;
+  box-shadow: inset 0 0 0 1px #e6c56e;
 }

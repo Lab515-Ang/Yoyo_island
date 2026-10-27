@@ -113,10 +113,11 @@ export function refreshPicks(save: SaveFile, now: number): ActionResult {
   return { ok: true, save: { ...save, transactions: [...save.transactions, t] } };
 }
 
-/** 精選推薦：每週換 3 個，從新物種、特別探索與土地造型裡挑（優先還沒擁有的）。 */
+/** 精選推薦：每週換 3 隻動物，從新物種、特別探索與金幣動物裡挑（優先還沒擁有的）。 */
 export function featuredItems(save: SaveFile, now: number) {
   const week = weekStartKey(localDateKey(now, save.profile.timezone));
-  const special = shopItems(save).filter((it) => it.kind === 'land' || (it.kind === 'animal' && ['gems', 'iap', 'coins'].includes(animalDef(it.ref).unlock.kind)));
+  // 精選只推動物（土地造型、環境音放在每日精選和探索）
+  const special = shopItems(save).filter((it) => it.kind === 'animal' && ['gems', 'iap', 'coins'].includes(animalDef(it.ref).unlock.kind));
   const r = rng(`${save.profile.id}:featured:${week}`);
   const [fresh, have] = [special.filter((it) => !owned(save, it)), special.filter((it) => owned(save, it))];
   return [...shuffle(fresh, r), ...shuffle(have, r)].slice(0, 3);

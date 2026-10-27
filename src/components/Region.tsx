@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useSave } from '../app/store';
-import { REGIONS, regionAnimals, regionDef, regionProjects } from '../content/config';
+import { REGIONS, TEST_TOOLS, regionAnimals, regionDef, regionProjects } from '../content/config';
 import { currentRegion, hatchCounts, isDone, regionOpen } from '../domain/game';
 import { Modal, Progress } from './ui';
 import { ChevronDown, Lock } from 'lucide-react';
@@ -74,6 +74,12 @@ function RegionSheet({ onClose }: { onClose: () => void }) {
         })}
       </div>
       <p className="small muted center-text">更多國家陸續推出中</p>
+      {TEST_TOOLS && (
+        // 測試工具：不用修完前一區就能先看新區域（上架前移除）
+        <button className="test-btn-inline" onClick={() => update((s) => ({ ...s, settings: { ...s.settings, testAllRegions: s.settings.testAllRegions === false, regionId: s.settings.testAllRegions === false ? s.settings.regionId : 'tw' } }))}>
+          {save.settings.testAllRegions === false ? '測試：先開放全部區域' : '測試：恢復開放條件'}
+        </button>
+      )}
     </Modal>
   );
 }

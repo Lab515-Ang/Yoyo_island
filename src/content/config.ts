@@ -71,7 +71,7 @@ export const PROJECTS: ProjectDef[] = [
   { id: 'fo_canopy', habitatId: 'forest', title: '搭建樹冠步道', description: '高處的木棧道，看得到整片樹海', requiredPoints: 2600, prerequisiteProjectId: 'fo_spring', sceneChangeKey: 'fo_canopy', promise: '樹冠步道就能完成' },
   { id: 'fo_rescue', habitatId: 'forest', title: '設立保育救傷站', description: '受傷的動物在這裡被好好照顧', requiredPoints: 2700, prerequisiteProjectId: 'fo_canopy', sceneChangeKey: 'fo_rescue', promise: '保育救傷站就會設立' },
   // 日本里山（台灣修完之後接著修）；sceneChangeKey 借用森林場景的同一處變化
-  { id: 'jp_path', habitatId: 'satoyama', title: '清出杉林小徑', description: '倒下的杉木搬開了，小徑可以走了', requiredPoints: 300, prerequisiteProjectId: 'fo_rescue', sceneChangeKey: 'fo_trail', promise: '杉林小徑就會清出來' },
+  { id: 'jp_path', habitatId: 'satoyama', title: '清出杉林小徑', description: '倒下的杉木搬開了，小徑可以走了', requiredPoints: 300, prerequisiteProjectId: null, sceneChangeKey: 'fo_trail', promise: '杉林小徑就會清出來' },
   { id: 'jp_terrace', habitatId: 'satoyama', title: '復原里山梯田', description: '梯田重新灌水，青蛙和水鳥回來了', requiredPoints: 800, prerequisiteProjectId: 'jp_path', sceneChangeKey: 'fo_saplings', promise: '里山梯田就會復原' },
   { id: 'jp_hut', habitatId: 'satoyama', title: '修好山中小屋', description: '小屋亮起燈，可以安靜地觀察里山', requiredPoints: 1100, prerequisiteProjectId: 'jp_terrace', sceneChangeKey: 'fo_cabin', promise: '山中小屋就能修好' },
   { id: 'jp_bamboo', habitatId: 'satoyama', title: '疏伐過密的竹林', description: '陽光照進林下，原生植物長回來', requiredPoints: 1300, prerequisiteProjectId: 'jp_hut', sceneChangeKey: 'fo_undergrowth', promise: '林下植物就會長回來' },

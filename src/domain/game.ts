@@ -1,5 +1,5 @@
 // 經濟、工程、探索動物與統計：全部是對 SaveFile 的純函式
-import { ANIMALS, HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, PROJECTS, SOUNDS, animalDef, animalRegion, regionDef, growthFor, projectDef, stageOfGrowth, type AnimalDef, type ProjectDef, type SoundUnlock } from '../content/config';
+import { ANIMALS, HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, PROJECTS, SOUNDS, TEST_TOOLS, animalDef, animalRegion, regionDef, growthFor, projectDef, stageOfGrowth, type AnimalDef, type ProjectDef, type SoundUnlock } from '../content/config';
 import { addSegmentsByDay, createSession, isOpen, localDateKey, settle, shiftDateKey } from './focus';
 import type { FocusSession, HabitatId, ID, SaveFile, TimerMode } from './types';
 
@@ -255,8 +255,9 @@ export function projectProgress(save: SaveFile, id: string) {
 /** 進度切成四段：0、25%、50%、75%、100%；每跨一段場景就有一點變化。 */
 export const projectQuarter = (save: SaveFile, id: string) => Math.floor(projectProgress(save, id) * 4) / 4;
 
-/** 固定順序：第一個尚未完成的工程。 */
-export const activeProject = (save: SaveFile): ProjectDef | null => PROJECTS.find((p) => !isDone(save, p.id)) ?? null;
+/** 目前要修的工程：目前區域第一個還沒完成的；這個區域修完了，就接到其他已開放區域的工程（例如台灣修完接日本）。 */
+export const activeProject = (save: SaveFile): ProjectDef | null =>
+  PROJECTS.find((p) => !isDone(save, p.id) && p.habitatId === currentHabitat(save)) ?? PROJECTS.find((p) => !isDone(save, p.id) && habitatOpen(save, p.habitatId)) ?? null;
 
 /** 這個工程完成後解鎖的動物。 */
 export const animalsUnlockedBy = (projectId: string) => ANIMALS.filter((a) => a.unlock.kind === 'project' && a.unlock.id === projectId);
@@ -314,6 +315,8 @@ export function investAll(save: SaveFile, userId: ID, now: number, sessionId?: I
 
 export function habitatOpen(save: SaveFile, id: HabitatId) {
   const h = HABITATS.find((x) => x.id === id);
+  // 測試工具：測試版預設先開放所有區域，可以在區域清單關掉（上架前 TEST_TOOLS 關掉就沒有作用）
+  if (h?.playable && TEST_TOOLS && save.settings.testAllRegions !== false) return true;
   return !!h?.playable && isDone(save, h.unlockProjectId);
 }
 

@@ -309,10 +309,15 @@ function Main() {
             <Menu size={22} strokeWidth={2.2} aria-hidden="true" />
             {reward && <span className="nav-dot" aria-hidden="true" />}
           </button>
-          <button className="brand" onClick={() => go('lobby')} aria-label="回到大廳">
-            <span className="brand-name">{APP_NAME}</span>
-            <span className="muted small">{save.islands[0]?.name}</span>
-          </button>
+          {/* 專注紀錄把「總覽」放在這一排中間（Records 用 portal 放進來） */}
+          {view === 'records' ? (
+            <div id="topbar-slot" className="topbar-slot" />
+          ) : (
+            <button className="brand" onClick={() => go('lobby')} aria-label="回到大廳">
+              <span className="brand-name">{APP_NAME}</span>
+              <span className="muted small">{save.islands[0]?.name}</span>
+            </button>
+          )}
           <button className="wallet" title="金幣：在商店解鎖動物" onClick={() => go('shop')} aria-label={`金幣 ${coins(save)}，前往商店`}>
             <Coin /> <strong>{coins(save).toLocaleString('en-US')}</strong>
           </button>

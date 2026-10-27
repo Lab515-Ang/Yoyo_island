@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSave } from '../app/store';
 import { TAGS, animalDef, tagColor } from '../content/config';
 import { fmtMinutes, Modal } from '../components/ui';
@@ -176,6 +177,9 @@ function Overview({ tags: picked, onTags, onRecap }: { tags: string[] | null; on
   const [info, setInfo] = useState(false);
   const [picking, setPicking] = useState(false);
   const [sharing, setSharing] = useState(false);
+  // 頂部列的空位（App 只在專注紀錄頁放這個 slot）
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => setSlot(document.getElementById('topbar-slot')), []);
   const hourly = useHourly(save, picked);
   const inTags = (t: string) => !picked || picked.includes(t);
   // 選單：內建、自訂，加上紀錄裡出現過的標籤（自訂標籤刪掉後，舊紀錄還是篩得到）
@@ -277,24 +281,16 @@ function Overview({ tags: picked, onTags, onRecap }: { tags: string[] | null; on
 
   return (
     <>
-      {/* 上半部和大廳同一片深綠：標籤篩選、天週月年、日期、等角草地。總覽列和日期列往下滑時釘在上方（參考 Forest） */}
+      {/* 上半部和大廳同一片深綠：天週月年、日期、等角草地。「總覽」放在頂部列（選單和金幣中間），日期列往下滑時釘在上方（參考 Forest） */}
       <h1 className="sr-only">專注紀錄</h1>
-      <div className="hero-head records-band sticky-head">
-        {onRecap ? (
-          <button className="hero-icon" onClick={onRecap} aria-label="上週回顧">
-            <CalendarDays size={22} aria-hidden="true" />
-          </button>
-        ) : (
-          <span className="hero-icon" aria-hidden="true" />
+      {slot &&
+        createPortal(
+          <button className="tag-select" onClick={() => setPicking(true)} aria-label={`標籤篩選：${tagLabel}`}>
+            {tagLabel}
+            <ChevronDown size={16} aria-hidden="true" />
+          </button>,
+          slot,
         )}
-        <button className="tag-select" onClick={() => setPicking(true)} aria-label={`標籤篩選：${tagLabel}`}>
-          {tagLabel}
-          <ChevronDown size={18} aria-hidden="true" />
-        </button>
-        <button className="hero-icon" onClick={() => setSharing(true)} aria-label="分享專注成果統計圖">
-          <Share size={22} aria-hidden="true" />
-        </button>
-      </div>
       <div className="records-band">
         <div className="segmented" role="radiogroup" aria-label="紀錄範圍">
           {RANGES.map(([k, l]) => (
@@ -321,6 +317,18 @@ function Overview({ tags: picked, onTags, onRecap }: { tags: string[] | null; on
         </button>
       </div>
       <section className="records-hero">
+        <div className="hero-tools">
+          {onRecap ? (
+            <button className="hero-icon" onClick={onRecap} aria-label="上週回顧">
+              <CalendarDays size={20} aria-hidden="true" />
+            </button>
+          ) : (
+            <span className="hero-icon" aria-hidden="true" />
+          )}
+          <button className="hero-icon" onClick={() => setSharing(true)} aria-label="分享專注成果統計圖">
+            <Share size={20} aria-hidden="true" />
+          </button>
+        </div>
         <HatchPlot sessions={shown} cols={PLOT[range].cols} minCells={PLOT[range].min} />
         <p className="hero-count">
           {shown.length ? (
