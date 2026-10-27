@@ -68,7 +68,8 @@ function PaintedLand({ geo, terrain, art }: { geo: Geo; terrain: THREE.BufferGeo
         <meshBasicMaterial map={tex} alphaMap={fadeMask()} transparent depthWrite={false} />
       </mesh>
       <mesh geometry={terrain}>
-        <meshLambertMaterial map={tex} />
+        {/* 貼圖本身有畫光影：補一點自發光，避免 3D 打光後比原圖暗 */}
+        <meshLambertMaterial map={tex} emissive="#ffffff" emissiveMap={tex} emissiveIntensity={0.4} />
       </mesh>
     </>
   );
@@ -228,13 +229,13 @@ export default function RegionMap3D({ geo, pins, onSelect }: { geo: Geo; pins: M
   const art = geo.art;
   return (
     <Canvas flat={!!art} frameloop="demand" dpr={[1, 1.5]} camera={{ fov: 36, position: [0, 7.2, 3.6], near: 0.1, far: 50 }} gl={{ antialias: true, powerPreference: 'low-power' }} aria-label={`立體${geo.name}地圖`}>
-      <color attach="background" args={[art ? '#31c4f3' : '#bfe0e6']} />
+      <color attach="background" args={[art?.sea ?? '#bfe0e6']} />
       <hemisphereLight args={['#fff6e0', '#6f8f7a', 1.1]} />
       <directionalLight position={[3, 6, 2]} intensity={1.3} color="#fff2d8" />
       <group ref={group} position={[0, 0, -0.35]}>
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]}>
           <circleGeometry args={[3.4, 48]} />
-          <meshBasicMaterial color={art ? '#31c4f3' : '#8fc6cf'} />
+          <meshBasicMaterial color={art?.sea ?? '#8fc6cf'} />
         </mesh>
         {art ? (
           <PaintedLand geo={geo} terrain={terrain} art={art} />

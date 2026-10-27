@@ -33,11 +33,11 @@ function RegionMap2D({ geo, pins, onSelect }: { geo: Geo; pins: MapPin[]; onSele
   const [ax0, azN] = art ? project(art.bounds[0], art.bounds[3]) : [0, 0];
   const [ax1, azS] = art ? project(art.bounds[2], art.bounds[1]) : [0, 0];
   return (
-    <svg viewBox={`${x0} ${z0} ${w} ${h}`} className="taiwan-2d" style={art ? { background: '#31c4f3' } : undefined} role="img" aria-label={`${geo.name}地圖`}>
+    <svg viewBox={`${x0} ${z0} ${w} ${h}`} className="taiwan-2d" style={art ? { background: art.sea } : undefined} role="img" aria-label={`${geo.name}地圖`}>
       {art ? (
         <>
           {/* 手繪地圖（和 3D 地圖同一張） */}
-          <rect x={x0} y={z0} width={w} height={h} fill="#31c4f3" />
+          <rect x={x0} y={z0} width={w} height={h} fill={art.sea} />
           <image href={art.src} x={ax0} y={azN} width={ax1 - ax0} height={azS - azN} preserveAspectRatio="none" />
         </>
       ) : (

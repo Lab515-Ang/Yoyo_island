@@ -72,5 +72,5 @@ export const JAPAN = makeGeo({
   k: 0.16,
   bounds: [122.9, 24.0, 146.2, 45.7],
   step: 0.11,
-  art: { src: art, bounds: [120.6649, 23.2, 148.9351, 46.4] },
+  art: { src: art, bounds: [120.6649, 23.2, 148.9351, 46.4], sea: '#81c9cc' },
 });
