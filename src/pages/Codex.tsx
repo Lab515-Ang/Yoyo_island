@@ -10,13 +10,11 @@ import type { MapPin } from '../scenes/TaiwanMap3D';
 /** 觀察圖鑑：遇見過的動物、次數與族群成長；還沒遇見的顯示剪影與怎麼找到牠。 */
 export function Codex() {
   const { save } = useSave();
-  const [show, setShow] = useState<'all' | 'found' | 'adult' | 'missing'>('all');
+  const [show, setShow] = useState<'all' | 'found' | 'missing'>('all');
   const [view, setView] = useState<'list' | 'map'>('list');
   const [card, setCard] = useState<string | null>(null);
   const counts = hatchCounts(save);
   const stageOf = (id: string) => growthOf(save, id).stage;
-  const found = ANIMALS.filter((a) => counts.get(a.id)).length;
-  const adults = ANIMALS.filter((a) => counts.get(a.id) && stageOf(a.id) === 2).length;
   // 地圖上的動物：遇見過的上色、可以去找的剪影、還找不到的淡剪影；台灣雲豹是霧裡的傳說
   const pins: MapPin[] = ANIMALS.map((a) => ({
     id: a.id,
@@ -25,7 +23,7 @@ export function Codex() {
   }));
   const list = ANIMALS.filter((a) => {
     const n = counts.get(a.id) ?? 0;
-    return show === 'all' || (show === 'found' && n > 0) || (show === 'adult' && n > 0 && stageOf(a.id) === 2) || (show === 'missing' && !n);
+    return show === 'all' || (show === 'found' && n > 0) || (show === 'missing' && !n);
   });
 
   return (
@@ -43,9 +41,6 @@ export function Codex() {
           </button>
         ))}
       </div>
-      <p className="muted">
-        遇見過 {found} / {ANIMALS.length} 種・看過成年的 {adults} 種
-      </p>
       {view === 'map' && (
         <>
           <TaiwanMap pins={pins} onSelect={setCard} />
@@ -55,7 +50,6 @@ export function Codex() {
             <span>🔘 還找不到</span>
             <span>☁️ 傳說</span>
           </p>
-          <p className="small muted">點動物看牠的棲息地（立體地圖可以拖曳旋轉）。地圖只標大致地區與海拔，不標精確地點，避免打擾野外的牠們。</p>
         </>
       )}
       {view === 'list' && (
@@ -65,7 +59,6 @@ export function Codex() {
               [
                 ['all', '全部'],
                 ['found', '遇見過'],
-                ['adult', '成年'],
                 ['missing', '還沒遇見'],
               ] as const
             ).map(([k, l]) => (

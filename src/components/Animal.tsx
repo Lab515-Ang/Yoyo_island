@@ -4,6 +4,8 @@ import { useSave } from '../app/store';
 import { animalDef, stageName, type AnimalDef } from '../content/config';
 import { sightings } from '../domain/game';
 import type { FocusSession } from '../domain/types';
+import { landDef } from '../content/shop';
+import { landOwned } from '../domain/shop';
 
 // 臨時動物圖（程式畫的，依外形與主色區分）：美術圖到位後換成圖片。畫布 100×100，地面在 y = 92。
 const EYE = '#2b2622';
@@ -285,13 +287,15 @@ export function HatchPlot({ sessions: all, cols: base, minCells, freshId }: { se
   const [T, R, B, L] = [pt(0, 0), pt(0, cols), pt(rows, cols), pt(rows, 0)];
   const poly = (...ps: (readonly [number, number])[]) => ps.map((p) => p.join(',')).join(' ');
   const down = (p: readonly [number, number]) => [p[0], p[1] + SOIL] as const;
+  // 土地造型（商店買的）；沒買過的就用經典草地
+  const land = landDef(landOwned(save, save.settings.landId) ? save.settings.landId : 'classic');
   return (
     <>
       <div className="hatch-plot iso" style={{ aspectRatio: `${VW} / ${VH}` }}>
         <svg viewBox={`0 0 ${VW} ${VH}`} aria-hidden="true">
-          <polygon points={poly(L, B, down(B), down(L))} fill="#8a6847" />
-          <polygon points={poly(B, R, down(R), down(B))} fill="#a3805a" />
-          <polygon points={poly(T, R, B, L)} fill="#a9cf80" />
+          <polygon points={poly(L, B, down(B), down(L))} fill={land.left} />
+          <polygon points={poly(B, R, down(R), down(B))} fill={land.right} />
+          <polygon points={poly(T, R, B, L)} fill={land.top} />
           <g stroke="#fffdf8" strokeOpacity="0.22" strokeWidth="1.5">
             {Array.from({ length: cols - 1 }, (_, i) => (
               <line key={`c${i}`} x1={pt(0, i + 1)[0]} y1={pt(0, i + 1)[1]} x2={pt(rows, i + 1)[0]} y2={pt(rows, i + 1)[1]} />

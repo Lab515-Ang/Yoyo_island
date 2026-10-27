@@ -1,6 +1,7 @@
 // 挑戰與寶箱（參考 Forest）：每天 3 個每日挑戰、本月挑戰、新手任務；完成後打開寶箱領金幣（新手任務另外解鎖一條探索路線）。
 // 挑戰內容只由日期決定（不看存檔），所以同一天的挑戰不會因為解鎖或改筆記而變動；進度則由當天完成的探索算出。
 import { ANIMALS } from '../content/config';
+import { MONTH_GEMS, STARTER_GEMS } from '../content/shop';
 import { animalBought, endedDayKeys, endedSessions, islandId } from './game';
 import { localDateKey } from './focus';
 import type { SaveFile } from './types';
@@ -99,7 +100,7 @@ export function hasReward(save: SaveFile, now: number) {
   return (st.ready && !st.claimed) || (m.progress >= m.target && !m.claimed) || dailyQuests(save, day).some((q) => q.progress >= q.target && !q.claimed);
 }
 
-type Claim = { ok: true; save: SaveFile; coins: number; animalId?: string } | { ok: false; error: string };
+type Claim = { ok: true; save: SaveFile; coins: number; gems: number; animalId?: string } | { ok: false; error: string };
 
 /** 打開寶箱：今天的每日挑戰、本月挑戰或新手任務，完成且還沒領過才行。 */
 export function claimQuest(save: SaveFile, key: string, now: number): Claim {
@@ -118,13 +119,21 @@ export function claimQuest(save: SaveFile, key: string, now: number): Claim {
     coins = q.reward;
   }
   const t = { id: crypto.randomUUID(), userId: save.profile.id, islandId: islandId(save), kind: 'quest_reward' as const, amount: coins, idempotencyKey: key, createdAt: new Date(now).toISOString(), ...(animalId ? { animalId } : {}) };
-  return { ok: true, save: { ...save, transactions: [...save.transactions, t] }, coins, animalId };
+  // 新手任務和本月挑戰的寶箱另外送寶石（每日挑戰不送）
+  const gems = key === 'quest:starter' ? STARTER_GEMS : key.startsWith('quest:month:') ? MONTH_GEMS : 0;
+  const g = gems ? [{ ...t, id: crypto.randomUUID(), kind: 'gem_grant' as const, amount: gems, idempotencyKey: `${key}:gems`, animalId: undefined }] : [];
+  return { ok: true, save: { ...save, transactions: [...save.transactions, t, ...g] }, coins, gems, animalId };
 }
 
 /**
  * 存檔檢查用：只看格式與合理範圍，不比對目前的獎勵數值與進度
  * （之後調整挑戰獎勵、或筆記被刪掉，舊存檔都還要讀得到；同一個挑戰重複領取由 idempotencyKey 擋下）。
  */
+/** 存檔檢查用：寶箱送的寶石（只有新手任務、本月挑戰）。 */
+export function questGemOk(key: string, amount: number) {
+  return Number.isInteger(amount) && amount > 0 && amount <= 1000 && (key === 'quest:starter:gems' || /^quest:month:\d{4}-\d{2}:gems$/.test(key));
+}
+
 export function questRewardOk(key: string, amount: number, animalId?: string) {
   if (!Number.isInteger(amount) || amount <= 0 || amount > 1000) return false;
   if (key === 'quest:starter') return !animalId || ANIMALS.some((a) => a.id === animalId);

@@ -36,6 +36,7 @@ export interface Settings {
   weekStart: 0 | 1; // 統計的一週從週日（0）或週一（1）開始
   dayStartHour: number; // 一天從幾點開始算（0～6，夜貓子可以把凌晨算進前一天）
   dailyReminder: { on: boolean; hour: number; minute: number }; // 每天提醒專注（Android 通知）
+  landId: string; // 土地造型（專注紀錄的草地）
 }
 
 export interface Island {
@@ -90,8 +91,9 @@ export interface PointTransaction {
   userId: ID;
   islandId: ID;
   // 成長點數：focus_reward / project_spend；金幣：coin_reward / animal_unlock（商店解鎖動物）/ quest_reward（挑戰寶箱，新手任務另送 animalId）
-  kind: 'focus_reward' | 'project_spend' | 'coin_reward' | 'animal_unlock' | 'quest_reward';
-  amount: number; // 獲得 > 0、花費 < 0
+  // 商店：shop_buy（金幣買商品、換每日精選）、coin_exchange（寶石換來的金幣）；寶石：gem_grant（寶箱送的）、gem_spend（寶石買商品或換金幣）
+  kind: 'focus_reward' | 'project_spend' | 'coin_reward' | 'animal_unlock' | 'quest_reward' | 'shop_buy' | 'coin_exchange' | 'gem_grant' | 'gem_spend';
+  amount: number; // 獲得 > 0、花費 < 0（寶石類的單位是寶石）
   sessionId?: ID;
   contributionId?: ID;
   animalId?: ID;

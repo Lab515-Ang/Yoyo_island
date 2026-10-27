@@ -46,14 +46,14 @@ export function Quests({ onIsland, onLobby }: { onIsland: () => void; onLobby: (
   const nextMonth = `${shiftDateKey(`${day.slice(0, 7)}-28`, 4).slice(0, 7)}-01`;
   const daysLeft = Math.round((Date.parse(nextMonth) - Date.parse(day)) / 86400000);
   const claim = () => {
-    let got: { coins: number; animalId?: string } | null = null;
+    let got: { coins: number; gems?: number; animalId?: string } | null = null;
     const saved = update((s) => {
       const r = claimQuest(s, opening!.key, Date.now());
       if (!r.ok) {
         notify(r.error);
         return s;
       }
-      got = { coins: r.coins, animalId: r.animalId };
+      got = { coins: r.coins, gems: r.gems, animalId: r.animalId };
       return r.save;
     });
     return saved ? got : null; // 存檔失敗（例如空間不足）：寶箱不打開

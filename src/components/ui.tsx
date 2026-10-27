@@ -7,6 +7,8 @@ import { X } from 'lucide-react';
 
 /** CSS 畫的金幣圖示（🪙 在 Windows 10 的表情字型裡沒有）。 */
 export const Coin = () => <span className="coin" aria-hidden="true" />;
+/** CSS 畫的寶石（六角形）。 */
+export const Gem = () => <span className="gem" aria-hidden="true" />;
 
 /** 原生 <dialog>：焦點、Esc 關閉都由瀏覽器處理。被瀏覽器直接關掉時也通知（重新打開過的就不算，例如開發模式的重掛載）。 */
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
@@ -63,8 +65,9 @@ export const fmtMinutes = (ms: number) => {
 export function unlockText(a: AnimalDef) {
   const u = a.unlock;
   if (u.kind === 'start') return '一開始就能去找';
-  if (u.kind === 'project') return `完成「${projectDef(u.id)?.title}」後，牠會回到森林`;
+  if (u.kind === 'project') return `完成「${projectDef(u.id)?.title}」後，牠會回到森林（也可以在商店用寶石提早解鎖）`;
   if (u.kind === 'coins') return `商店用 ${u.price} 金幣解鎖探索路線`;
+  if (u.kind === 'gems') return `商店用 ${u.price} 顆寶石解鎖探索路線`;
   return `商店特別探索（${u.price}）`;
 }
 

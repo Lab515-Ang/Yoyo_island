@@ -1,7 +1,9 @@
 // 存檔建立、驗證、示範資料與舊存檔轉換
 import { ANIMALS, CONTENT_VERSION, HABITATS, PROJECTS } from '../content/config';
-import { balance, coins, contribute, investAll } from './game';
-import { questRewardOk } from './quests';
+import { balance, coins, contribute, gems, investAll } from './game';
+import { questGemOk, questRewardOk } from './quests';
+import { LANDS } from '../content/shop';
+import { animalKeyOk, coinPackOk, shopKeyOk } from './shop';
 import type { AppMode, SaveFile, Settings } from './types';
 
 const iso = (t: number) => new Date(t).toISOString();
@@ -28,6 +30,7 @@ export const defaultSettings = (): Settings => ({
   weekStart: 1,
   dayStartHour: 0,
   dailyReminder: { on: false, hour: 20, minute: 0 },
+  landId: 'classic',
 });
 
 export const deviceTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -172,6 +175,7 @@ export function validateSave(input: unknown, now = Date.now()): Validation {
   const r = settings.dailyReminder as unknown;
   if (!isObj(r) || typeof r.on !== 'boolean' || !Number.isInteger(r.hour) || !Number.isInteger(r.minute) || (r.hour as number) < 0 || (r.hour as number) > 23 || (r.minute as number) < 0 || (r.minute as number) > 59) settings.dailyReminder = defaultSettings().dailyReminder;
   if (!isStr(settings.eggId)) settings.eggId = defaultSettings().eggId;
+  if (!LANDS.some((l) => l.id === settings.landId)) settings.landId = 'classic';
   if (!HABITAT_IDS.includes(settings.preferredHabitatId)) settings.preferredHabitatId = 'forest';
   const save = { ...raw, settings } as unknown as SaveFile;
 
@@ -219,6 +223,18 @@ export function validateSave(input: unknown, now = Date.now()): Validation {
       if (!a || t.amount >= 0 || t.idempotencyKey !== `animal:${t.islandId}:${a.id}`) return fail('動物解鎖紀錄不符。');
     } else if (t.kind === 'quest_reward') {
       if (!questRewardOk(t.idempotencyKey, t.amount, t.animalId)) return fail('挑戰獎勵紀錄不符。');
+    } else if (t.kind === 'gem_grant') {
+      if (!questGemOk(t.idempotencyKey, t.amount) && !(save.mode === 'demo' && t.idempotencyKey.startsWith('demo-'))) return fail('寶石獎勵紀錄不符。');
+    } else if (t.kind === 'shop_buy') {
+      // 價格之後可能調整：只看是不是認得的商品（或換一批每日精選）、扣的是金幣
+      if (t.amount >= 0 || !(shopKeyOk(t.idempotencyKey) || /^refresh:[^:]+:\d{4}-\d{2}-\d{2}:\d+$/.test(t.idempotencyKey))) return fail('商店紀錄不符。');
+    } else if (t.kind === 'gem_spend') {
+      if (t.amount >= 0 || !(shopKeyOk(t.idempotencyKey) || animalKeyOk(t.idempotencyKey, t.islandId) || /^exchange:[^:]+:gems$/.test(t.idempotencyKey))) return fail('寶石紀錄不符。');
+    } else if (t.kind === 'coin_exchange') {
+      // 寶石換金幣：要有同一個 id 的扣寶石紀錄，數量也要是認得的方案
+      const m = /^exchange:([^:]+):coins$/.exec(t.idempotencyKey);
+      const spent = m && save.transactions.find((x) => x.idempotencyKey === `exchange:${m[1]}:gems`);
+      if (!spent || !coinPackOk(-spent.amount, t.amount)) return fail('金幣兌換紀錄不符。');
     } else if (t.kind === 'project_spend') {
       if (t.amount > 0) return fail('點數紀錄數值不正確。');
       const c = isStr(t.contributionId) ? contribById.get(t.contributionId) : undefined;
@@ -229,7 +245,7 @@ export function validateSave(input: unknown, now = Date.now()): Validation {
     if (!spentFor.has(c.id)) return fail('工程投入缺少對應的點數紀錄。');
   }
   for (const m of save.memberships) {
-    if (balance(save, m.userId) < 0 || coins(save, m.userId) < 0) return fail('錢包餘額不可小於 0。');
+    if (balance(save, m.userId) < 0 || coins(save, m.userId) < 0 || gems(save, m.userId) < 0) return fail('錢包餘額不可小於 0。');
   }
   const sums = new Map<string, number>();
   for (const c of save.contributions) if (c.islandId === save.profile.activeIslandId) sums.set(c.projectId, (sums.get(c.projectId) ?? 0) + c.points);

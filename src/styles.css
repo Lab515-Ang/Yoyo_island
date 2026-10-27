@@ -2693,6 +2693,17 @@ label.toggle input.switch:checked::after {
 .view-toggle button {
   flex: 1;
 }
+/* 觀察圖鑑的清單／地圖切換：縮小一半、置中 */
+.page > .segmented.view-toggle {
+  justify-self: center;
+  width: 50%;
+  padding: 3px;
+}
+.page > .segmented.view-toggle button {
+  min-height: 32px;
+  padding: 0 0.6rem;
+  font-size: 0.85rem;
+}
 
 /* ---------- 上週回顧 ---------- */
 .page-head {
@@ -4148,4 +4159,152 @@ label.set-row input.switch:checked {
 .topbar .wallet {
   min-height: 38px;
   padding-block: 0;
+}
+.gem {
+  display: inline-block;
+  width: 0.95em;
+  height: 1.05em;
+  vertical-align: -0.15em;
+  clip-path: polygon(50% 0, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%);
+  background: linear-gradient(135deg, #c9f1ee 0%, #6fd0cb 45%, #2f9c9a 100%);
+}
+
+/* ---------- 商店：錢包、精選輪播、每日精選、貨幣資源 ---------- */
+.shop-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.shop-wallet {
+  display: flex;
+  gap: 0.5rem;
+  font-family: var(--font-num), var(--font);
+  font-weight: 800;
+  color: var(--sage-deep);
+}
+.shop-wallet > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.85);
+}
+.shop-body {
+  display: grid;
+  gap: 0.8rem;
+}
+/* 精選：橫向滑動，一次一張、露出下一張的邊 */
+.shop-carousel {
+  display: flex;
+  gap: 0.8rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  margin: 0 -1.25rem;
+  padding: 0.2rem 1.25rem 0.8rem;
+  scrollbar-width: none;
+}
+.shop-carousel::-webkit-scrollbar {
+  display: none;
+}
+.shop-carousel .shop-hero {
+  flex: 0 0 82%;
+  scroll-snap-align: center;
+  min-height: 330px;
+  justify-content: flex-end;
+}
+.shop-hero.kind-animal {
+  background: linear-gradient(180deg, #bfe1e2 0%, #f6e7c4 55%, #e9b98a 100%);
+}
+.shop-hero.kind-land {
+  background: linear-gradient(180deg, #d7ecf0 0%, #e9f1dc 60%, #c7dfb8 100%);
+}
+.shop-hero.kind-sound {
+  background: linear-gradient(180deg, #dbe9f6 0%, #eef2e4 100%);
+}
+.shop-hero .eyebrow {
+  align-self: flex-start;
+}
+.daily-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.4rem;
+}
+.daily-head h2 {
+  margin: 0;
+}
+.refresh-btn {
+  flex-direction: row;
+  gap: 0.35rem;
+  min-height: 44px;
+  padding: 0 1rem;
+  background: var(--sage-deep);
+  color: #fff;
+  font-family: var(--font-num), var(--font);
+  font-weight: 800;
+}
+.shop-filter {
+  margin: 0;
+}
+.pack-list {
+  display: grid;
+  gap: 0.55rem;
+}
+.pack-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.9rem;
+  min-height: 72px;
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius);
+  background: rgba(255, 253, 248, 0.92);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  text-align: left;
+}
+.pack-icon {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  font-size: 1.9rem;
+}
+.pack-icon.coins {
+  background: var(--honey-soft);
+}
+.pack-icon.gems {
+  background: #d9f1ef;
+}
+.pack-bonus {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--coral);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  font-family: var(--font-num), var(--font);
+}
+.pack-name {
+  flex: 1;
+  display: grid;
+  font-weight: 700;
+}
+.pack-name small {
+  font-weight: 500;
+  color: var(--muted);
+  font-family: var(--font-num), var(--font);
+}
+.item-art {
+  min-height: 120px;
+  display: grid;
+  place-items: center;
 }

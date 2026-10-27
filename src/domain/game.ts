@@ -15,7 +15,8 @@ export const islandId = (save: SaveFile) => save.profile.activeIslandId;
 export const rewardFor = (s: FocusSession) => (s.status === 'completed' ? Math.floor(s.accumulatedMs / POINT_MS) : 0);
 
 const POINT_KINDS = new Set(['focus_reward', 'project_spend']);
-const COIN_KINDS = new Set(['coin_reward', 'animal_unlock', 'quest_reward']);
+const COIN_KINDS = new Set(['coin_reward', 'animal_unlock', 'quest_reward', 'shop_buy', 'coin_exchange']);
+const GEM_KINDS = new Set(['gem_grant', 'gem_spend']);
 
 function sumKinds(save: SaveFile, userId: ID, kinds: Set<string>) {
   const isl = islandId(save);
@@ -25,6 +26,8 @@ function sumKinds(save: SaveFile, userId: ID, kinds: Set<string>) {
 export const balance = (save: SaveFile, userId: ID = save.profile.id) => sumKinds(save, userId, POINT_KINDS);
 /** 金幣錢包 */
 export const coins = (save: SaveFile, userId: ID = save.profile.id) => sumKinds(save, userId, COIN_KINDS);
+/** 寶石錢包 */
+export const gems = (save: SaveFile, userId: ID = save.profile.id) => sumKinds(save, userId, GEM_KINDS);
 
 export const openSession = (save: SaveFile) => save.sessions.find(isOpen) ?? null;
 
@@ -52,7 +55,7 @@ export function startFocus(save: SaveFile, p: { taskTitle: string; tag: string; 
 // ---------- 動物（每段專注是一次探索，完成就遇見一隻） ----------
 
 const animalKey = (save: SaveFile, animalId: string) => `animal:${islandId(save)}:${animalId}`;
-/** 商店用金幣解鎖過（或新手任務的寶箱送的）。 */
+/** 商店用金幣或寶石解鎖過（或新手任務的寶箱送的）。 */
 export function animalBought(save: SaveFile, animalId: string) {
   const key = animalKey(save, animalId);
   return save.transactions.some((t) => t.idempotencyKey === key || (t.kind === 'quest_reward' && t.animalId === animalId && t.islandId === islandId(save)));
@@ -62,8 +65,9 @@ export function animalBought(save: SaveFile, animalId: string) {
 export function animalUnlocked(save: SaveFile, a: AnimalDef) {
   const u = a.unlock;
   if (u.kind === 'start') return true;
-  if (u.kind === 'project') return isDone(save, u.id);
-  if (u.kind === 'coins') return animalBought(save, a.id);
+  // 工程的動物也可以在商店用寶石提早解鎖
+  if (u.kind === 'project') return isDone(save, u.id) || animalBought(save, a.id);
+  if (u.kind === 'coins' || u.kind === 'gems') return animalBought(save, a.id);
   return false;
 }
 
@@ -410,8 +414,10 @@ export function contributionsByUser(save: SaveFile) {
 
 // ---------- 環境音收集 ----------
 
-export function soundUnlocked(save: SaveFile, u: SoundUnlock) {
+/** id 有給的話也看商店有沒有買過。 */
+export function soundUnlocked(save: SaveFile, u: SoundUnlock, id?: string) {
   if (u.kind === 'start') return true;
+  if (id && save.transactions.some((t) => t.idempotencyKey === `shop:${islandId(save)}:sound:${id}`)) return true;
   if (u.kind === 'project') return isDone(save, u.id);
   return (hatchCounts(save).get(u.id) ?? 0) > 0;
 }
@@ -422,7 +428,7 @@ export const habitatSound = (save: SaveFile, _habitatId: HabitatId) => (isDone(s
 /** 專注時播放的環境音：玩家選的（且已收集），否則跟著棲地。 */
 export function focusSoundFor(save: SaveFile, habitatId: HabitatId) {
   const pick = SOUNDS.find((x) => x.id === save.settings.focusSound);
-  return pick && soundUnlocked(save, pick.unlock) ? pick.id : habitatSound(save, habitatId);
+  return pick && soundUnlocked(save, pick.unlock, pick.id) ? pick.id : habitatSound(save, habitatId);
 }
 
 // ---------- 專注完成後的自動流程 ----------

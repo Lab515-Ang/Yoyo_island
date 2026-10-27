@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { animalDef } from '../content/config';
 import { TrackArt } from './Animal';
-import { Coin } from './ui';
+import { Coin, Gem } from './ui';
 
 export function ChestArt({ open = false, size = 40 }: { open?: boolean; size?: number }) {
   return (
@@ -30,11 +30,11 @@ export function ChestOpen({
   onFind,
 }: {
   title: string;
-  onOpen: () => { coins: number; animalId?: string } | null;
+  onOpen: () => { coins: number; gems?: number; animalId?: string } | null;
   onClose: () => void;
   onFind?: (animalId: string) => void;
 }) {
-  const [got, setGot] = useState<{ coins: number; animalId?: string } | null>(null);
+  const [got, setGot] = useState<{ coins: number; gems?: number; animalId?: string } | null>(null);
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const d = ref.current!;
@@ -72,6 +72,11 @@ export function ChestOpen({
           <p className="chest-line">
             <Coin /> 金幣 ×{got.coins}
           </p>
+          {!!got.gems && (
+            <p className="chest-line">
+              <Gem /> 寶石 ×{got.gems}
+            </p>
+          )}
           {a ? (
             <div className="guard-actions">
               <button className="primary" onClick={() => onFind?.(a.id)}>

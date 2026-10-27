@@ -310,8 +310,7 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
                   key={a.id}
                   role="radio"
                   aria-checked={egg === a.id}
-                  // 商店買得到的探索路線：點了直接去商店；修工程才找得到的只能等
-                  disabled={!ok && a.unlock.kind === 'project'}
+                  // 還沒解鎖的點了直接去商店（工程的動物也可以用寶石提早解鎖）
                   className={egg === a.id ? 'plant-option on' : 'plant-option'}
                   onClick={() => {
                     setSheet(null);

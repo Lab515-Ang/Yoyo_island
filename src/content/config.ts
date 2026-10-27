@@ -79,7 +79,8 @@ export const projectDef = (id: string) => PROJECTS.find((p) => p.id === id);
  * 介紹保持簡單、保守，不宣稱保育等級或精確生態；上線前請內容夥伴再核對。
  */
 export type AnimalShape = 'bird' | 'owl' | 'raptor' | 'pheasant' | 'pangolin' | 'cat' | 'mustelid' | 'bear' | 'goat';
-export type AnimalUnlock = { kind: 'start' } | { kind: 'project'; id: string } | { kind: 'coins'; price: number } | { kind: 'iap'; price: string };
+// gems：只在商店用寶石解鎖的物種；project 的動物也可以在商店用寶石提早解鎖（見 content/shop.ts）
+export type AnimalUnlock = { kind: 'start' } | { kind: 'project'; id: string } | { kind: 'coins'; price: number } | { kind: 'gems'; price: number } | { kind: 'iap'; price: string };
 export interface AnimalDef {
   id: string;
   name: string;
@@ -119,6 +120,11 @@ export const ANIMALS: AnimalDef[] = [
   { id: 'civet', name: '小麝香貓', shape: 'cat', color: '#b7a07c', accent: '#4a3b2a', unlock: { kind: 'coins', price: 800 }, blurb: '身上有成排的黑色斑點，尾巴有一圈一圈的環紋。', habitat: { zone: 'low', region: '低海拔草生地與農墾地', elevation: '約 1,000 公尺以下', level: 2, lon: 120.75, lat: 22.12 } },
   { id: 'mikado_pheasant', name: '帝雉', shape: 'pheasant', color: '#1f2f5c', accent: '#7fa3d8', unlock: { kind: 'coins', price: 1200 }, blurb: '住在中高海拔森林，羽毛在陽光下帶著藍紫色的光澤。', habitat: { zone: 'high', region: '中央山脈高山，常有雲霧的針闊葉林', elevation: '約 1,800～3,800 公尺', level: 2, lon: 121.27, lat: 24.12 } },
   { id: 'serow', name: '長鬃山羊', shape: 'goat', color: '#6d5a48', accent: '#d9cbb5', unlock: { kind: 'coins', price: 1600 }, blurb: '擅長在陡峭的山壁上行走，脖子上有長長的鬃毛。', habitat: { zone: 'high', region: '中高海拔陡峭山壁，例如南湖大山、雪山圈谷', elevation: '200 公尺到高山，1,000 公尺以上較常見', level: 3, lon: 121.44, lat: 24.36 } },
+  // 商店的新物種（保育類等級與棲息地上架前要再核對）
+  { id: 'crested_serpent_eagle', name: '大冠鷲', shape: 'raptor', color: '#5a4632', accent: '#f2d27a', unlock: { kind: 'coins', price: 1400 }, blurb: '常在山區上空盤旋，叫聲響亮，最愛吃蛇。', habitat: { zone: 'low', region: '全島低至中海拔山區', elevation: '約 2,000 公尺以下', level: 2, lon: 120.95, lat: 23.25 } },
+  { id: 'maroon_oriole', name: '朱鸝', shape: 'bird', color: '#8f1d2c', accent: '#2a1a1a', unlock: { kind: 'coins', price: 1800 }, blurb: '全身酒紅色、頭是黑色，數量稀少的美麗鳥兒。', habitat: { zone: 'low', region: '低海拔闊葉林，東部與南部較常見', elevation: '約 1,000 公尺以下', level: 2, lon: 121.3, lat: 22.9 } },
+  { id: 'yellow_tit', name: '黃山雀', shape: 'bird', color: '#f2c230', accent: '#1f2a3a', unlock: { kind: 'gems', price: 70 }, blurb: '台灣特有種，黃色的身體配上黑色的冠羽。', habitat: { zone: 'mid', region: '中海拔闊葉林', elevation: '約 1,000～2,500 公尺', level: 2, lon: 121.0, lat: 24.05 } },
+  { id: 'fish_owl', name: '黃魚鴞', shape: 'owl', color: '#c08a3e', accent: '#f2c230', unlock: { kind: 'gems', price: 90 }, blurb: '台灣最大的貓頭鷹，住在溪流旁，夜裡會抓魚。', habitat: { zone: 'mid', region: '中低海拔原始闊葉林的溪流沿岸', elevation: '約 500～2,000 公尺', level: 1, lon: 121.3, lat: 24.2 } },
   { id: 'clouded_leopard', name: '台灣雲豹', shape: 'cat', color: '#c2a476', accent: '#5b4630', unlock: { kind: 'iap', price: 'NT$90' }, blurb: '身上有像雲朵的斑紋。野外已多年沒有確切紀錄，是森林裡的傳說。', habitat: { zone: 'legend', region: '過去分布在中低海拔原始林；2013 年研究團隊調查後認為台灣野外可能已滅絕', elevation: '已多年沒有確切紀錄', level: 1, lon: 120.9, lat: 22.8 } },
   { id: 'black_eagle', name: '林鵰', shape: 'raptor', color: '#2b2622', accent: '#f2c230', unlock: { kind: 'iap', price: 'NT$60' }, blurb: '全身深色的大型猛禽，常貼著樹冠緩緩滑翔。', habitat: { zone: 'mid', region: '中低海拔原始闊葉林', elevation: '約 500～2,500 公尺', level: 2, lon: 121.45, lat: 23.85 } },
 ];

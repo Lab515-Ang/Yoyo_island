@@ -16,7 +16,7 @@ export function Sounds({ onSettings }: { onSettings: () => void }) {
   const st = save.settings;
   const [playing, setPlaying] = useState<string | null>(null);
   useAmbient(playing !== null, st.soundVolume || 0.5, playing ?? 'breeze');
-  const got = SOUNDS.filter((s) => soundUnlocked(save, s.unlock));
+  const got = SOUNDS.filter((s) => soundUnlocked(save, s.unlock, s.id));
   const choose = (id: string) => update((s) => ({ ...s, settings: { ...s.settings, focusSound: id } }));
   const current = got.some((s) => s.id === st.focusSound) ? st.focusSound : 'auto';
 
@@ -51,7 +51,7 @@ export function Sounds({ onSettings }: { onSettings: () => void }) {
 
       <div className="codex-grid">
         {SOUNDS.map((s) => {
-          const ok = soundUnlocked(save, s.unlock);
+          const ok = soundUnlocked(save, s.unlock, s.id);
           const on = playing === s.id;
           return (
             <div key={s.id} className={ok ? 'codex-card shop-card' : 'codex-card shop-card locked'}>

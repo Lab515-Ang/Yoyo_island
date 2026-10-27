@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyDeepFocus, dueAt, completeNow, createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, addSegmentsByHour, weekStartKey, wakeAt, watchWindow, setCalendar, localDateKey, nextLocalMidnight, targetReached } from './focus';
-import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote, isDone, projectQuarter, remainingFor, applyFocusRewards, focusOutcome, animalUnlocked, chosenAnimal, endedSessions, hatchCounts, newAnimals, sceneAnimals, unlockAnimal, growthOf, sightings, weekRecap, communityRank } from './game';
+import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote, isDone, projectQuarter, remainingFor, applyFocusRewards, focusOutcome, animalUnlocked, chosenAnimal, endedSessions, hatchCounts, newAnimals, sceneAnimals, unlockAnimal, growthOf, sightings, weekRecap, communityRank, gems } from './game';
+import { buyItem, dailyPicks, exchangeCoins } from './shop';
 import { ANIMALS, CONTENT_VERSION, GROWTH_AT, SOUNDS, animalDef, projectDef, stageName } from '../content/config';
 import { newSave, newDemoSave, validateSave, demoGrant } from './save';
 import { npsDue } from './feedback';
@@ -679,5 +680,28 @@ describe('舊存檔轉換（溫室／溪流、植物、寵物 → 陸地森林�
     expect(s.settings.preferredHabitatId).toBe('forest');
     expect('pets' in s || 'discoveries' in s).toBe(false);
     expect(validateSave(JSON.parse(JSON.stringify(s))).ok).toBe(true); // 轉換後再存再讀也正常
+  });
+});
+
+describe('商店與寶石', () => {
+  it('每日精選 6 個、寶石 2～3 個；寶石換金幣；寶石不足不能買；存檔檢查通過', () => {
+    let save = focus(fresh(), 600);
+    const { picks } = dailyPicks(save, T0);
+    expect(picks).toHaveLength(6);
+    const nGem = picks.filter((it) => 'gems' in it.price).length;
+    expect(nGem).toBeGreaterThanOrEqual(2);
+    expect(nGem).toBeLessThanOrEqual(3);
+    const gemItem = picks.find((it) => 'gems' in it.price)!;
+    expect(buyItem(save, gemItem.id, T0).ok).toBe(false);
+    // 寶箱送的寶石（示範用 key 不行，用本月挑戰的 key）
+    save = { ...save, transactions: [...save.transactions, { id: 'g', userId: save.profile.id, islandId: save.profile.activeIslandId, kind: 'gem_grant', amount: 120, idempotencyKey: 'quest:month:2026-10:gems', createdAt: new Date(T0).toISOString() }] };
+    const ex = exchangeCoins(save, 'bag', T0);
+    expect(ex.ok).toBe(true);
+    if (!ex.ok) return;
+    expect(gems(ex.save)).toBe(70);
+    const bought = buyItem(ex.save, gemItem.id, T0);
+    expect(bought.ok).toBe(true);
+    if (!bought.ok) return;
+    expect(validateSave(JSON.parse(JSON.stringify(bought.save)), T0).ok).toBe(true);
   });
 });

@@ -42,7 +42,7 @@ function simulate(h: Habit, days: number) {
     }
     for (const p of PROJECTS) if (isDone(save, p.id)) mark(`完成 ${p.title}`, d + 1);
     if (!activeProject(save)) mark('全部工程完成', d + 1);
-    const free = ANIMALS.filter((a) => a.unlock.kind !== 'iap');
+    const free = ANIMALS.filter((a) => a.unlock.kind !== 'iap' && a.unlock.kind !== 'gems'); // 寶石物種要付費或寶箱的寶石，不算玩得到
     if (free.every((a) => hatchCounts(save).get(a.id))) mark('遇見所有可取得的動物', d + 1);
     if (free.every((a) => growthOf(save, a.id).stage === 2)) mark('所有可取得的動物都看到成年', d + 1);
   }
