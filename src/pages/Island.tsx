@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { useSave } from '../app/store';
 import { COPY, habitatName, hasStages, regionAnimals, regionDef, regionProjects, stageName } from '../content/config';
 import { RegionChip } from '../components/Region';
-import { AnimalCard, Modal, Progress, fmtMinutes } from '../components/ui';
+import { AnimalCard, Flag, Modal, Progress, fmtMinutes } from '../components/ui';
 import { AnimalArt } from '../components/Animal';
 import { animalsUnlockedBy, balance, contribute, currentRegion, growthOf, habitatProgress, habitatSound, hatchCounts, isDone, projectRow, regionOpen, remainingFor, sceneAnimals } from '../domain/game';
 import { HabitatScene } from '../scenes/HabitatScene';
@@ -131,7 +131,7 @@ function RestorePanel() {
         <p>{COPY.allRestored}</p>
         {region === 'tw' && regionOpen(save, next.id) && (
           <p className="small">
-            {next.flag} {next.name}開放了！點上方的區域按鈕，到新的小島繼續修復。
+            <Flag region={next.id} size={18} /> {next.name}開放了！點上方的區域按鈕，到新的小島繼續修復。
           </p>
         )}
         {track}

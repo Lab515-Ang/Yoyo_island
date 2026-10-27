@@ -36,12 +36,41 @@ export function Modal({ title, onClose, children, className }: { title: string; 
   );
 }
 
+// 台灣國旗的白日：12 道光芒（外半徑 3、內半徑 1.7）
+const SUN = Array.from({ length: 24 }, (_, i) => {
+  const r = i % 2 ? 1.7 : 3;
+  const t = (i * Math.PI) / 12 - Math.PI / 2;
+  return `${(6 + r * Math.cos(t)).toFixed(2)},${(4 + r * Math.sin(t)).toFixed(2)}`;
+}).join(' ');
+
+/** 國旗圖示（畫成 SVG：國旗 emoji 在部分手機和電腦上只會顯示成字母）。 */
+export function Flag({ region, size = 20 }: { region: string; size?: number }) {
+  const r = regionDef(region);
+  return (
+    <svg className="flag" viewBox="0 0 24 16" width={size} height={(size * 2) / 3} role="img" aria-label={r.name}>
+      {r.id === 'jp' ? (
+        <>
+          <rect width="24" height="16" fill="#fff" />
+          <circle cx="12" cy="8" r="4.8" fill="#bc002d" />
+        </>
+      ) : (
+        <>
+          <rect width="24" height="16" fill="#fe0000" />
+          <rect width="12" height="8" fill="#000095" />
+          <polygon points={SUN} fill="#fff" />
+          <circle cx="6" cy="4" r="1.7" fill="#000095" />
+          <circle cx="6" cy="4" r="1.45" fill="#fff" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 /** 動物主要分布的國家：格子右上角的小國旗。 */
 export function RegionFlag({ id }: { id: string }) {
-  const r = regionDef(animalRegion(animalDef(id)));
   return (
-    <span className="region-flag" title={r.name} aria-label={r.name}>
-      {r.flag}
+    <span className="animal-flag">
+      <Flag region={animalRegion(animalDef(id))} size={18} />
     </span>
   );
 }

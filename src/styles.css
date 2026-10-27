@@ -5530,16 +5530,29 @@ html:has(dialog[open]) {
 .shop-hero {
   position: relative;
 }
-.region-flag {
+.animal-flag {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  font-size: 0.95rem;
-  line-height: 1;
+  top: 7px;
+  right: 7px;
+  line-height: 0;
   pointer-events: none;
 }
-.shop-hero .region-flag {
+.shop-hero .animal-flag {
   top: 12px;
   right: 12px;
-  font-size: 1.2rem;
+}
+.shop-hero .animal-flag .flag {
+  width: 26px;
+  height: auto;
+}
+/* 國旗圖示：小圓角＋細邊（日本國旗白底在白卡片上才看得出邊） */
+.flag {
+  display: inline-block;
+  vertical-align: -0.15em;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
+  flex-shrink: 0;
+}
+.region-flag {
+  line-height: 0;
 }

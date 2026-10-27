@@ -3,7 +3,7 @@ import { useNow, useSave } from '../app/store';
 import { SOUNDS, animalDef, animalRegion, hasStages, levelName, regionDef, type AnimalDef } from '../content/config';
 import { COIN_PACKS, GEM_PACKS, REFRESH_COINS, landDef, type ShopItem } from '../content/shop';
 import { AnimalArt, TrackArt } from '../components/Animal';
-import { Coin, Gem, Modal, RegionFlag } from '../components/ui';
+import { Coin, Flag, Gem, Modal, RegionFlag } from '../components/ui';
 import { coins, gems, type ActionResult } from '../domain/game';
 import { buyItem, dailyPicks, exchangeCoins, featuredItems, landOwned, owned, refreshPicks, shopItems } from '../domain/shop';
 import { Check, Play, RefreshCw, Square } from 'lucide-react';
@@ -342,7 +342,7 @@ function ItemSheet({ it, onClose, onBought, onLobby, run }: { it: ShopItem; onCl
           <div>
             <dt>區域</dt>
             <dd>
-              {region.flag} {region.name}
+              <Flag region={region.id} size={18} /> {region.name}
             </dd>
           </div>
           <div>

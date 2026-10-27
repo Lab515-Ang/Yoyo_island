@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useSave } from '../app/store';
 import { REGIONS, TEST_TOOLS, regionAnimals, regionDef, regionProjects } from '../content/config';
 import { currentRegion, hatchCounts, isDone, regionOpen } from '../domain/game';
-import { Modal, Progress } from './ui';
+import { Flag, Modal, Progress } from './ui';
 import { REGION_XY, WORLD_LAND, WORLD_SPHERE, WORLD_W } from '../content/worldMap';
 import { ChevronDown, Lock } from 'lucide-react';
 
@@ -14,7 +14,7 @@ export function RegionChip() {
   return (
     <>
       <button className="region-chip" onClick={() => setOpen(true)} aria-label={`目前區域：${r.name}，點一下切換`}>
-        <span aria-hidden="true">{r.flag}</span> {r.name}
+        <Flag region={r.id} size={20} /> {r.name}
         <ChevronDown size={16} aria-hidden="true" />
       </button>
       {open && <RegionSheet onClose={() => setOpen(false)} />}
@@ -83,7 +83,7 @@ function RegionSheet({ onClose }: { onClose: () => void }) {
               onClick={() => pick(r.id)}
             >
               <span className="region-flag" aria-hidden="true">
-                {r.flag}
+                <Flag region={r.id} size={36} />
               </span>
               <span className="region-info">
                 <strong>{r.name}</strong>
