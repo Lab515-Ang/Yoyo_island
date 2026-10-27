@@ -4676,3 +4676,172 @@ label.set-row input.switch:checked {
   font-family: var(--font-num), var(--font);
   letter-spacing: 0.12em;
 }
+
+/* ---------- 領取成就的小表演 ---------- */
+.ach-celebrate {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(20, 30, 24, 0.62);
+  animation: cel-dim 0.3s ease-out;
+}
+@keyframes cel-dim {
+  from {
+    background: rgba(20, 30, 24, 0);
+  }
+}
+.ach-cel-card {
+  position: relative;
+  width: min(100%, 340px);
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  padding: 1.4rem 1.4rem 1.2rem;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  animation: cel-card 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes cel-card {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.85);
+  }
+}
+.ach-cel-card h2 {
+  margin: 0;
+  font-family: var(--font-title);
+  font-weight: 400;
+  font-size: 1.5rem;
+}
+.ach-cel-card p {
+  margin: 0;
+}
+.ach-cel-badge {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin: -3.6rem 0 0.4rem;
+  display: grid;
+  place-items: center;
+}
+/* 徽章後面慢慢轉的光芒 */
+.ach-cel-rays {
+  position: absolute;
+  inset: -36px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(rgba(243, 197, 102, 0.55) 0 10deg, transparent 10deg 30deg);
+  -webkit-mask: radial-gradient(circle, #000 30%, transparent 70%);
+  mask: radial-gradient(circle, #000 30%, transparent 70%);
+  animation: cel-rays 6s linear infinite, cel-fade-in 0.6s 0.2s ease-out both;
+}
+@keyframes cel-rays {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes cel-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+.ach-cel-icon {
+  position: relative;
+  width: 108px;
+  height: 108px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #fff8df, #f3c566);
+  border: 5px solid var(--panel);
+  box-shadow: 0 10px 26px rgba(176, 122, 18, 0.35);
+  font-size: 3.2rem;
+  animation: cel-pop 0.7s 0.15s cubic-bezier(0.34, 1.7, 0.64, 1) both;
+}
+@keyframes cel-pop {
+  0% {
+    transform: scale(0) rotate(-30deg);
+  }
+  70% {
+    transform: scale(1.15) rotate(6deg);
+  }
+}
+/* 紙花：從徽章往外散開 */
+.ach-cel-confetti {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 12px;
+  margin: -6px 0 0 -4px;
+  border-radius: 2px;
+  background: var(--c);
+  opacity: 0;
+  animation: cel-confetti 1s 0.35s ease-out both;
+}
+@keyframes cel-confetti {
+  0% {
+    opacity: 1;
+    transform: rotate(var(--a)) translateY(0) rotate(0);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateY(-120px) rotate(200deg);
+  }
+}
+/* 文字和獎勵依序浮上來 */
+.ach-cel-line {
+  animation: rise-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.ach-cel-card .eyebrow {
+  animation-delay: 0.45s;
+}
+.ach-cel-card h2 {
+  animation-delay: 0.55s;
+}
+.ach-cel-card p.small {
+  animation-delay: 0.65s;
+}
+.ach-cel-card button {
+  margin-top: 0.6rem;
+  animation-delay: 1.05s;
+}
+.ach-cel-rewards {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+.ach-cel-rewards span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  background: var(--honey-soft);
+  font-family: var(--font-num), var(--font);
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: #7a5410;
+  animation: cel-pop 0.5s 0.8s cubic-bezier(0.34, 1.7, 0.64, 1) both;
+}
+.ach-cel-rewards span + span {
+  animation-delay: 0.92s;
+}
+.app.calm :is(.ach-celebrate, .ach-cel-card, .ach-cel-rays, .ach-cel-icon, .ach-cel-confetti, .ach-cel-line, .ach-cel-rewards span) {
+  animation: none;
+}
+.app.calm .ach-cel-confetti {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.ach-celebrate, .ach-cel-card, .ach-cel-rays, .ach-cel-icon, .ach-cel-line, .ach-cel-rewards span) {
+    animation: none;
+  }
+  .ach-cel-confetti {
+    display: none;
+  }
+}
