@@ -1,19 +1,15 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type CSSProperties } from 'react';
 import { useSave } from '../app/store';
-import { ANIMALS, HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, QUICK_MINUTES, TAGS, animalDef, clampMinutes, habitatName, tagColor } from '../content/config';
+import { ANIMALS, HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, TAGS, animalDef, clampMinutes, habitatName, tagColor } from '../content/config';
 import { Modal } from '../components/ui';
 import { AnimalArt, TrackArt } from '../components/Animal';
 import { GrowthTag, unlockText } from '../components/ui';
 import { animalUnlocked, chosenAnimal, growthOf, habitatOpen, hatchCounts, newAnimals, startFocus } from '../domain/game';
-import type { HabitatId, TimerMode } from '../domain/types';
-import { HabitatScene } from '../scenes/HabitatScene';
+import type { HabitatId } from '../domain/types';
 import { DEEP_GRACE_MS, TimeGuard, isAndroid, isNative, requestNotifyPermission, type GuardApp } from '../platform';
 import { AppPicker } from './Guard';
 import { DeepSetup, deepPerm, deepSetupSeen } from '../components/DeepSetup';
 import { ChevronDown, ChevronRight, PencilLine, Search } from 'lucide-react';
-
-// 大廳直接點選的常用時間；其他時間從「自訂」設定
-const PRESETS = [10, 25, 45, 60];
 
 type Sheet = 'tag' | 'title' | 'time' | 'habitat' | 'egg' | 'allow' | 'deep' | 'deepInfo' | null;
 
@@ -27,7 +23,6 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
     const last = [...save.sessions].reverse().find((s) => s.userId === save.profile.id)?.tag;
     return last && (TAGS.includes(last) || st.customTags.includes(last)) ? last : TAGS[0];
   });
-  const [timerMode, setTimerMode] = useState<TimerMode>(st.lastTimerMode);
   // 舊存檔可能記著 5 分鐘：收進 10～180 分鐘（示範的 10 秒例外）
   const [seconds, setSeconds] = useState(mode === 'demo' && st.lastTargetSeconds === 10 ? 10 : clampMinutes(st.lastTargetSeconds / 60) * 60);
   const [habitat, setHabitat] = useState<HabitatId>(habitatOpen(save, st.preferredHabitatId) ? st.preferredHabitatId : 'forest');
@@ -37,13 +32,14 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
   const [sheet, setSheet] = useState<Sheet>(null);
   const [draft, setDraft] = useState('');
   const [custom, setCustom] = useState('');
+  const [customOpen, setCustomOpen] = useState(false);
   const [newTag, setNewTag] = useState('');
 
   const tags = [...TAGS, ...st.customTags];
   const firstTime = !save.sessions.some((s) => s.userId === save.profile.id && s.endedAt);
   const customMin = Number(custom);
   const customValid = Number.isInteger(customMin) && customMin >= MIN_FOCUS_MINUTES && customMin <= MAX_FOCUS_MINUTES;
-  const shown = timerMode === 'stopwatch' ? '00:00' : seconds < 60 ? `00:${String(seconds).padStart(2, '0')}` : `${Math.round(seconds / 60)}:00`;
+  const shown = seconds < 60 ? `00:${String(seconds).padStart(2, '0')}` : `${Math.round(seconds / 60)}:00`;
 
   // 可以去找、但還沒遇見過的動物：標「新」，遇見一次就消失
   const fresh = newAnimals(save);
@@ -62,7 +58,7 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
 
   const begin = (useDeep: boolean) => {
     setSheet(null);
-    const next = update((s) => startFocus(s, { taskTitle: task, tag, habitatId: habitat, mode: timerMode, targetSeconds: timerMode === 'countdown' ? seconds : null, animalId: egg, deep: useDeep }, Date.now()));
+    const next = update((s) => startFocus(s, { taskTitle: task, tag, habitatId: habitat, mode: 'countdown', targetSeconds: seconds, animalId: egg, deep: useDeep }, Date.now()));
     if (next) onStarted();
   };
   // 深度專注要先等原生端回覆權限：連點兩下不要跑兩次
@@ -118,59 +114,38 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
         </button>
       </div>
 
-      {/* 這次去哪裡、找誰 */}
-      <div className="lobby-scene">
-        <HabitatScene habitatId={habitat} bubble />
-        {/* 這次的探索目標：還沒出發，只看得到剪影 */}
-        <button className="bubble-plant" onClick={() => setSheet('egg')} aria-label={`探索目標：${animalDef(egg).name}，點一下更換`}>
-          <TrackArt id={egg} stage={growthOf(save, egg).stage} size="100%" />
+      {/* 找誰：整頁漸層，中間一圈是這次的探索目標（還沒出發，只看得到剪影） */}
+      <div className="lobby-target">
+        <button className="lobby-ring" onClick={() => setSheet('egg')} aria-label={`探索目標：${animalDef(egg).name}，點一下更換`}>
+          <TrackArt id={egg} stage={growthOf(save, egg).stage} size="72%" />
         </button>
-        <button className="target-chip" onClick={() => setSheet('egg')}>
-          <span className="target-icon" aria-hidden="true">
-            <Search size={15} strokeWidth={2.4} />
-          </span>
-          尋找{animalDef(egg).name}
-          {fresh.length > 0 && !fresh.some((a) => a.id === egg) && <span className="new-badge">{fresh.length} 個新足跡</span>}
-          {fresh.some((a) => a.id === egg) && <span className="new-badge">新</span>}
-          <ChevronRight size={16} aria-hidden="true" />
-        </button>
-        {openHabitats.length > 1 && (
-          <button className="habitat-chip" onClick={() => setSheet('habitat')}>
-            {habitatName(habitat)}
-            <ChevronDown size={14} aria-hidden="true" />
+        <div className="lobby-chips">
+          <button className="target-chip" onClick={() => setSheet('egg')}>
+            <Search size={15} strokeWidth={2.4} aria-hidden="true" />
+            尋找{animalDef(egg).name}
+            {fresh.length > 0 && !fresh.some((a) => a.id === egg) && <span className="new-badge">{fresh.length} 個新足跡</span>}
+            {fresh.some((a) => a.id === egg) && <span className="new-badge">新</span>}
+            <ChevronRight size={16} aria-hidden="true" />
           </button>
-        )}
+          {openHabitats.length > 1 && (
+            <button className="target-chip" onClick={() => setSheet('habitat')}>
+              {habitatName(habitat)}
+              <ChevronDown size={14} aria-hidden="true" />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* 多久 */}
-      <div className="lobby-timer">
-        <button className="lobby-time" onClick={() => setSheet('time')} aria-label={`專注時間 ${shown}，點一下調整`}>
-          {shown}
-        </button>
-        <button className="lobby-mode" onClick={() => setSheet('time')}>
-          {timerMode === 'countdown' ? '倒數計時' : '正向計時'}
-          {deep ? ' · 深度專注' : ''}
-          <ChevronDown size={14} aria-hidden="true" />
-        </button>
-      </div>
-      {timerMode === 'countdown' && (
-        <div className="quick-times" role="radiogroup" aria-label="常用時間">
-          {PRESETS.map((m) => (
-            <button key={m} role="radio" aria-checked={seconds === m * 60} className={seconds === m * 60 ? 'chip on' : 'chip'} onClick={() => setSeconds(m * 60)}>
-              {m} 分
-            </button>
-          ))}
-          <button className={PRESETS.includes(seconds / 60) ? 'chip' : 'chip on'} onClick={() => setSheet('time')}>
-            {PRESETS.includes(seconds / 60) ? '自訂' : `${seconds < 60 ? `${seconds} 秒` : `${seconds / 60} 分`}`}
-          </button>
-        </div>
-      )}
+      {/* 多久：點數字打開時間設定 */}
+      <button className="lobby-time" onClick={() => setSheet('time')} aria-label={`專注時間 ${shown}${deep ? '，深度專注' : ''}，點一下調整`}>
+        {shown}
+      </button>
 
       <button className="primary start" onClick={() => void start()}>
         開始專注
       </button>
       <InstallHint />
-      <p className="lobby-hint">{timerMode === 'countdown' ? `開始後 10 秒內可以取消；之後提前結束，${animalDef(egg).name}會被嚇跑。` : `至少 ${MIN_FOCUS_MINUTES} 分鐘才算完成，最多 ${MAX_FOCUS_MINUTES} 分鐘。`}</p>
+      <p className="lobby-hint">開始後 10 秒內可以取消；之後提前結束，{animalDef(egg).name}會被嚇跑。</p>
 
       {sheet === 'tag' && (
         <Modal title="標籤" onClose={() => setSheet(null)}>
@@ -227,32 +202,26 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
 
       {sheet === 'time' && (
         <Modal title="專注時間" onClose={() => setSheet(null)}>
-          <div className="segmented" role="radiogroup" aria-label="計時方式">
-            {(
-              [
-                ['countdown', '倒數'],
-                ['stopwatch', '正向計時'],
-              ] as const
-            ).map(([k, l]) => (
-              <button key={k} role="radio" aria-checked={timerMode === k} className={timerMode === k ? 'on' : ''} onClick={() => setTimerMode(k)}>
-                {l}
-              </button>
-            ))}
-          </div>
-          {timerMode === 'countdown' ? (
-            <>
-              <div className="chips" role="radiogroup" aria-label="倒數時間">
-                {mode === 'demo' && (
-                  <button role="radio" aria-checked={seconds === 10} className={seconds === 10 ? 'chip on demo' : 'chip demo'} onClick={() => (setSeconds(10), setSheet(null))}>
-                    10 秒（示範）
-                  </button>
-                )}
-                {QUICK_MINUTES.map((m) => (
-                  <button key={m} role="radio" aria-checked={seconds === m * 60} className={seconds === m * 60 ? 'chip on' : 'chip'} onClick={() => (setSeconds(m * 60), setSheet(null))}>
-                    {m} 分{m === MIN_FOCUS_MINUTES && firstTime ? '（新手）' : ''}
-                  </button>
-                ))}
-              </div>
+          {/* 參考 Forest：滑動軌拉時間，另外可以自訂分鐘、開關深度專注 */}
+          <div className="time-sheet">
+            <p className="time-value">
+              {seconds < 60 ? `${seconds} 秒` : `${seconds / 60} 分鐘`}
+            </p>
+            <input
+              type="range"
+              min={MIN_FOCUS_MINUTES}
+              max={MAX_FOCUS_MINUTES}
+              step={5}
+              value={Math.max(MIN_FOCUS_MINUTES, Math.round(seconds / 60))}
+              onChange={(e) => setSeconds(Number(e.target.value) * 60)}
+              aria-label="專注分鐘"
+              style={{ '--fill': `${((Math.max(MIN_FOCUS_MINUTES, seconds / 60) - MIN_FOCUS_MINUTES) / (MAX_FOCUS_MINUTES - MIN_FOCUS_MINUTES)) * 100}%` } as CSSProperties}
+            />
+            <div className="range-ends small muted">
+              <span>{MIN_FOCUS_MINUTES} 分</span>
+              <span>{MAX_FOCUS_MINUTES} 分</span>
+            </div>
+            {customOpen ? (
               <form
                 className="row"
                 onSubmit={(e) => {
@@ -260,42 +229,53 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
                   if (!customValid) return;
                   setSeconds(customMin * 60);
                   setCustom('');
-                  setSheet(null);
+                  setCustomOpen(false);
                 }}
               >
-                <input className="short" inputMode="numeric" value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^\d]/g, ''))} placeholder="自訂" aria-label={`自訂分鐘（${MIN_FOCUS_MINUTES}～${MAX_FOCUS_MINUTES}）`} />
-                <span className="small">分鐘（{MIN_FOCUS_MINUTES}～{MAX_FOCUS_MINUTES}）</span>
+                <input className="short" inputMode="numeric" autoFocus value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^\d]/g, ''))} placeholder={`${MIN_FOCUS_MINUTES}～${MAX_FOCUS_MINUTES}`} aria-label={`自訂分鐘（${MIN_FOCUS_MINUTES}～${MAX_FOCUS_MINUTES}）`} />
+                <span className="small">分鐘</span>
                 <button type="submit" disabled={!customValid}>
                   設定
                 </button>
               </form>
-            </>
-          ) : (
-            <p className="small muted">正向計時沒有目標時間：至少 {MIN_FOCUS_MINUTES} 分鐘才算完成，滿 {MAX_FOCUS_MINUTES} 分鐘會自動完成。</p>
-          )}
-          {isAndroid && (
-            <div className="deep-box">
-              <label className="toggle">
-                <input type="checkbox" checked={st.deepFocus} onChange={(e) => update((s) => ({ ...s, settings: { ...s.settings, deepFocus: e.target.checked } }))} />
-                <strong>深度專注</strong>
-              </label>
-              <p className="small muted">
-                專注時離開棲光小島超過 {graceSec} 秒，動物就會被嚇跑。鎖定螢幕、接電話、使用下面允許的 App 都不算離開。
-                {firstTime && st.deepFocus ? '（第一段專注先不開，下次開始生效）' : ''}
-              </p>
-              <button className="link" onClick={() => setSheet('allow')}>
-                可以使用的 App：{st.focusAllow.length ? st.focusAllow.map((a) => a.label).join('、') : '沒有'} ›
-              </button>
-              <button className="link" onClick={() => setSheet('deepInfo')}>
-                深度專注需要的權限 ›
-              </button>
-            </div>
-          )}
-          {timerMode === 'stopwatch' && (
+            ) : (
+              <div className="row center">
+                <button onClick={() => setCustomOpen(true)}>
+                  <PencilLine size={16} aria-hidden="true" /> 自訂
+                </button>
+                {mode === 'demo' && (
+                  <button className="demo" onClick={() => setSeconds(10)}>
+                    10 秒（示範）
+                  </button>
+                )}
+              </div>
+            )}
+            {isAndroid && (
+              <div className="deep-box">
+                <label className="toggle switch-row">
+                  <strong>深度專注</strong>
+                  <input type="checkbox" role="switch" className="switch" checked={st.deepFocus} onChange={(e) => update((s) => ({ ...s, settings: { ...s.settings, deepFocus: e.target.checked } }))} />
+                </label>
+                <p className="small muted">
+                  離開棲光小島超過 {graceSec} 秒，動物就會被嚇跑。
+                  {firstTime && st.deepFocus ? '（第一段專注先不開，下次開始生效）' : ''}
+                </p>
+                {st.deepFocus && (
+                  <div className="row">
+                    <button className="link" onClick={() => setSheet('allow')}>
+                      可以用的 App{st.focusAllow.length ? `（${st.focusAllow.length}）` : ''} ›
+                    </button>
+                    <button className="link" onClick={() => setSheet('deepInfo')}>
+                      需要的權限 ›
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             <button className="primary wide" onClick={() => setSheet(null)}>
               完成
             </button>
-          )}
+          </div>
         </Modal>
       )}
 

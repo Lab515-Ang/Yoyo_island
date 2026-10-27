@@ -294,7 +294,7 @@ function Main() {
     );
   else
     body = (
-      <div className={collapsed ? 'shell nav-collapsed' : 'shell'}>
+      <div className={`shell view-${view}${collapsed ? ' nav-collapsed' : ''}`}>
         <header className="topbar">
           <button
             className="menu-btn"
