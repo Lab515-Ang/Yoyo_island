@@ -9,7 +9,7 @@ import type { HabitatId } from '../domain/types';
 import { DEEP_GRACE_MS, TimeGuard, isAndroid, isNative, requestNotifyPermission, type GuardApp } from '../platform';
 import { AppPicker } from './Guard';
 import { DeepSetup, deepPerm, deepSetupSeen } from '../components/DeepSetup';
-import { ChevronDown, ChevronRight, PencilLine, Search } from 'lucide-react';
+import { ChevronDown, PencilLine } from 'lucide-react';
 
 type Sheet = 'tag' | 'title' | 'time' | 'habitat' | 'egg' | 'allow' | 'deep' | 'deepInfo' | null;
 
@@ -116,24 +116,21 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
 
       {/* 找誰：整頁漸層，中間一圈是這次的探索目標（還沒出發，只看得到剪影） */}
       <div className="lobby-target">
-        <button className="lobby-ring" onClick={() => setSheet('egg')} aria-label={`探索目標：${animalDef(egg).name}，點一下更換`}>
+        <button className="lobby-ring" onClick={() => setSheet('egg')} aria-label={`探索目標：${animalDef(egg).name}${fresh.length ? '，有新的足跡' : ''}，點一下更換`}>
           <TrackArt id={egg} stage={growthOf(save, egg).stage} size="72%" />
-        </button>
-        <div className="lobby-chips">
-          <button className="target-chip" onClick={() => setSheet('egg')}>
-            <Search size={15} strokeWidth={2.4} aria-hidden="true" />
-            尋找{animalDef(egg).name}
-            {fresh.length > 0 && !fresh.some((a) => a.id === egg) && <span className="new-badge">{fresh.length} 個新足跡</span>}
-            {fresh.some((a) => a.id === egg) && <span className="new-badge">新</span>}
-            <ChevronRight size={16} aria-hidden="true" />
-          </button>
-          {openHabitats.length > 1 && (
-            <button className="target-chip" onClick={() => setSheet('habitat')}>
-              {habitatName(habitat)}
-              <ChevronDown size={14} aria-hidden="true" />
-            </button>
+          {/* 有還沒遇見過的動物可以去找：圓圈右下角一個驚嘆號 */}
+          {fresh.length > 0 && (
+            <span className="ring-alert" aria-hidden="true">
+              !
+            </span>
           )}
-        </div>
+        </button>
+        {openHabitats.length > 1 && (
+          <button className="target-chip" onClick={() => setSheet('habitat')}>
+            {habitatName(habitat)}
+            <ChevronDown size={14} aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       {/* 多久：點數字打開時間設定 */}
@@ -145,7 +142,6 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
         開始專注
       </button>
       <InstallHint />
-      <p className="lobby-hint">開始後 10 秒內可以取消；之後提前結束，{animalDef(egg).name}會被嚇跑。</p>
 
       {sheet === 'tag' && (
         <Modal title="標籤" onClose={() => setSheet(null)}>
