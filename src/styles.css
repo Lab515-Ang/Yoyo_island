@@ -4953,20 +4953,23 @@ label.set-row input.switch:checked {
   margin: 0 0 0.8rem;
   line-height: 1.7;
 }
+/* 資訊表：每格依內容寬度排，文字一律一行（太長就省略） */
 .item-facts {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.45rem;
   margin: 0 0 0.9rem;
 }
 .item-facts > div {
-  padding: 0.5rem 0.6rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.5rem 0.7rem;
   border-radius: var(--radius-sm);
   background: var(--panel);
   box-shadow: inset 0 0 0 1px var(--line);
 }
 .item-facts > div.wide {
-  grid-column: 1 / -1;
+  flex-basis: 100%;
 }
 .item-facts dt {
   font-size: 0.72rem;
@@ -4974,8 +4977,11 @@ label.set-row input.switch:checked {
 }
 .item-facts dd {
   margin: 0.1rem 0 0;
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .item-action {
   display: grid;
