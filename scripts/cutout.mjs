@@ -1,12 +1,12 @@
 // 去背：從四邊往內灌，去掉接近背景色的像素和灰色的地面影子；邊緣柔化一圈；裁切置中到 512×512（腳貼底）。
-// 用法：node cutout.mjs <來源圖> <輸出 webp> <預覽 png>（TOL=數字 可以試著連地面影子一起去掉；毛色很平滑時會吃進身體，預設不開）
+// 用法：node cutout.mjs <來源圖> <輸出 webp> <預覽 png>（TOL=數字 可以試著連地面影子一起去掉；毛色很平滑時會吃進身體，預設不開；CENTER=1 上下置中，給金幣、寶石這類圖示）
 import puppeteer from 'puppeteer-core';
 import fs from 'fs';
 const [, , SRC, OUT, PREVIEW] = process.argv;
 const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
 const page = await browser.newPage();
 const b64 = fs.readFileSync(SRC).toString('base64');
-const res = await page.evaluate(async (b64, TOL) => {
+const res = await page.evaluate(async (b64, TOL, CENTER) => {
   const img = new Image();
   img.src = 'data:image/webp;base64,' + b64;
   await img.decode();
@@ -72,7 +72,7 @@ const res = await page.evaluate(async (b64, TOL) => {
   const k = Math.min((S * 0.94) / bw, (S * 0.94) / bh);
   const w = bw * k, h = bh * k;
   o.imageSmoothingQuality = 'high';
-  o.drawImage(c, minX, minY, bw, bh, (S - w) / 2, S * 0.98 - h, w, h);
+  o.drawImage(c, minX, minY, bw, bh, (S - w) / 2, CENTER ? (S - h) / 2 : S * 0.98 - h, w, h);
   const webp = out.toDataURL('image/webp', 0.9);
   // 預覽：放在奶油底和深綠底上
   const pv = document.createElement('canvas');
@@ -82,7 +82,7 @@ const res = await page.evaluate(async (b64, TOL) => {
   q.fillStyle = '#3f6b53'; q.fillRect(S, 0, S, S);
   q.drawImage(out, 0, 0); q.drawImage(out, S, 0);
   return { webp, preview: pv.toDataURL('image/png'), box: [minX, minY, maxX, maxY] };
-}, b64, Number(process.env.TOL ?? 0));
+}, b64, Number(process.env.TOL ?? 0), !!process.env.CENTER);
 fs.writeFileSync(OUT, Buffer.from(res.webp.split(',')[1], 'base64'));
 fs.writeFileSync(PREVIEW, Buffer.from(res.preview.split(',')[1], 'base64'));
 console.log('box', res.box, 'bytes', fs.statSync(OUT).size);

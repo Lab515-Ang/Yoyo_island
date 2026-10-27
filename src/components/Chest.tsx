@@ -3,20 +3,18 @@ import { useEffect, useRef, useState } from 'react';
 import { animalDef } from '../content/config';
 import { TrackArt } from './Animal';
 import { Coin, Gem } from './ui';
+import chestWood from '../assets/icons/chest-wood.webp';
+import chestGreen from '../assets/icons/chest-green.webp';
+import chestRoyal from '../assets/icons/chest-royal.webp';
 
-export function ChestArt({ open = false, size = 40 }: { open?: boolean; size?: number }) {
-  return (
-    <svg viewBox="0 0 120 100" width={size} height={(size * 100) / 120} className={open ? 'chest open' : 'chest'} aria-hidden="true">
-      <rect x="18" y="48" width="84" height="44" rx="8" fill="#b9764a" />
-      <rect x="18" y="62" width="84" height="8" fill="#8f5634" />
-      <rect x="54" y="56" width="12" height="18" rx="3" fill="#f2c230" />
-      <g className="chest-lid">
-        <path d="M18 50 Q18 20 60 20 Q102 20 102 50 Z" fill="#cf8a57" />
-        <rect x="18" y="44" width="84" height="8" fill="#8f5634" />
-        <rect x="54" y="20" width="12" height="32" fill="#f2c230" />
-      </g>
-    </svg>
-  );
+/** 三種等級的寶箱：每日挑戰（木箱）、新手任務（綠寶石箱）、本月挑戰（紫金箱）。 */
+export type ChestTier = 'wood' | 'green' | 'royal';
+const CHEST: Record<ChestTier, string> = { wood: chestWood, green: chestGreen, royal: chestRoyal };
+export const chestTier = (key: string): ChestTier => (key === 'quest:starter' ? 'green' : key.startsWith('quest:month:') ? 'royal' : 'wood');
+
+/** open：已經領過（變淡）。 */
+export function ChestArt({ tier = 'wood', open = false, size = 40 }: { tier?: ChestTier; open?: boolean; size?: number }) {
+  return <img src={CHEST[tier]} width={size} height={size} className={open ? 'chest open' : 'chest'} alt="" aria-hidden="true" draggable={false} />;
 }
 
 /**
@@ -25,11 +23,13 @@ export function ChestArt({ open = false, size = 40 }: { open?: boolean; size?: n
  */
 export function ChestOpen({
   title,
+  tier,
   onOpen,
   onClose,
   onFind,
 }: {
   title: string;
+  tier: ChestTier;
   onOpen: () => { coins: number; gems?: number; animalId?: string } | null;
   onClose: () => void;
   onFind?: (animalId: string) => void;
@@ -54,7 +54,7 @@ export function ChestOpen({
       {!got ? (
         <button className="chest-tap" onClick={open} aria-label="打開寶箱">
           <span className="chest-glow" aria-hidden="true" />
-          <ChestArt size={170} />
+          <ChestArt tier={tier} size={190} />
           <span>點一下打開寶箱</span>
         </button>
       ) : (
@@ -66,7 +66,7 @@ export function ChestOpen({
           </h2>
           <div className="chest-burst">
             <span className="chest-glow" aria-hidden="true" />
-            {a ? <TrackArt id={a.id} size={150} /> : <ChestArt open size={170} />}
+            {a ? <TrackArt id={a.id} size={150} /> : <ChestArt tier={tier} size={170} />}
           </div>
           {a && <p className="chest-line">🐾 {a.name}的探索路線</p>}
           <p className="chest-line">

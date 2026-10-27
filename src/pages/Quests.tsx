@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNow, useSave } from '../app/store';
 import { COPY } from '../content/config';
-import { ChestArt, ChestOpen } from '../components/Chest';
+import { ChestArt, ChestOpen, chestTier } from '../components/Chest';
 import { Coin, Progress } from '../components/ui';
 import { nextLocalMidnight, shiftDateKey } from '../domain/focus';
 import { activeProject, projectRow } from '../domain/game';
@@ -92,7 +92,9 @@ export function Quests({ onIsland, onLobby }: { onIsland: () => void; onLobby: (
                 {st.ok ? '✓' : i + 1}
               </span>
             ))}
-            <span className={starter.ready ? 'gift on' : 'gift'}>🎁</span>
+            <span className={starter.ready ? 'gift on' : 'gift'}>
+              <ChestArt tier="green" size={30} />
+            </span>
           </div>
           <h2>你的獎勵正等著你！</h2>
           <p className="small muted">
@@ -126,7 +128,7 @@ export function Quests({ onIsland, onLobby }: { onIsland: () => void; onLobby: (
           <span className="small muted">已領取 ✓</span>
         ) : (
           <button className={month.progress >= month.target ? 'quest-month-chest ready' : 'quest-month-chest'} disabled={month.progress < month.target} onClick={() => setOpening({ key: month.key, title: '本月挑戰' })} aria-label="打開本月挑戰的寶箱">
-            <ChestArt size={64} />
+            <ChestArt tier="royal" size={72} />
           </button>
         )}
       </section>
@@ -146,6 +148,7 @@ export function Quests({ onIsland, onLobby }: { onIsland: () => void; onLobby: (
       {opening && (
         <ChestOpen
           title={opening.title}
+          tier={chestTier(opening.key)}
           onOpen={claim}
           onClose={() => setOpening(null)}
           onFind={(id) => {
