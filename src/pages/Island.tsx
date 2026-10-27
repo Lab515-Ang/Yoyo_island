@@ -8,6 +8,7 @@ import { animalsUnlockedBy, balance, contribute, currentRegion, growthOf, habita
 import { HabitatScene } from '../scenes/HabitatScene';
 import { useAmbient } from '../sound';
 import { ChevronRight, Sprout } from 'lucide-react';
+import { PageTip } from '../components/PageTip';
 
 /**
  * 我的小島：森林場景是主角（約半個畫面，可以點動物），下面是目前的工程和這座島的動物。
@@ -30,6 +31,7 @@ export function IslandPage({ onLobby, onCodex }: { onLobby: () => void; onCodex:
         <h1>我的小島</h1>
         <RegionChip />
       </div>
+      <PageTip id="island">這是你的小島。每次專注完成，時間會自動拿來修復森林；工程修好，就有新的動物回來。</PageTip>
       <section className="island-stage">
         <HabitatScene habitatId={habitat} onSelect={pick} />
         <span className="stage-chip">

@@ -9,6 +9,7 @@ import { buyItem, dailyPicks, exchangeCoins, featuredItems, landOwned, owned, re
 import { Check, Play, RefreshCw, Square } from 'lucide-react';
 import { useAmbient } from '../sound';
 import type { SaveFile } from '../domain/types';
+import { PageTip } from '../components/PageTip';
 
 /**
  * 商店（參考 Forest）：
@@ -121,6 +122,7 @@ export function Shop({ onLobby }: { onLobby: () => void }) {
           </span>
         </span>
       </div>
+      <PageTip id="shop">用專注賺到的金幣，可以解鎖新的動物探索路線、環境音和土地造型。</PageTip>
       <div className="shop-tabs" role="tablist" aria-label="商店分類">
         {TABS.map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>

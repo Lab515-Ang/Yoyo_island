@@ -138,7 +138,7 @@ export function Onboarding() {
           <TrackArt id="blue_magpie" progress={0.3} size={150} />
         </div>
         <h1>第一次探索，先試 10 分鐘</h1>
-        <p className="muted">完成就會在森林裡遇見台灣藍鵲，還有 10 點成長點數，剛好清出森林的步道。</p>
+        <p className="muted">完成就會在森林裡遇見台灣藍鵲，而且這 10 分鐘剛好能清出森林的步道。</p>
         <label>
           這段時間要做什麼？（可不填）
           <input value={task} onChange={(e) => setTask(e.target.value)} maxLength={40} placeholder="例如：讀完一頁筆記" />

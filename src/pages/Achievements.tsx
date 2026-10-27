@@ -5,7 +5,8 @@ import { ACHIEVEMENTS, achievementState, claimAchievement, type AchievementDef }
 import { Check } from 'lucide-react';
 
 /** 成就：依分類列出，看進度；達成後按「領取」拿金幣（大的另外送寶石）。 */
-export function Achievements() {
+/** embedded：放在任務頁的「成就」分頁裡（不顯示自己的標題）。 */
+export function Achievements({ embedded = false }: { embedded?: boolean }) {
   const { save, update } = useSave();
   const [celebrate, setCelebrate] = useState<AchievementDef | null>(null);
   const state = achievementState(save);
@@ -18,8 +19,8 @@ export function Achievements() {
   };
 
   return (
-    <div className="page achievements">
-      <h1>成就</h1>
+    <div className={embedded ? 'ach-embed' : 'page achievements'}>
+      {!embedded && <h1>成就</h1>}
       <section className="card ach-summary">
         <span className="ach-medal" aria-hidden="true">
           🏅

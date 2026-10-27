@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useNow, useSave } from '../app/store';
-import { APP_NAME, MIN_FOCUS_MINUTES, PAUSE_MINUTES, SOUNDS, TEST_TOOLS, animalDef } from '../content/config';
+import { APP_NAME, MIN_FOCUS_MINUTES, PAUSE_MINUTES, SOUNDS, TEST_TOOLS, animalDef, levelName } from '../content/config';
 import { Modal } from '../components/ui';
 import { TrackArt } from '../components/Animal';
 import { completeNow, elapsedMs, finish, pause, rawElapsedMs, remainingMs, resume, targetReached, watchWindow } from '../domain/focus';
-import { applyFocusRewards, cancelSession, closeSession, focusSoundFor, graceLeftMs, growthOf, putSession } from '../domain/game';
+import { activeProject, applyFocusRewards, cancelSession, closeSession, focusSoundFor, graceLeftMs, growthOf, projectRow, putSession } from '../domain/game';
 import type { FocusSession, SaveFile } from '../domain/types';
 import { HabitatScene } from '../scenes/HabitatScene';
 import { useAmbient } from '../sound';
-import { DEEP_GRACE_MS, TimeGuard, cancelFocusEnd, isAndroid, scheduleFocusEnd } from '../platform';
+import { DEEP_GRACE_MS, TimeGuard, cancelFocusEnd, isAndroid, scheduleFocusEnd, tapHaptic } from '../platform';
 import { Check, Lock, Pause, Play, Square, Volume2, VolumeX, Zap } from 'lucide-react';
 
 const clock = (ms: number) => {
@@ -18,6 +18,13 @@ const clock = (ms: number) => {
   const ss = String(s % 60).padStart(2, '0');
   return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 };
+
+// 靠近的三個小事件（25%、50%、75%）
+const MOMENTS = [(n: string) => `地上出現了${n}的足跡`, (n: string) => `草叢沙沙作響……是${n}嗎？`, (n: string) => `${n}探出頭來了！`];
+// 螢火蟲的位置（畫面百分比）
+const FIREFLIES: [number, number][] = [
+  [14, 38], [82, 30], [26, 58], [70, 52], [46, 26], [88, 64], [8, 70], [58, 40],
+];
 
 /** 專注中是獨立畫面：不彈出生物、工程或其他通知。 */
 export function Focus({ session, onFinished }: { session: FocusSession; onFinished: (id: string) => void }) {
@@ -71,7 +78,10 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   const soundName = SOUNDS.find((x) => x.id === sound)?.name;
   // 自訂鼓勵語句：每 30 秒換一句
   const quotes = save.settings.quotes;
-  const quote = quotes.length ? quotes[Math.floor(now / 30_000) % quotes.length] : null;
+  // 沒有自訂鼓勵語句時，輪流顯示這隻動物的小知識（每 40 秒換一則）
+  const ad = animalDef(session.animalId);
+  const facts = [ad.blurb, `牠住在：${ad.habitat.region}`, `牠出沒的海拔：${ad.habitat.elevation}`, `保育等級：${levelName(ad)}`];
+  const quote = quotes.length ? quotes[Math.floor(now / 30_000) % quotes.length] : `你知道嗎？${facts[Math.floor(now / 40_000) % facts.length]}`;
 
   // 保持螢幕開啟：鎖屏時網頁會暫停，開著螢幕倒數結束才能準時響鈴
   useEffect(() => {
@@ -111,6 +121,24 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   const progress = Math.floor(Math.min(1, countdown && session.targetSeconds ? elapsedMs(session, now) / (session.targetSeconds * 1000) : elapsedMin / 45) * 20) / 20;
   const stage = useMemo(() => growthOf(save, session.animalId ?? '').stage, [save, session.animalId]);
 
+  // 靠近的劇情：每 25% 一個小事件（足跡 → 草叢在晃 → 探出頭），跳一個小泡泡、輕輕震一下
+  const step = Math.min(4, Math.floor(progress * 4));
+  const prevStep = useRef(step);
+  const [moment, setMoment] = useState<string | null>(null);
+  useEffect(() => {
+    const was = prevStep.current;
+    prevStep.current = step;
+    if (step <= was || step >= 4 || paused) return;
+    setMoment(MOMENTS[step - 1](ad.name));
+    tapHaptic();
+    const t = window.setTimeout(() => setMoment(null), 5000);
+    return () => clearTimeout(t);
+  }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 當下就看得到修復進度：這次專注完成後，目前工程會到幾 %
+  const project = activeProject(save);
+  const repairPct = project ? Math.min(100, Math.floor((((projectRow(save, project.id)?.contributedPoints ?? 0) + elapsedMin) / project.requiredPoints) * 100)) : null;
+
   // 深度專注：進行中與玩家按的暫停都請原生端看守（暫停期間離開不算，自動繼續後還在外面就算離開）
   // key 相同（同一段、同一次開始計時）時原生端會保留背景期間的紀錄，App 重開也不會洗掉
   const win = session.deep && isAndroid ? watchWindow(session) : null;
@@ -126,7 +154,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
     if (!watchUntil) return;
     const down = countdown && !session.extend;
     const chronoBase = down ? watchUntil : win!.since;
-    void TimeGuard.startFocusWatch({ key: watchKey, endAt: watchUntil, graceMs: DEEP_GRACE_MS, allow: allow ? allow.split(',') : [], notifyEnd, doneTitle: `${APP_NAME}・專注完成`, doneText, title: '🔭 專注中', text: watchText, chronoBase, chronoDown: down, freeUntil: win!.freeUntil });
+    void TimeGuard.startFocusWatch({ key: watchKey, endAt: watchUntil, graceMs: DEEP_GRACE_MS, allow: allow ? allow.split(',') : [], notifyEnd, doneTitle: `${APP_NAME}・專注完成`, doneText, title: '🔭 專注中', text: watchText, chronoBase, chronoDown: down, freeUntil: win!.freeUntil, progressFrom: countdown ? win!.since : 0, progressTo: countdown ? win!.since + (session.targetSeconds ?? 0) * 1000 : 0 });
     return () => void TimeGuard.stopFocusWatch();
   }, [watchUntil, watchKey, allow, notifyEnd, doneText, watchText]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -140,6 +168,13 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
       <div className="focus">
         <div className="focus-bg" aria-hidden="true">
           <HabitatScene habitatId={session.habitatId} calm />
+        </div>
+        {/* 時間越久光線越暖，森林裡的小生物（螢火蟲）越多 */}
+        <div className="focus-light" style={{ opacity: progress * 0.45 }} aria-hidden="true" />
+        <div className="focus-life" aria-hidden="true">
+          {FIREFLIES.slice(0, Math.round(progress * FIREFLIES.length)).map(([x, y], i) => (
+            <span key={i} style={{ left: `${x}%`, top: `${y}%`, animationDelay: `${i * 0.7}s` } as CSSProperties} />
+          ))}
         </div>
         <div className="focus-top">
           {TEST_TOOLS && (
@@ -159,7 +194,18 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
         </div>
         {quote && <p className="focus-quote">{quote}</p>}
         <div className="focus-plant">
+          {moment && (
+            <p className="focus-moment" role="status">
+              {moment}
+            </p>
+          )}
           <TrackArt id={session.animalId} progress={progress} stage={stage} size="100%" />
+          {/* 足跡：靠近越多，留下的腳印越多 */}
+          <div className="focus-tracks" aria-hidden="true">
+            {Array.from({ length: step * 2 }, (_, i) => (
+              <span key={i} />
+            ))}
+          </div>
         </div>
         <div className="focus-bubble">
           <div className="focus-time" role="timer" aria-live="off" aria-label={over ? '超過目標的時間' : countdown ? '剩餘時間' : '已專注時間'}>
@@ -174,6 +220,11 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
         <p className="focus-target" aria-live="polite">
           {over ? `找到${animalDef(session.animalId).name}了！想繼續就繼續，按 ■ 完成` : progress < 0.5 ? `正在靠近${animalDef(session.animalId).name}…` : progress < 1 ? `${animalDef(session.animalId).name}就在附近了…` : `找到${animalDef(session.animalId).name}了！`}
         </p>
+        {project && repairPct !== null && elapsedMin > 0 && (
+          <p className="focus-repair">
+            完成後 +{elapsedMin} → 「{project.title}」{repairPct}%
+          </p>
+        )}
         {endAt && <p className="focus-endtime">預計 {endAt} {session.extend ? '達成目標' : '結束'}</p>}
         <div className="focus-controls">
           {grace > 0 && !paused ? (
@@ -219,7 +270,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
       {ending && (
         <Modal title="要放棄這次專注嗎？" onClose={() => setEnding(false)}>
           <p>
-            {tooShort ? `還不到 ${MIN_FOCUS_MINUTES} 分鐘。` : ''}已專注的 {elapsedMin} 分鐘不會獲得成長點數和金幣，{animalDef(session.animalId).name}也會被嚇跑，只會留下時間紀錄。
+            {tooShort ? `還不到 ${MIN_FOCUS_MINUTES} 分鐘。` : ''}已專注的 {elapsedMin} 分鐘不會修復森林、也拿不到金幣，{animalDef(session.animalId).name}也會被嚇跑，只會留下時間紀錄。
           </p>
           <div className="row">
             <button className="ghost wide" onClick={() => setEnding(false)}>

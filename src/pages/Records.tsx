@@ -9,7 +9,7 @@ import { addSegmentsByHour, dayStartHour, localDateKey, localHourKey, shiftDateK
 import { endedDayKeys, endedSessions, perSave, sightings, weekRecap } from '../domain/game';
 import { WeekRecap, lastWeekStart } from './Recap';
 import type { SaveFile } from '../domain/types';
-import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Info, RotateCcw, Share } from 'lucide-react';
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Info, RotateCcw, ScrollText, Share } from 'lucide-react';
 
 type Range = 'day' | 'week' | 'month' | 'year';
 const RANGES: [Range, string][] = [
@@ -168,7 +168,7 @@ function Bars({ values, labels, names }: { values: number[]; labels: string[]; n
 }
 
 /** 專注紀錄（參考 Forest）：觀察格子、專注時間統計、項目分布、最常遇見的動物、專注習慣。 */
-function Overview({ tags: picked, onTags, onRecap }: { tags: string[] | null; onTags: (t: string[] | null) => void; onRecap?: () => void }) {
+function Overview({ tags: picked, onTags, onRecap, onJourney }: { tags: string[] | null; onTags: (t: string[] | null) => void; onRecap?: () => void; onJourney?: () => void }) {
   const { save } = useSave();
   const tz = save.profile.timezone;
   const today = localDateKey(Date.now(), tz);
@@ -325,6 +325,12 @@ function Overview({ tags: picked, onTags, onRecap }: { tags: string[] | null; on
           ) : (
             <span className="hero-icon" aria-hidden="true" />
           )}
+          {/* 我的歷程（時間軸）併進專注紀錄：從這裡進去 */}
+          {onJourney && (
+            <button className="hero-pill" onClick={onJourney}>
+              <ScrollText size={15} aria-hidden="true" /> 時間歷程
+            </button>
+          )}
           <button className="hero-icon" onClick={() => setSharing(true)} aria-label="分享專注成果統計圖">
             <Share size={20} aria-hidden="true" />
           </button>
@@ -450,7 +456,7 @@ function Overview({ tags: picked, onTags, onRecap }: { tags: string[] | null; on
 }
 
 /** 專注紀錄：觀察格子與統計。從結算頁「查看專注紀錄」進來時先篩選那個標籤。 */
-export function Records({ initialTag = null }: { initialTag?: string | null }) {
+export function Records({ initialTag = null, onJourney }: { initialTag?: string | null; onJourney?: () => void }) {
   const { save } = useSave();
   const [tagFilter, setTagFilter] = useState<string[] | null>(initialTag ? [initialTag] : null);
   const [recap, setRecap] = useState(false);
@@ -458,7 +464,7 @@ export function Records({ initialTag = null }: { initialTag?: string | null }) {
   return (
     <div className="page records">
       {recap && <WeekRecap weekStart={week} onClose={() => setRecap(false)} />}
-      <Overview tags={tagFilter} onTags={setTagFilter} onRecap={weekRecap(save, week).total >= 60_000 ? () => setRecap(true) : undefined} />
+      <Overview tags={tagFilter} onTags={setTagFilter} onJourney={onJourney} onRecap={weekRecap(save, week).total >= 60_000 ? () => setRecap(true) : undefined} />
     </div>
   );
 }

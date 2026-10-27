@@ -2,7 +2,7 @@
 // App 版用 Capacitor 外掛；網頁版（目前只當測試管道）退回瀏覽器做法。之後換技術時只需要換這一層。
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { App } from '@capacitor/app';
-import { Haptics } from '@capacitor/haptics';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { LocalNotifications } from '@capacitor/local-notifications';
 
 export const isNative = Capacitor.isNativePlatform();
@@ -86,6 +86,12 @@ export function onResume(cb: () => void): () => void {
   return () => document.removeEventListener('visibilitychange', on);
 }
 
+/** 很輕的觸感（專注中動物靠近的小事件）；網頁版用短震動。 */
+export function tapHaptic() {
+  if (isNative) void Haptics.impact({ style: ImpactStyle.Light }).catch(() => undefined);
+  else navigator.vibrate?.(20);
+}
+
 /** 輕微震動（倒數結束時）。 */
 export function buzz() {
   if (isNative) void Haptics.vibrate({ duration: 300 }).catch(() => undefined);
@@ -140,7 +146,7 @@ interface TimeGuardNative {
   setConfig(o: { config: GuardConfig }): Promise<void>;
   unlock(o: { pkg: string; minutes: number }): Promise<void>;
   goHome(): Promise<void>;
-  startFocusWatch(o: { key: string; endAt: number; graceMs: number; allow: string[]; notifyEnd: boolean; doneTitle: string; doneText: string; title: string; text: string; chronoBase: number; chronoDown: boolean; freeUntil?: number }): Promise<void>;
+  startFocusWatch(o: { key: string; endAt: number; graceMs: number; allow: string[]; notifyEnd: boolean; doneTitle: string; doneText: string; title: string; text: string; chronoBase: number; chronoDown: boolean; freeUntil?: number; progressFrom?: number; progressTo?: number }): Promise<void>;
   stopFocusWatch(): Promise<void>;
   showResult(o: { title: string; text: string; sub: string; icon?: string }): Promise<void>;
   focusWatchStatus(): Promise<{ active: boolean; failedAt: number; callStart: number; calls: [number, number][] }>;

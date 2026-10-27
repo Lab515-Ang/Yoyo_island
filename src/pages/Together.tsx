@@ -8,6 +8,7 @@ import { activeProject, animalUnlocked, balance, closeSession, contribute, contr
 import { demoGrant } from '../domain/save';
 import type { SaveFile } from '../domain/types';
 import { PROJECTS } from '../content/config';
+import { PageTip } from '../components/PageTip';
 
 export function Together() {
   const { save, mode, switchMode, resetDemo, update, notify } = useSave();
@@ -69,6 +70,7 @@ export function Together() {
         <h1>好友</h1>
         <InviteButton />
       </div>
+      <PageTip id="friends">看看大家今天專注了多久。多人連線開放後，可以邀請朋友一起修小島。</PageTip>
 
       <div className="segmented board-tabs" role="tablist" aria-label="排行範圍">
         {(

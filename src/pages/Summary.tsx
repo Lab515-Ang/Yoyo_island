@@ -99,6 +99,8 @@ export function Summary({
   // 這次遇見時的族群成長（階段、成長值、是否長大了）
   const sight = sightings(save).get(s.id);
   const stage = sight?.stage ?? 2;
+  // 遇見的瞬間：一進結算先播一段揭曉（畫面壓暗、剪影轉成彩色），點了才看結算內容
+  const [reveal, setReveal] = useState(done);
   // 這段專注修好的工程，讓哪些動物可以去找了
   const newAnimals = out.projects.filter((p) => p.completed).flatMap((p) => animalsUnlockedBy(p.def.id));
 
@@ -170,7 +172,7 @@ export function Summary({
           ))}
           {!out.projects.length && earned.points > 0 && (
             <li>
-              <span>🌱 成長點數</span>
+              <span>🛠️ 修復進度</span>
               <strong>+{earned.points}</strong>
             </li>
           )}
@@ -240,6 +242,7 @@ export function Summary({
           休息一下
         </button>
       </div>
+      {reveal && <MeetReveal id={animal.id} name={animal.name} stage={stage} label={stageName(animal, stage)} onClose={() => setReveal(false)} />}
     </div>
   );
 }
@@ -317,6 +320,33 @@ function NoteEditor({ sessionId, onClose, onSaved }: { sessionId: string; onClos
           </div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+/** 遇見動物的揭曉：剪影慢慢轉成彩色、動物抬頭，後面有光芒。 */
+function MeetReveal({ id, name, stage, label, onClose }: { id: string; name: string; stage: number; label: string; onClose: () => void }) {
+  return (
+    <div className="ach-celebrate meet-reveal" role="dialog" aria-modal="true" aria-labelledby="meet-title" onClick={onClose}>
+      <div className="ach-cel-card" onClick={(e) => e.stopPropagation()}>
+        <div className="meet-art" aria-hidden="true">
+          <span className="ach-cel-rays" />
+          <span className="meet-silhouette">
+            <TrackArt id={id} stage={stage} size="100%" />
+          </span>
+          <span className="meet-color">
+            <AnimalArt id={id} stage={stage} size="100%" />
+          </span>
+        </div>
+        <p className="eyebrow ach-cel-line">遇見了</p>
+        <h2 id="meet-title" className="ach-cel-line">
+          {name}
+        </h2>
+        <p className="small muted ach-cel-line">{label}</p>
+        <button className="primary wide ach-cel-line" autoFocus onClick={onClose}>
+          太好了
+        </button>
+      </div>
     </div>
   );
 }

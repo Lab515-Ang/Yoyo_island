@@ -4,8 +4,12 @@ import { COPY } from '../content/config';
 import { ChestArt, ChestOpen } from '../components/Chest';
 import { Coin, Progress } from '../components/ui';
 import { nextLocalMidnight, shiftDateKey } from '../domain/focus';
-import { activeProject, animalsUnlockedBy, projectRow } from '../domain/game';
-import { MONTH_REWARD, MONTH_TARGET, STARTER_REWARD, claimQuest, dailyQuests, monthQuest, starterQuest, today, type Quest } from '../domain/quests';
+import { activeProject, projectRow } from '../domain/game';
+import { MONTH_REWARD, MONTH_TARGET, STARTER_REWARD, claimQuest, dailyQuests, monthQuest, starterQuest, today, hasReward, type Quest } from '../domain/quests';
+import { achievementReady } from '../domain/achievements';
+import { Achievements } from './Achievements';
+import { ChevronRight, Hammer } from 'lucide-react';
+import { PageTip } from '../components/PageTip';
 
 const left = (ms: number) => {
   const m = Math.max(0, Math.ceil(ms / 60000));
@@ -38,6 +42,8 @@ export function Quests({ onIsland, onLobby }: { onIsland: () => void; onLobby: (
   const { save, update, notify } = useSave();
   const now = useNow(60_000);
   const [opening, setOpening] = useState<{ key: string; title: string } | null>(null);
+  // 成就併進任務：挑戰／成就兩個分頁
+  const [tab, setTab] = useState<'quests' | 'ach'>('quests');
   const day = today(save, now);
   const daily = dailyQuests(save, day);
   const month = monthQuest(save, day.slice(0, 7));
@@ -60,11 +66,23 @@ export function Quests({ onIsland, onLobby }: { onIsland: () => void; onLobby: (
   };
   const project = activeProject(save);
   const got = project ? (projectRow(save, project.id)?.contributedPoints ?? 0) : 0;
-  const returning = project ? animalsUnlockedBy(project.id) : [];
 
   return (
     <div className="page">
       <h1>任務</h1>
+      <PageTip id="quests">每天都有新的挑戰，完成就能開寶箱拿金幣；成就在「成就」分頁。</PageTip>
+      <div className="segmented quest-tabs" role="tablist" aria-label="任務分類">
+        <button role="tab" aria-selected={tab === 'quests'} className={tab === 'quests' ? 'on' : ''} onClick={() => setTab('quests')}>
+          挑戰{hasReward(save, now) && <span className="tab-dot" aria-hidden="true" />}
+        </button>
+        <button role="tab" aria-selected={tab === 'ach'} className={tab === 'ach' ? 'on' : ''} onClick={() => setTab('ach')}>
+          成就{achievementReady(save) && <span className="tab-dot" aria-hidden="true" />}
+        </button>
+      </div>
+      {tab === 'ach' ? (
+        <Achievements embedded />
+      ) : (
+        <>
 
       {!starter.claimed && (
         <section className="card starter-quest">
@@ -138,25 +156,19 @@ export function Quests({ onIsland, onLobby }: { onIsland: () => void; onLobby: (
         />
       )}
 
-      <section className="card">
-        <p className="eyebrow">修復工程</p>
-        {project ? (
-          <>
-            <p>
-              <strong>{project.title}</strong>
-              {returning.length > 0 && <span className="muted small">・修好後{returning.map((a) => a.name).join('、')}會回到森林</span>}
-            </p>
-            <Progress value={got / project.requiredPoints} label="工程進度" />
-            <p className="small">{COPY.projectNeed(project.requiredPoints - got, project.promise)}</p>
-            <button className="ghost" onClick={onIsland}>
-              看完整的修復路線
-            </button>
-          </>
-        ) : (
-          <p>{COPY.allRestored}</p>
-        )}
-      </section>
+      {/* 修復工程的完整資訊在我的小島，這裡只放一行 */}
+      <button className="quest-project" onClick={onIsland}>
+        <Hammer size={18} aria-hidden="true" />
+        <span>
+          <small>修復工程</small>
+          <strong>{project ? project.title : COPY.allRestored}</strong>
+        </span>
+        {project && <span className="quest-project-pct">{Math.floor((got / project.requiredPoints) * 100)}%</span>}
+        <ChevronRight size={18} aria-hidden="true" />
+      </button>
 
+        </>
+      )}
     </div>
   );
 }

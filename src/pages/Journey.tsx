@@ -229,10 +229,15 @@ function Timeline() {
 }
 
 /** 我的歷程：時間歷程（觀察圖鑑是獨立的一頁）。 */
-export function Journey() {
+export function Journey({ onBack }: { onBack?: () => void }) {
   return (
     <div className="page">
-      <h1>我的歷程</h1>
+      {onBack && (
+        <button className="link back-link" onClick={onBack}>
+          ‹ 專注紀錄
+        </button>
+      )}
+      <h1>時間歷程</h1>
       <Timeline />
     </div>
   );

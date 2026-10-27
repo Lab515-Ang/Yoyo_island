@@ -25,7 +25,7 @@ const pad2 = (n: number) => String(n).padStart(2, '0');
 
 const FAQ: [string, string][] = [
   ['怎麼遇見動物？', `在大廳點中間的圓圈選一隻想找的動物，設定時間後開始專注。專注越久牠越靠近，倒數結束就會遇見牠，留下一筆觀察紀錄。`],
-  ['提前結束會怎樣？', `開始後 10 秒內可以免費取消。之後提前結束，動物會被嚇跑，專注過的時間會留在紀錄裡，但不會得到金幣和成長點數。`],
+  ['提前結束會怎樣？', `開始後 10 秒內可以免費取消。之後提前結束，動物會被嚇跑，專注過的時間會留在紀錄裡，但不會修復森林，也拿不到金幣。`],
   ['可以暫停嗎？', `可以，每次暫停最多 ${PAUSE_MINUTES} 分鐘，時間到會自動繼續。接電話會自動暫停，講多久都可以。`],
   ['什麼是深度專注？', `Android 專用。專注時離開棲光小島超過 ${DEEP_GRACE_MS / 1000} 秒，動物就會被嚇跑。鎖定螢幕、接電話、使用「可以用的 App」都不算離開。`],
   ['延長計時是什麼？', `開啟後，倒數到了不會自動結算，會繼續累積時間，等你按完成才結算，最多 ${MAX_FOCUS_MINUTES} 分鐘。`],
@@ -100,7 +100,7 @@ function SubPage({ title, onBack, children }: { title: string; onBack: () => voi
   );
 }
 
-export function SettingsPage() {
+export function SettingsPage({ onSounds }: { onSounds?: () => void }) {
   const { save, update, replace, resetAll, mode, notify } = useSave();
   const [sub, setSub] = useState<Sub>(null);
   const [nickname, setNickname] = useState(save.profile.nickname);
@@ -514,6 +514,8 @@ export function SettingsPage() {
         {st.endNotify && !exactAlarm && <LinkRow label="通知可能晚幾分鐘" value="讓它準時" onClick={() => void TimeGuard.openExactAlarmSettings()} />}
         <SwitchRow label="倒數結束提示音" hint="柔和鐘聲" checked={st.endChime} onChange={(on) => set({ endChime: on })} />
         <LinkRow label="試聽鐘聲" onClick={() => playChime(volume)} />
+        {/* 大自然交響樂併進設定：在這裡挑選、試聽收集到的環境音 */}
+        {onSounds && <LinkRow label="大自然交響樂" value="挑選環境音" onClick={onSounds} />}
         <SwitchRow label="專注時播放環境音" hint="在「大自然交響樂」挑選聲音" checked={st.soundEnabled} onChange={(on) => set({ soundEnabled: on })} />
         <label className="set-row set-slider">
           <span>音量</span>

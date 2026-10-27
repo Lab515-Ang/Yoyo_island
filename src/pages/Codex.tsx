@@ -9,6 +9,7 @@ import { RegionMap } from '../scenes/RegionMap';
 import type { MapPin } from '../scenes/RegionMap3D';
 import { TAIWAN } from '../scenes/taiwanGeo';
 import { JAPAN } from '../scenes/japanGeo';
+import { PageTip } from '../components/PageTip';
 
 /** 觀察圖鑑：遇見過的動物、次數與族群成長；還沒遇見的顯示剪影與怎麼找到牠。 */
 export function Codex() {
@@ -39,6 +40,7 @@ export function Codex() {
         <h1>觀察圖鑑</h1>
         <RegionChip />
       </div>
+      <PageTip id="codex">遇見過的動物都記在這裡。切到「地圖」可以看牠們住在哪裡。</PageTip>
       <div className="segmented view-toggle" role="radiogroup" aria-label="顯示方式">
         {(
           [

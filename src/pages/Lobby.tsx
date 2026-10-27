@@ -1,10 +1,10 @@
 import { useRef, useState, type CSSProperties } from 'react';
 import { useSave } from '../app/store';
 import { MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, TAGS, animalDef, animalRegion, clampMinutes, regionAnimals, tagColor } from '../content/config';
-import { Modal } from '../components/ui';
+import { Modal, fmtMinutes } from '../components/ui';
 import { AnimalArt, TrackArt } from '../components/Animal';
 import { GrowthTag, unlockText } from '../components/ui';
-import { animalUnlocked, chosenAnimal, currentHabitat, currentRegion, growthOf, hatchCounts, newAnimals, startFocus } from '../domain/game';
+import { activeProject, animalUnlocked, animalsUnlockedBy, chosenAnimal, currentHabitat, currentRegion, growthOf, hatchCounts, newAnimals, remainingFor, startFocus } from '../domain/game';
 import { DEEP_GRACE_MS, TimeGuard, isAndroid, isNative, requestNotifyPermission, type GuardApp } from '../platform';
 import { AppPicker } from './Guard';
 import { DeepSetup, deepPerm, deepSetupSeen } from '../components/DeepSetup';
@@ -45,6 +45,14 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
   // 可以去找、但還沒遇見過的動物：標「新」，遇見一次就消失
   const fresh = newAnimals(save).filter((a) => animalRegion(a) === region);
   const counts = hatchCounts(save);
+  // 下一步：第一次就是完成一段專注；之後是目前工程還差多久、修好後誰會回來（1 點＝專注 1 分鐘）
+  const project = activeProject(save);
+  const back = project ? animalsUnlockedBy(project.id).map((a) => a.name).join('、') : '';
+  const nextStep = firstTime
+    ? `第一步：完成一段專注，遇見${animalDef(egg).name}`
+    : project
+      ? `下一步：再專注約 ${fmtMinutes(remainingFor(save, project) * 60_000)}，${project.promise}${back ? `，${back}會回來` : ''}`
+      : '森林都修好了！到其他區域的小島看看吧';
 
   // 深度專注（Android）：預設開；第一段專注先不開，熟悉之後再挑戰
   const deep = isAndroid && st.deepFocus && !firstTime;
@@ -124,6 +132,8 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
             </span>
           )}
         </button>
+        {/* 下一步：只講一件事，照著做就好（降低學習門檻） */}
+        <p className="next-step">{nextStep}</p>
       </div>
 
       {/* 多久：點數字打開時間設定 */}

@@ -21,7 +21,6 @@ import { npsDue } from './domain/feedback';
 import { Sounds } from './pages/Sounds';
 import { Journey } from './pages/Journey';
 import { Codex } from './pages/Codex';
-import { Achievements } from './pages/Achievements';
 import { achievementReady } from './domain/achievements';
 import { Together } from './pages/Together';
 import { SettingsPage } from './pages/Settings';
@@ -32,23 +31,36 @@ import { Tour } from './components/Tour';
 import { hasReward } from './domain/quests';
 import { BarChart3, Bell, BookOpen, Home, ListChecks, Medal, Menu, Music, PawPrint, Settings as SettingsIcon, ShieldCheck, ShoppingBag, Trees, Users, type LucideIcon } from 'lucide-react';
 
-type View = 'lobby' | 'island' | 'quests' | 'records' | 'guard' | 'sounds' | 'journey' | 'codex' | 'friends' | 'achievements' | 'shop' | 'news' | 'settings';
-// 左側選單順序
-const NAV: { id: View; label: string; icon: LucideIcon; soon?: boolean }[] = [
+type View = 'lobby' | 'island' | 'quests' | 'records' | 'guard' | 'sounds' | 'journey' | 'codex' | 'friends' | 'shop' | 'settings';
+// 左側選單順序。功能逐步開放（降低新手的學習門檻）：need＝完成幾次專注才出現；商店另外在第一次開寶箱後出現
+// 成就併進任務、我的歷程併進專注紀錄、大自然交響樂併進設定；活動消息做好之前不放
+const NAV: { id: View; label: string; icon: LucideIcon; need?: number }[] = [
   { id: 'lobby', label: '大廳', icon: Home },
-  { id: 'island', label: '我的小島', icon: Trees },
-  { id: 'quests', label: '任務', icon: ListChecks },
-  { id: 'records', label: '專注紀錄', icon: BarChart3 },
-  { id: 'guard', label: '時間守護', icon: ShieldCheck },
-  { id: 'sounds', label: '大自然交響樂', icon: Music },
-  { id: 'journey', label: '我的歷程', icon: BookOpen },
-  { id: 'codex', label: '觀察圖鑑', icon: PawPrint },
-  { id: 'friends', label: '好友', icon: Users },
-  { id: 'achievements', label: '成就', icon: Medal },
-  { id: 'shop', label: '商店', icon: ShoppingBag },
-  { id: 'news', label: '活動消息', icon: Bell, soon: true },
+  { id: 'island', label: '我的小島', icon: Trees, need: 1 },
+  { id: 'codex', label: '觀察圖鑑', icon: PawPrint, need: 1 },
+  { id: 'quests', label: '任務', icon: ListChecks, need: 1 },
+  { id: 'records', label: '專注紀錄', icon: BarChart3, need: 1 },
+  { id: 'shop', label: '商店', icon: ShoppingBag, need: 3 },
+  { id: 'friends', label: '好友', icon: Users, need: 3 },
+  { id: 'guard', label: '時間守護', icon: ShieldCheck, need: 5 },
   { id: 'settings', label: '設定', icon: SettingsIcon },
 ];
+const NAV_SEEN_KEY = 'qiguang-ui:navSeen';
+const readSeen = (): string[] | null => {
+  try {
+    const v = localStorage.getItem(NAV_SEEN_KEY);
+    return v ? (JSON.parse(v) as string[]) : null;
+  } catch {
+    return null;
+  }
+};
+const writeSeen = (ids: string[]) => {
+  try {
+    localStorage.setItem(NAV_SEEN_KEY, JSON.stringify(ids));
+  } catch {
+    // 只影響「新」標記會不會再出現
+  }
+};
 
 // 和大廳同一片深綠底的頁面（底色定義在 styles.css 的 --scene-bg）
 const SCENE = new Set<View>(['lobby', 'island', 'journey', 'codex', 'friends']);
@@ -263,7 +275,24 @@ function Main() {
     setView('lobby');
   }, [mode]);
 
+  // 已經開放的選單項目；剛開放、還沒點過的標「新」
+  const completed = save.sessions.filter((x) => x.userId === save.profile.id && x.status === 'completed').length;
+  const chestOpened = save.transactions.some((t) => t.kind === 'quest_reward');
+  const shown = (n: (typeof NAV)[number]) => !n.need || completed >= n.need || (n.id === 'shop' && chestOpened);
+  const [seen, setSeen] = useState<string[]>(() => {
+    const s0 = readSeen();
+    if (s0) return s0;
+    // 第一次用這個功能：已經開放的都算看過，不要一次冒出一堆「新」
+    const all = NAV.filter(shown).map((n) => n.id);
+    writeSeen(all);
+    return all;
+  });
   const go = (v: View, h: HabitatId | null = null) => {
+    if (!seen.includes(v)) {
+      const next = [...seen, v];
+      setSeen(next);
+      writeSeen(next);
+    }
     setSummaryId(null);
     setRecordsTag(null);
     setView(v);
@@ -339,13 +368,12 @@ function Main() {
               <span className="small muted">{save.islands[0]?.name}</span>
             </div>
           </div>
-          {NAV.map((n) => (
+          {NAV.filter(shown).map((n) => (
             <button key={n.id} className={view === n.id ? 'nav-item active' : 'nav-item'} aria-current={view === n.id ? 'page' : undefined} onClick={() => go(n.id)} title={n.label}>
               <n.icon className="nav-icon" strokeWidth={2} aria-hidden="true" />
               <span className="nav-label">{n.label}</span>
-              {n.soon && <span className="soon">未開放</span>}
-              {n.id === 'quests' && reward && <span className="nav-dot" aria-label="有寶箱可以打開" />}
-              {n.id === 'achievements' && achieved && <span className="nav-dot" aria-label="有成就可以領取" />}
+              {!seen.includes(n.id) && <span className="nav-new">新</span>}
+              {n.id === 'quests' && (reward || achieved) && <span className="nav-dot" aria-label="有寶箱或成就可以領取" />}
             </button>
           ))}
         </nav>
@@ -358,16 +386,14 @@ function Main() {
           {view === 'lobby' && askNps && <FeedbackSheet onClose={() => setAskNps(false)} />}
           {view === 'island' && <IslandPage onLobby={() => go('lobby')} onCodex={() => go('codex')} />}
           {view === 'quests' && <Quests onIsland={() => go('island')} onLobby={() => go('lobby')} />}
-          {view === 'records' && <Records key={recordsTag ?? 'all'} initialTag={recordsTag} />}
+          {view === 'records' && <Records key={recordsTag ?? 'all'} initialTag={recordsTag} onJourney={() => go('journey')} />}
           {view === 'guard' && <GuardPage />}
           {view === 'sounds' && <Sounds onSettings={() => go('settings')} />}
-          {view === 'journey' && <Journey />}
+          {view === 'journey' && <Journey onBack={() => go('records')} />}
           {view === 'codex' && <Codex />}
           {view === 'friends' && <Together />}
-          {view === 'achievements' && <Achievements />}
           {view === 'shop' && <Shop onLobby={() => go('lobby')} />}
-          {view === 'news' && <NotYet title="活動消息" />}
-          {view === 'settings' && <SettingsPage />}
+          {view === 'settings' && <SettingsPage onSounds={() => go('sounds')} />}
           </div>
         </main>
       </div>

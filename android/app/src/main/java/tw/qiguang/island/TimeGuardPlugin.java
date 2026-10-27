@@ -327,6 +327,9 @@ public class TimeGuardPlugin extends Plugin {
         w.put("chronoDown", call.getBoolean("chronoDown", true));
         // 玩家按的暫停：這個時間以前離開小島不算（之後自動繼續，還在外面就照常判定）
         w.put("freeUntil", call.getData().optLong("freeUntil", 0L));
+        // 倒數的進度條（開始～目標時間）；正向計時沒有
+        w.put("progressFrom", call.getData().optLong("progressFrom", 0L));
+        w.put("progressTo", call.getData().optLong("progressTo", 0L));
         synchronized (TimeGuardService.LOCK) {
             android.content.SharedPreferences p = TimeGuardService.prefs(getContext());
             android.content.SharedPreferences.Editor e = p.edit().putString("watch", w.toString()).putString("watchKey", key);

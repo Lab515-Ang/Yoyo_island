@@ -56,6 +56,7 @@ public class TimeGuardService extends Service {
     private long lastLaunch;
     private java.util.Set<String> home; // 桌面 App：回到桌面不擋，照常倒數
     private String shown; // 常駐通知目前顯示的深度專注（watch 設定；空字串＝沒有專注）
+    private String shownKey = ""; // shown＋進度級距：進度跨過 5% 才重畫通知
 
     private final Runnable tick = new Runnable() {
         @Override
@@ -140,6 +141,23 @@ public class TimeGuardService extends Service {
      * 正在看守的深度專注設定＋已結束的通話＋是否還在暫停中（沒有就是空字串）：
      * 變了才重畫常駐通知（通話後倒數要順延；暫停時間到要從「暫停中」換回專注倒數）。
      */
+    /** 倒數進度（0～1）：網頁端給的 progressFrom～progressTo；沒有（正向計時）回傳 -1。 */
+    private double progress() {
+        try {
+            JSONObject w = new JSONObject(prefs(this).getString("watch", ""));
+            long from = w.optLong("progressFrom"), to = w.optLong("progressTo");
+            if (from <= 0 || to <= from) return -1;
+            return Math.max(0, Math.min(1, (System.currentTimeMillis() - from) / (double) (to - from)));
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    private int progressStep() {
+        double p = progress();
+        return p < 0 ? -1 : (int) (p * 20);
+    }
+
     private String focusSignature() {
         if (!watching(this)) return "";
         String watch = prefs(this).getString("watch", "");
@@ -186,7 +204,7 @@ public class TimeGuardService extends Service {
                 .setPriority(NotificationCompat.PRIORITY_MIN)
                 .build();
         boolean down = paused || w.optBoolean("chronoDown", true);
-        return new NotificationCompat.Builder(this, CHANNEL_FOCUS)
+        NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL_FOCUS)
             .setSmallIcon(R.drawable.ic_stat_scope)
             .setColor(0xFF4F7A55)
             .setContentTitle(paused ? "⏸ 暫停中" : w.optString("title", "🔭 專注中"))
@@ -201,8 +219,11 @@ public class TimeGuardService extends Service {
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             // Android 16 起：狀態列顯示計時膠囊（像 iPhone 動態島），舊版忽略
-            .setRequestPromotedOngoing(true)
-            .build();
+            .setRequestPromotedOngoing(true);
+        // 鎖定畫面也看得到動物靠近的進度
+        double p = progress();
+        if (!paused && p >= 0) b.setProgress(100, (int) Math.round(p * 100), false);
+        return b.build();
     }
 
     private void check() {
@@ -211,8 +232,11 @@ public class TimeGuardService extends Service {
             return;
         }
         String sig = focusSignature();
-        if (!sig.equals(shown)) {
+        // 進度每 5% 更新一次常駐通知的進度條（其他時候只有內容變了才重畫）
+        String key = sig + "@" + progressStep();
+        if (!key.equals(shownKey)) {
             shown = sig;
+            shownKey = key;
             getSystemService(NotificationManager.class).notify(ID_SERVICE, serviceNotification(sig));
         }
         long now = System.currentTimeMillis();

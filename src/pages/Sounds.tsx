@@ -22,6 +22,9 @@ export function Sounds({ onSettings }: { onSettings: () => void }) {
 
   return (
     <div className="page">
+      <button className="link back-link" onClick={onSettings}>
+        ‹ 設定
+      </button>
       <h1>大自然交響樂</h1>
       <p>
         已收集 <strong>{got.length}</strong> / {SOUNDS.length} 種聲音。修復森林、遇見動物，小島的聲音會越來越豐富。
