@@ -343,7 +343,7 @@ function Main() {
           {view === 'lobby' && <RecapInvite />}
           {view === 'lobby' && askNps && <FeedbackSheet onClose={() => setAskNps(false)} />}
           {view === 'island' && <IslandPage onLobby={() => go('lobby')} onCodex={() => (go('journey'), setJourneyTab('codex'))} />}
-          {view === 'quests' && <Quests onIsland={() => go('island')} onShop={() => go('shop')} onLobby={() => go('lobby')} />}
+          {view === 'quests' && <Quests onIsland={() => go('island')} onLobby={() => go('lobby')} />}
           {view === 'records' && <Records key={recordsTag ?? 'all'} initialTag={recordsTag} />}
           {view === 'guard' && <GuardPage />}
           {view === 'sounds' && <Sounds onSettings={() => go('settings')} />}

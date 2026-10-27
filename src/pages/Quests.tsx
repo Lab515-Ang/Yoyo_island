@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { useNow, useSave } from '../app/store';
-import { ANIMALS, COPY, GROWTH_MAX, stageName } from '../content/config';
+import { COPY } from '../content/config';
 import { ChestArt, ChestOpen } from '../components/Chest';
 import { Coin, Progress } from '../components/ui';
 import { nextLocalMidnight, shiftDateKey } from '../domain/focus';
-import { activeProject, animalUnlocked, animalsUnlockedBy, coins, growthOf, hatchCounts, newAnimals, projectRow } from '../domain/game';
+import { activeProject, animalsUnlockedBy, projectRow } from '../domain/game';
 import { MONTH_REWARD, MONTH_TARGET, STARTER_REWARD, claimQuest, dailyQuests, monthQuest, starterQuest, today, type Quest } from '../domain/quests';
-import { WeeklyGoal } from './Together';
 
 const left = (ms: number) => {
   const m = Math.max(0, Math.ceil(ms / 60000));
@@ -34,8 +33,8 @@ function QuestCard({ q, onClaim }: { q: Quest; onClaim: () => void }) {
   );
 }
 
-/** 任務：新手任務、本月挑戰、每日挑戰（完成後開寶箱），修復工程摘要、本週目標、探索與族群成長。 */
-export function Quests({ onIsland, onShop, onLobby }: { onIsland: () => void; onShop: () => void; onLobby: () => void }) {
+/** 任務：新手任務、本月挑戰、每日挑戰（完成後開寶箱），修復工程摘要。 */
+export function Quests({ onIsland, onLobby }: { onIsland: () => void; onLobby: () => void }) {
   const { save, update, notify } = useSave();
   const now = useNow(60_000);
   const [opening, setOpening] = useState<{ key: string; title: string } | null>(null);
@@ -61,17 +60,6 @@ export function Quests({ onIsland, onShop, onLobby }: { onIsland: () => void; on
   };
   const project = activeProject(save);
   const got = project ? (projectRow(save, project.id)?.contributedPoints ?? 0) : 0;
-  const wallet = coins(save);
-  const affordable = ANIMALS.filter((a) => a.unlock.kind === 'coins' && !animalUnlocked(save, a) && wallet >= a.unlock.price);
-  const fresh = newAnimals(save);
-  const counts = hatchCounts(save);
-  const met = ANIMALS.filter((a) => counts.get(a.id));
-  const adults = met.filter((a) => growthOf(save, a.id).stage === 2).length;
-  // 最快長成成年的：遇見過、還沒成年、成長值最高的
-  const closest = met
-    .map((a) => ({ a, g: growthOf(save, a.id) }))
-    .filter((x) => x.g.stage < 2)
-    .sort((x, y) => y.g.growth - x.g.growth)[0];
   const returning = project ? animalsUnlockedBy(project.id) : [];
 
   return (
@@ -169,37 +157,6 @@ export function Quests({ onIsland, onShop, onLobby }: { onIsland: () => void; on
         )}
       </section>
 
-      <WeeklyGoal save={save} />
-
-      <section className="card">
-        <p className="eyebrow">探索與族群成長</p>
-        <p>
-          遇見過 <strong>{met.length}</strong> / {ANIMALS.length} 種動物，其中 <strong>{adults}</strong> 種已經看得到成年的牠。
-        </p>
-        {closest && (
-          <p className="small">
-            {closest.a.name}最接近成年：成長 {closest.g.growth}/{GROWTH_MAX}（現在是{stageName(closest.a, closest.g.stage)}），再遇見幾次就能看到{stageName(closest.a, 2)}。
-          </p>
-        )}
-        {fresh.length > 0 && (
-          <>
-            <p className="small">還沒遇見過：{fresh.map((a) => a.name).join('、')}。</p>
-            <button className="ghost" onClick={() => update((s) => ({ ...s, settings: { ...s.settings, eggId: fresh[0].id } })) && onLobby()}>
-              🔍 去找{fresh[0].name}
-            </button>
-          </>
-        )}
-        {affordable.length > 0 && (
-          <>
-            <p className="small">
-              金幣夠解鎖探索路線了：{affordable.map((a) => `${a.name}（${a.unlock.kind === 'coins' ? a.unlock.price : ''} 金幣）`).join('、')}。你有 {wallet} 金幣。
-            </p>
-            <button className="ghost" onClick={onShop}>
-              去商店解鎖
-            </button>
-          </>
-        )}
-      </section>
     </div>
   );
 }
