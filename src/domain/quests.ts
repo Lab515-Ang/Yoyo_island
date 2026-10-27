@@ -19,6 +19,7 @@ export interface Quest {
 export const MONTH_TARGET = 30; // 本月完成幾個每日挑戰
 export const MONTH_REWARD = 200;
 export const STARTER_REWARD = 50;
+export const STARTER1_REWARD = 20; // 新手任務第一階段的小寶箱
 const MIN = 60_000;
 
 type Kind = 'minutes' | 'count' | 'long' | 'note';
@@ -76,7 +77,10 @@ export function monthQuest(save: SaveFile, month: string): Quest {
   return { key, title: `完成 ${MONTH_TARGET} 個每日挑戰`, target: MONTH_TARGET, progress: Math.min(n, MONTH_TARGET), reward: MONTH_REWARD, unit: '個', claimed: claimed.has(key) };
 }
 
-/** 新手任務：三個步驟，全部完成後打開寶箱。 */
+/**
+ * 新手任務分兩階段（參考 Forest）：第一階段完成第一次探索就能先開小寶箱，
+ * 第二階段寫筆記＋累積 60 分鐘，開大寶箱（探索路線＋金幣＋寶石）。要照順序開。
+ */
 export function starterQuest(save: SaveFile) {
   const done = endedSessions(save).filter((s) => s.status === 'completed');
   const min = Math.floor(done.reduce((a, s) => a + s.accumulatedMs, 0) / MIN);
@@ -86,7 +90,21 @@ export function starterQuest(save: SaveFile) {
     { title: '幫探索寫一則筆記', have: done.some((s) => s.note?.trim()) ? 1 : 0, need: 1, go: 'records' as const },
     { title: '累積專注 60 分鐘', have: Math.min(min, 60), need: 60, go: 'lobby' as const },
   ].map((st) => ({ ...st, ok: st.have >= st.need }));
-  return { key: 'quest:starter', steps, ready: steps.every((s) => s.ok), claimed: claimedKeys(save).has('quest:starter'), animal: starterAnimal(save) };
+  const keys = claimedKeys(save);
+  const claimed = keys.has('quest:starter');
+  // 分階段之前就開過大寶箱的舊存檔：第一階段當作開過，不再補發
+  const stage = claimed || keys.has('quest:starter1') ? 2 : 1;
+  const cur = stage === 1 ? steps.slice(0, 1) : steps.slice(1);
+  return {
+    key: stage === 1 ? 'quest:starter1' : 'quest:starter',
+    stage,
+    steps: cur,
+    locked: stage === 1 ? steps.slice(1) : [], // 下一階段的步驟（上鎖顯示）
+    ready: cur.every((s) => s.ok),
+    claimed,
+    reward: stage === 1 ? STARTER1_REWARD : STARTER_REWARD,
+    animal: stage === 1 ? null : starterAnimal(save),
+  };
 }
 
 /** 新手任務送的探索路線：商店裡第一種還沒解鎖的（都解鎖過就只給金幣）。 */
@@ -109,10 +127,10 @@ export function claimQuest(save: SaveFile, key: string, now: number): Claim {
   const day = today(save, now);
   let coins = 0;
   let animalId: string | undefined;
-  if (key === 'quest:starter') {
+  if (key === 'quest:starter' || key === 'quest:starter1') {
     const st = starterQuest(save);
-    if (!st.ready || st.claimed) return { ok: false, error: '新手任務還沒完成。' };
-    coins = STARTER_REWARD;
+    if (st.key !== key || !st.ready || st.claimed) return { ok: false, error: '新手任務還沒完成。' };
+    coins = st.reward;
     animalId = st.animal?.id;
   } else {
     if (/^quest:\d{4}-\d{2}-\d{2}:/.test(key) && !key.startsWith(`quest:${day}:`)) return { ok: false, error: '已經過午夜，每日挑戰換新了。' };
@@ -141,5 +159,5 @@ export function questRewardOk(key: string, amount: number, animalId?: string) {
   if (key === 'quest:starter') return !animalId || ANIMALS.some((a) => a.id === animalId);
   if (animalId) return false;
   if (/^ach:[a-z0-9_]+$/.test(key)) return true; // 成就獎勵（見 achievements.ts）
-  return /^quest:month:\d{4}-\d{2}$/.test(key) || /^quest:\d{4}-\d{2}-\d{2}:[0-2]$/.test(key);
+  return key === 'quest:starter1' || /^quest:month:\d{4}-\d{2}$/.test(key) || /^quest:\d{4}-\d{2}-\d{2}:[0-2]$/.test(key);
 }

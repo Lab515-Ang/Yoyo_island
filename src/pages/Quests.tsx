@@ -1,14 +1,14 @@
-import { Fragment, useState } from 'react';
+import { useState } from 'react';
 import { useNow, useSave } from '../app/store';
 import { COPY } from '../content/config';
 import { ChestArt, ChestOpen, chestTier } from '../components/Chest';
 import { Coin, Progress } from '../components/ui';
 import { nextLocalMidnight, shiftDateKey } from '../domain/focus';
 import { activeProject, projectRow } from '../domain/game';
-import { MONTH_REWARD, MONTH_TARGET, STARTER_REWARD, claimQuest, dailyQuests, monthQuest, starterQuest, today, hasReward, type Quest } from '../domain/quests';
+import { MONTH_REWARD, MONTH_TARGET, STARTER1_REWARD, STARTER_REWARD, claimQuest, dailyQuests, monthQuest, starterQuest, today, hasReward, type Quest } from '../domain/quests';
 import { achievementReady } from '../domain/achievements';
 import { Achievements } from './Achievements';
-import { ChevronRight, Hammer } from 'lucide-react';
+import { ChevronRight, Hammer, Lock } from 'lucide-react';
 import { PageTip } from '../components/PageTip';
 
 const left = (ms: number) => {
@@ -86,25 +86,31 @@ export function Quests({ onIsland, onLobby, onRecords }: { onIsland: () => void;
 
       {!starter.claimed && (
         <section className="card starter-quest">
-          {/* 步驟條：完成的圓圈打勾，中間的線跟著填滿，最後是寶箱 */}
+          {/* 階段條：第一階段 — 第二階段 — 大寶箱；開過的階段打勾，現在這一階段深色 */}
           <div className="starter-steps" aria-hidden="true">
-            {starter.steps.map((st, i) => (
-              <Fragment key={i}>
-                {i > 0 && <i className={starter.steps[i - 1].ok ? 'on' : ''} />}
-                <span className={st.ok ? 'on' : ''}>{st.ok ? '✓' : i + 1}</span>
-              </Fragment>
-            ))}
-            <i className={starter.ready ? 'on' : ''} />
-            <span className={starter.ready ? 'gift on' : 'gift'}>
+            <span className={starter.stage > 1 ? 'on' : 'cur'}>{starter.stage > 1 ? '✓' : 1}</span>
+            <i className={starter.stage > 1 ? 'on' : ''} />
+            <span className={starter.stage > 1 ? 'cur' : ''}>2</span>
+            <i className={starter.stage > 1 && starter.ready ? 'on' : ''} />
+            <span className={starter.stage > 1 && starter.ready ? 'gift on' : 'gift'}>
               <ChestArt tier="green" size={30} />
             </span>
           </div>
-          <h2>{starter.ready ? '你的獎勵正等著你！' : starter.steps.some((st) => st.ok) ? '只差一點！' : '專注，從這裡開始'}</h2>
-          <p className="small muted">
-            完成新手任務，寶箱裡有{starter.animal ? `「${starter.animal.name}」的探索路線和` : ''} {STARTER_REWARD} 金幣。
-          </p>
-          {/* 每一步都是一張小卡：有進度條，還沒完成的點一下就帶你去做 */}
-          <ul className="starter-list">
+          {starter.stage === 1 ? (
+            <>
+              <h2>{starter.ready ? '第一個寶箱等著你！' : '專注，從這裡開始'}</h2>
+              <p className="small muted">完成第一次探索，就能先開一個小寶箱（{STARTER1_REWARD} 金幣）。</p>
+            </>
+          ) : (
+            <>
+              <h2>{starter.ready ? '你的獎勵正等著你！' : '只差一點！'}</h2>
+              <p className="small muted">
+                完成新手任務，寶箱裡有{starter.animal ? `「${starter.animal.name}」的探索路線和` : ''} {STARTER_REWARD} 金幣。
+              </p>
+            </>
+          )}
+          {/* 每一步都是一張小卡：有進度條，還沒完成的點一下就帶你去做；下一階段的先上鎖。換階段時整串重新進場（解鎖的感覺） */}
+          <ul className="starter-list" key={starter.stage}>
             {starter.steps.map((st) => (
               <li key={st.title}>
                 <button className={st.ok ? 'starter-task ok' : 'starter-task'} disabled={st.ok} onClick={st.go === 'records' ? onRecords : onLobby}>
@@ -119,10 +125,21 @@ export function Quests({ onIsland, onLobby, onRecords }: { onIsland: () => void;
                 </button>
               </li>
             ))}
+            {starter.locked.map((st) => (
+              <li key={st.title}>
+                <div className="starter-task locked">
+                  <span className="starter-task-top">
+                    <strong>{st.title}</strong>
+                    <Lock size={16} aria-hidden="true" />
+                  </span>
+                  <small>開完小寶箱後解鎖</small>
+                </div>
+              </li>
+            ))}
           </ul>
           {starter.ready && (
             <button className="primary" onClick={() => setOpening({ key: starter.key, title: '新手任務' })}>
-              打開寶箱
+              {starter.stage === 1 ? '打開小寶箱' : '打開寶箱'}
             </button>
           )}
         </section>

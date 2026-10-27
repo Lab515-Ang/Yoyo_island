@@ -6,7 +6,7 @@ import { achievementState, claimAchievement } from './achievements';
 import { ANIMALS, TEST_UNLOCKED, CONTENT_VERSION, GROWTH_AT, SOUNDS, animalDef, projectDef, stageName } from '../content/config';
 import { newSave, newDemoSave, validateSave, demoGrant } from './save';
 import { npsDue } from './feedback';
-import { claimQuest, dailyQuests, monthQuest, questPlan, questRewardOk, starterQuest, hasReward, MONTH_REWARD, STARTER_REWARD } from './quests';
+import { claimQuest, dailyQuests, monthQuest, questPlan, questRewardOk, starterQuest, hasReward, MONTH_REWARD, STARTER1_REWARD, STARTER_REWARD } from './quests';
 import type { SaveFile } from './types';
 
 const T0 = Date.parse('2026-10-22T01:00:00Z');
@@ -546,11 +546,20 @@ describe('挑戰與寶箱', () => {
     expect(validateSave(JSON.parse(JSON.stringify(save))).ok).toBe(true);
   });
 
-  it('新手任務：三步都完成才能開，送商店第一條探索路線＋金幣', () => {
+  it('新手任務：第一階段完成第一次探索開小寶箱，第二階段開大寶箱送探索路線＋金幣', () => {
     let save = meet(fresh(), 30, T0);
-    expect(starterQuest(save).ready).toBe(false); // 還沒寫筆記、還沒滿 60 分鐘
+    expect(claimQuest(save, 'quest:starter', T0 + 40 * MIN).ok).toBe(false); // 要先開第一階段
+    const s1 = starterQuest(save);
+    expect([s1.key, s1.ready, s1.locked.length]).toEqual(['quest:starter1', true, 2]);
+    const r1 = claimQuest(save, 'quest:starter1', T0 + 40 * MIN);
+    if (!r1.ok) throw new Error(r1.error);
+    expect([r1.coins, r1.gems, r1.animalId]).toEqual([STARTER1_REWARD, 0, undefined]);
+    save = r1.save;
+    expect(claimQuest(save, 'quest:starter1', T0 + 41 * MIN).ok).toBe(false); // 不能重複開
+    expect(starterQuest(save).ready).toBe(false); // 第二階段：還沒寫筆記、還沒滿 60 分鐘
     save = meet(save, 30, T0 + 60 * MIN, '第一次的筆記');
     const st = starterQuest(save);
+    expect(st.key).toBe('quest:starter');
     expect(st.ready).toBe(true);
     expect(st.animal?.id).toBe('civet');
     const r = claimQuest(save, 'quest:starter', T0 + 120 * MIN);
@@ -562,6 +571,14 @@ describe('挑戰與寶箱', () => {
     expect(validateSave(JSON.parse(JSON.stringify(r.save))).ok).toBe(true);
   });
 
+  it('新手任務：分階段之前開過大寶箱的舊存檔，不會再補開第一階段', () => {
+    let save = meet(fresh(), 30, T0);
+    save = meet(save, 30, T0 + 60 * MIN, '筆記');
+    const old = { ...save, transactions: [...save.transactions, { id: 'old', userId: save.profile.id, islandId: save.islands[0].id, kind: 'quest_reward' as const, amount: STARTER_REWARD, idempotencyKey: 'quest:starter', createdAt: new Date(T0).toISOString() }] };
+    expect(starterQuest(old).claimed).toBe(true);
+    expect(claimQuest(old, 'quest:starter1', T0 + 120 * MIN).ok).toBe(false);
+  });
+
   it('存檔檢查：只看格式與合理範圍（之後調整獎勵，舊存檔仍讀得到）', () => {
     const q = questPlan('2026-10-22')[1];
     expect(questRewardOk(q.key, q.reward)).toBe(true);
@@ -571,6 +588,8 @@ describe('挑戰與寶箱', () => {
     expect(questRewardOk('quest:month:2026-10', MONTH_REWARD)).toBe(true);
     expect(questRewardOk('quest:starter', STARTER_REWARD, 'civet')).toBe(true);
     expect(questRewardOk('quest:starter', STARTER_REWARD, 'no_such_animal')).toBe(false);
+    expect(questRewardOk('quest:starter1', STARTER1_REWARD)).toBe(true);
+    expect(questRewardOk('quest:starter1', STARTER1_REWARD, 'civet')).toBe(false);
     expect(questRewardOk('quest:2026-10-22:5', 10)).toBe(false);
   });
 });
