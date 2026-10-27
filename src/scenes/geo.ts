@@ -16,6 +16,11 @@ export interface GeoDef {
   /** 地形格子範圍 [西, 南, 東, 北] 與間距（度） */
   bounds: [number, number, number, number];
   step: number;
+  /**
+   * 手繪地圖貼圖（GPT 照地形配置圖重畫，和世界地圖插畫同一種畫風）。
+   * bounds 是整張貼圖對應的經緯度 [西, 南, 東, 北]（畫配置圖時算出），換貼圖要一起換。
+   */
+  art?: { src: string; bounds: [number, number, number, number] };
 }
 
 export const HEIGHT = 0.13; // 每公里高度在 3D 裡的高度（誇大地形，看得出山脈）

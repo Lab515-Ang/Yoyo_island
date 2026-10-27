@@ -29,14 +29,27 @@ function RegionMap2D({ geo, pins, onSelect }: { geo: Geo; pins: MapPin[]; onSele
   const pad = 0.35;
   const [x0, z0, w, h] = [Math.min(...xs) - pad, Math.min(...zs) - pad, Math.max(...xs) - Math.min(...xs) + pad * 2, Math.max(...zs) - Math.min(...zs) + pad * 2];
   const s = 0.36;
+  const art = geo.art;
+  const [ax0, azN] = art ? project(art.bounds[0], art.bounds[3]) : [0, 0];
+  const [ax1, azS] = art ? project(art.bounds[2], art.bounds[1]) : [0, 0];
   return (
-    <svg viewBox={`${x0} ${z0} ${w} ${h}`} className="taiwan-2d" role="img" aria-label={`${geo.name}地圖`}>
-      <rect x={x0} y={z0} width={w} height={h} fill="#cfe7ea" />
-      {islands.map((isl, i) => (
-        <polygon key={i} points={isl.map((p) => p.join(',')).join(' ')} fill="#a9cc8f" stroke="#7fa877" strokeWidth="0.02" />
-      ))}
-      {/* 主要山脈（示意） */}
-      <polyline points={geo.ridgeLine.map(([lon, lat]) => project(lon, lat).join(',')).join(' ')} fill="none" stroke="#5f8a57" strokeWidth="0.12" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
+    <svg viewBox={`${x0} ${z0} ${w} ${h}`} className="taiwan-2d" style={art ? { background: '#31c4f3' } : undefined} role="img" aria-label={`${geo.name}地圖`}>
+      {art ? (
+        <>
+          {/* 手繪地圖（和 3D 地圖同一張） */}
+          <rect x={x0} y={z0} width={w} height={h} fill="#31c4f3" />
+          <image href={art.src} x={ax0} y={azN} width={ax1 - ax0} height={azS - azN} preserveAspectRatio="none" />
+        </>
+      ) : (
+        <>
+          <rect x={x0} y={z0} width={w} height={h} fill="#cfe7ea" />
+          {islands.map((isl, i) => (
+            <polygon key={i} points={isl.map((p) => p.join(',')).join(' ')} fill="#a9cc8f" stroke="#7fa877" strokeWidth="0.02" />
+          ))}
+          {/* 主要山脈（示意） */}
+          <polyline points={geo.ridgeLine.map(([lon, lat]) => project(lon, lat).join(',')).join(' ')} fill="none" stroke="#5f8a57" strokeWidth="0.12" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
+        </>
+      )}
       {pins.map((p) => {
         const a = animalDef(p.id);
         const [x, z] = project(a.habitat.lon, a.habitat.lat);

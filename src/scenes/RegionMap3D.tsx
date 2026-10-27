@@ -8,6 +8,51 @@ import { AnimalArt, TrackArt } from '../components/Animal';
 import { HEIGHT, colorAt, type Geo } from './geo';
 import { useSvgTexture } from './svgTexture';
 
+/** 依頂點的平面座標算貼圖座標（貼圖上緣是北）。 */
+function setUV(g: THREE.BufferGeometry, geo: Geo, [w, s, e, n]: [number, number, number, number]) {
+  const [x0, zN] = geo.project(w, n);
+  const [x1, zS] = geo.project(e, s);
+  const p = g.getAttribute('position');
+  const uv = new Float32Array(p.count * 2);
+  for (let i = 0; i < p.count; i++) {
+    uv[i * 2] = (p.getX(i) - x0) / (x1 - x0);
+    uv[i * 2 + 1] = 1 - (p.getZ(i) - zN) / (zS - zN);
+  }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+}
+
+/** 有手繪貼圖的區域：整張貼圖鋪成海面（海浪、沙灘），地形也貼同一張，山脈的起伏保留。 */
+function PaintedLand({ geo, terrain, art }: { geo: Geo; terrain: THREE.BufferGeometry; art: NonNullable<Geo['art']> }) {
+  const invalidate = useThree((s) => s.invalidate);
+  const tex = useMemo(() => {
+    const t = new THREE.TextureLoader().load(art.src, () => invalidate());
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 4;
+    return t;
+  }, [art, invalidate]);
+  useEffect(() => () => tex.dispose(), [tex]);
+  const plane = useMemo(() => {
+    const [w, s, e, n] = art.bounds;
+    const [x0, zN] = geo.project(w, n);
+    const [x1, zS] = geo.project(e, s);
+    const g = new THREE.PlaneGeometry(x1 - x0, zS - zN);
+    g.rotateX(-Math.PI / 2);
+    g.translate((x0 + x1) / 2, 0, (zN + zS) / 2);
+    return g;
+  }, [geo, art]);
+  useMemo(() => setUV(terrain, geo, art.bounds), [terrain, geo, art]);
+  return (
+    <>
+      <mesh geometry={plane} position={[0, -0.004, 0]}>
+        <meshBasicMaterial map={tex} />
+      </mesh>
+      <mesh geometry={terrain}>
+        <meshLambertMaterial map={tex} />
+      </mesh>
+    </>
+  );
+}
+
 export interface MapPin {
   id: string; // 動物代號
   state: 'met' | 'open' | 'locked' | 'legend'; // 遇見過、可以去找、還找不到、傳說（沒有確切紀錄）
@@ -154,22 +199,29 @@ export default function RegionMap3D({ geo, pins, onSelect }: { geo: Geo; pins: M
   const terrain = useTerrain(geo);
   const coast = useCoast(geo);
   const group = useRef<THREE.Group>(null);
+  const art = geo.art;
   return (
-    <Canvas frameloop="demand" dpr={[1, 1.5]} camera={{ fov: 36, position: [0, 7.2, 3.6], near: 0.1, far: 50 }} gl={{ antialias: true, powerPreference: 'low-power' }} aria-label={`立體${geo.name}地圖`}>
-      <color attach="background" args={['#bfe0e6']} />
+    <Canvas flat={!!art} frameloop="demand" dpr={[1, 1.5]} camera={{ fov: 36, position: [0, 7.2, 3.6], near: 0.1, far: 50 }} gl={{ antialias: true, powerPreference: 'low-power' }} aria-label={`立體${geo.name}地圖`}>
+      <color attach="background" args={[art ? '#31c4f3' : '#bfe0e6']} />
       <hemisphereLight args={['#fff6e0', '#6f8f7a', 1.1]} />
       <directionalLight position={[3, 6, 2]} intensity={1.3} color="#fff2d8" />
       <group ref={group} position={[0, 0, -0.35]}>
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]}>
           <circleGeometry args={[3.4, 48]} />
-          <meshLambertMaterial color="#8fc6cf" />
+          <meshBasicMaterial color={art ? '#31c4f3' : '#8fc6cf'} />
         </mesh>
-        <mesh geometry={coast} position={[0, -0.002, 0]}>
-          <meshLambertMaterial color="#b7d49a" side={THREE.DoubleSide} />
-        </mesh>
-        <mesh geometry={terrain}>
-          <meshLambertMaterial vertexColors flatShading />
-        </mesh>
+        {art ? (
+          <PaintedLand geo={geo} terrain={terrain} art={art} />
+        ) : (
+          <>
+            <mesh geometry={coast} position={[0, -0.002, 0]}>
+              <meshLambertMaterial color="#b7d49a" side={THREE.DoubleSide} />
+            </mesh>
+            <mesh geometry={terrain}>
+              <meshLambertMaterial vertexColors flatShading />
+            </mesh>
+          </>
+        )}
         {pins.map((p) => (
           <Pin key={p.id} geo={geo} pin={p} onSelect={onSelect} />
         ))}

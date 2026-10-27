@@ -1,5 +1,6 @@
 // 立體台灣（觀察圖鑑的地圖）：海岸線、山脈高度。都是簡化的示意，不是精確地形。
 import { makeGeo } from './geo';
+import art from '../assets/scenes/map-tw.webp';
 
 /** 台灣本島海岸線（經度、緯度），順時針。 */
 const OUTLINE: [number, number][] = [
@@ -34,4 +35,5 @@ export const TAIWAN = makeGeo({
   k: 1.45,
   bounds: [119.98, 21.88, 122.0, 25.32],
   step: 0.018,
+  art: { src: art, bounds: [119.7385, 21.88, 122.2415, 25.32] },
 });
