@@ -55,7 +55,7 @@ function RegionSheet({ onClose }: { onClose: () => void }) {
             >
               <circle cx={x} cy={y} r="14" fill="transparent" />
               {on && <circle cx={x} cy={y} r="11" fill="rgba(90,140,85,.28)" />}
-              <circle cx={x} cy={y} r="5.8" fill={open ? (on ? '#5a8c55' : '#f29b7f') : '#a8a296'} stroke="#fffdf8" strokeWidth="1.4" />
+              <circle cx={x} cy={y} r="5.8" fill={open ? (on ? '#638553' : '#e08a70') : '#a8a296'} stroke="#fffdf8" strokeWidth="1.4" />
               <text x={x + (left ? -10 : 10)} y={y + 3.4} textAnchor={left ? 'end' : 'start'} fontSize="10.5" fontWeight="700" fill="#36302a" stroke="#fffdf8" strokeWidth="2.2" paintOrder="stroke">
                 {open ? r.name : `🔒${r.name}`}
               </text>

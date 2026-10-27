@@ -6,11 +6,18 @@ import { sightings } from '../domain/game';
 import type { FocusSession } from '../domain/types';
 import { landDef } from '../content/shop';
 import { landOwned } from '../domain/shop';
+import leopardCat from '../assets/animals/leopard_cat.webp?inline';
+
+// 正式美術圖（透明背景、腳貼底的 512×512，scripts/cutout.mjs 可以幫忙去背）：有圖的動物就用圖，沒有的用下面程式畫的臨時圖。
+// 用 ?inline 內嵌成 data URL：圖鑑格子、立體地圖會把整張 SVG 轉成圖片，外部網址在那裡讀不到
+const ART: Record<string, string> = { leopard_cat: leopardCat };
 
 // 臨時動物圖（程式畫的，依外形與主色區分）：美術圖到位後換成圖片。畫布 100×100，地面在 y = 92。
 const EYE = '#2b2622';
 
 function body(a: AnimalDef): ReactNode {
+  const art = ART[a.id];
+  if (art) return <image href={art} x="0" y="0" width="100" height="93" preserveAspectRatio="xMidYMax meet" />;
   const c = a.color;
   const x = a.accent;
   switch (a.shape) {

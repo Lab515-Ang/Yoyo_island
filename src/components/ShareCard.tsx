@@ -63,7 +63,7 @@ function cardSvg(d: ShareCardData) {
   const bars = d.bars
     .map((v, i) => {
       const h = (v / peak) * chartH;
-      return `<rect x="${plotX + i * bw + bw * 0.15}" y="${chartY + chartH - Math.max(h, 2)}" width="${bw * 0.7}" height="${Math.max(h, 2)}" rx="2" fill="#5a8c55" opacity="${v ? 0.9 : 0.25}"/>`;
+      return `<rect x="${plotX + i * bw + bw * 0.15}" y="${chartY + chartH - Math.max(h, 2)}" width="${bw * 0.7}" height="${Math.max(h, 2)}" rx="2" fill="#638553" opacity="${v ? 0.9 : 0.25}"/>`;
     })
     .join('');
   // 標籤和長條一樣多（例如星期）就對齊長條中間，否則平均分布在兩端之間
@@ -79,7 +79,7 @@ function cardSvg(d: ShareCardData) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="'Chiron GoRound TC Variable','Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif">
 <rect width="${W}" height="${H}" fill="#fbf6ec"/>
 <rect x="16" y="16" width="${W - 32}" height="${H - 32}" rx="24" fill="#fffdf8" stroke="#ece4d3"/>
-<rect x="16" y="16" width="${W - 32}" height="64" rx="24" fill="#5a8c55"/><rect x="16" y="56" width="${W - 32}" height="24" fill="#5a8c55"/>
+<rect x="16" y="16" width="${W - 32}" height="64" rx="24" fill="#638553"/><rect x="16" y="56" width="${W - 32}" height="24" fill="#638553"/>
 <text x="${W / 2}" y="58" font-size="22" font-weight="700" fill="#fffdf8" text-anchor="middle">專注成果統計圖</text>
 <text x="40" y="122" font-size="18" fill="#766b5e">${esc(clip(`${d.title}・${d.subtitle}`, 26))}</text>
 <text x="40" y="166" font-size="34" font-weight="700" fill="#36302a">${esc(d.total)}</text>
@@ -92,7 +92,7 @@ ${d.sessions.length ? '' : `<text x="${W / 2}" y="${plotY + plotH / 2 + 6}" font
 ${bars}
 <line x1="${plotX}" y1="${chartY + chartH}" x2="${plotX + plotW}" y2="${chartY + chartH}" stroke="#ece4d3"/>
 ${axis}
-<text x="${W / 2}" y="${H - 34}" font-size="15" fill="#7aaa74" text-anchor="middle">🌿 棲光小島</text>
+<text x="${W / 2}" y="${H - 34}" font-size="15" fill="#8ca67a" text-anchor="middle">🌿 棲光小島</text>
 </svg>`;
 }
 
@@ -133,9 +133,9 @@ function sessionSvg({ session: s, when, title, stage }: SessionCardData) {
 ${place(art, done ? w / 2 - 110 : w / 2 - 85, done ? 90 : 115, done ? 220 : 170)}
 <text x="${w / 2}" y="378" font-size="28" font-weight="700" fill="#36302a" text-anchor="middle">${esc(clip(title, 16))}</text>
 <text x="${w / 2}" y="414" font-size="17" fill="#766b5e" text-anchor="middle">${esc(when)}・${min} 分鐘</text>
-${meta ? `<text x="${w / 2}" y="446" font-size="16" fill="#5a8c55" text-anchor="middle">${esc(clip(meta, 28))}</text>` : ''}
+${meta ? `<text x="${w / 2}" y="446" font-size="16" fill="#638553" text-anchor="middle">${esc(clip(meta, 28))}</text>` : ''}
 ${note.map((l, i) => `<text x="${w / 2}" y="${490 + i * 26}" font-size="16" fill="#36302a" text-anchor="middle">${esc(l)}</text>`).join('')}
-<text x="${w / 2}" y="${h - 36}" font-size="15" fill="#7aaa74" text-anchor="middle">🌿 棲光小島</text>
+<text x="${w / 2}" y="${h - 36}" font-size="15" fill="#8ca67a" text-anchor="middle">🌿 棲光小島</text>
 </svg>`;
 }
 

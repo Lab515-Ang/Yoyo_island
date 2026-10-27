@@ -17,13 +17,13 @@
   --soft: #f1eedc;
   --line: #ece4d3;
   /* 主色 */
-  --sage: #7aaa74;
-  --primary: #5a8c55;
-  --primary-press: #4e8250;
-  --sage-deep: #3e6a45;
-  --sage-tint: #e6efdb;
+  --sage: #8ca67a;
+  --primary: #638553;
+  --primary-press: #567647;
+  --sage-deep: #4a6a42;
+  --sage-tint: #e8eedb;
   /* 強調 */
-  --coral: #f29b7f;
+  --coral: #e08a70;
   --danger: #b4553f;
   --warm: #f3c566;
   --honey-soft: #fbebc4;
@@ -1354,7 +1354,7 @@ button.danger-fill {
 }
 /* 剪影原本貼著底部畫：往上移到圓心 */
 .lobby .lobby-ring svg {
-  transform: translateY(-20%);
+  translate: 0 -20%;
 }
 .ring-alert {
   position: absolute;
@@ -2774,8 +2774,8 @@ label.toggle input.switch:checked::after {
   -webkit-text-stroke: 1px var(--sage-deep);
 }
 .recap-summary {
-  --recap-top: #e6efdb;
-  background: linear-gradient(180deg, #e6efdb, var(--bg));
+  --recap-top: #e8eedb;
+  background: linear-gradient(180deg, #e8eedb, var(--bg));
 }
 .recap-top {
   display: flex;
@@ -3002,7 +3002,7 @@ label.toggle input.switch:checked::after {
 }
 .starter-quest {
   text-align: center;
-  background: linear-gradient(180deg, #e6efdb, var(--panel) 70%);
+  background: linear-gradient(180deg, #e8eedb, var(--panel) 70%);
 }
 .starter-quest h2 {
   margin: 0.4rem 0 0.2rem;
@@ -3053,7 +3053,7 @@ label.toggle input.switch:checked::after {
   display: flex;
   align-items: center;
   gap: 0.8rem;
-  background: linear-gradient(135deg, #e6efdb, #f4f0dc);
+  background: linear-gradient(135deg, #e8eedb, #f4f0dc);
   color: var(--text);
 }
 .month-quest > div {
@@ -4843,5 +4843,30 @@ label.set-row input.switch:checked {
   }
   .ach-cel-confetti {
     display: none;
+  }
+}
+
+/* 動物的呼吸：很輕的伸縮（用 scale 屬性，不會蓋掉原本的 transform／translate） */
+.lobby-ring svg,
+.species-hero svg,
+.result-plant svg {
+  transform-origin: 50% 92%;
+  animation: breathe 3.6s ease-in-out infinite;
+}
+/* 結算：先長出來，再開始呼吸 */
+.result-plant > svg {
+  animation: plant-grow 1s ease-out, breathe 3.6s 1s ease-in-out infinite;
+}
+@keyframes breathe {
+  50% {
+    scale: 1.025 1.045;
+  }
+}
+.app.calm :is(.lobby-ring svg, .species-hero svg, .result-plant svg) {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.lobby-ring svg, .species-hero svg, .result-plant svg) {
+    animation: none;
   }
 }
