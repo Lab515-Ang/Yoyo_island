@@ -276,15 +276,41 @@ export function HatchPlot({ sessions: all, cols: base, minCells, freshId }: { se
         {capped}
       </>
     );
+  // 等角（斜 45°）的一塊草地：一格是 100×50 的菱形，動物站在菱形中心；下方露出土壤側面（參考 Forest）
+  const rows = Math.ceil(total / cols);
+  const VW = (cols + rows) * 50;
+  const SOIL = 16;
+  const VH = (cols + rows) * 25 + SOIL;
+  const pt = (r: number, c: number) => [rows * 50 + (c - r) * 50, (c + r) * 25] as const;
+  const [T, R, B, L] = [pt(0, 0), pt(0, cols), pt(rows, cols), pt(rows, 0)];
+  const poly = (...ps: (readonly [number, number])[]) => ps.map((p) => p.join(',')).join(' ');
+  const down = (p: readonly [number, number]) => [p[0], p[1] + SOIL] as const;
   return (
     <>
-      <div className="hatch-plot" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: cols > 24 ? 1 : cols > 12 ? 2 : 4 }}>
-        {sessions.map((s) => (
-          <HatchCell key={s.id} s={s} stage={stages.get(s.id)?.stage ?? 2} fresh={s.id === freshId} />
-        ))}
-        {Array.from({ length: total - sessions.length }, (_, i) => (
-          <div key={`e${i}`} className="hatch-cell" aria-hidden="true" />
-        ))}
+      <div className="hatch-plot iso" style={{ aspectRatio: `${VW} / ${VH}` }}>
+        <svg viewBox={`0 0 ${VW} ${VH}`} aria-hidden="true">
+          <polygon points={poly(L, B, down(B), down(L))} fill="#8a6847" />
+          <polygon points={poly(B, R, down(R), down(B))} fill="#a3805a" />
+          <polygon points={poly(T, R, B, L)} fill="#a9cf80" />
+          <g stroke="#fffdf8" strokeOpacity="0.22" strokeWidth="1.5">
+            {Array.from({ length: cols - 1 }, (_, i) => (
+              <line key={`c${i}`} x1={pt(0, i + 1)[0]} y1={pt(0, i + 1)[1]} x2={pt(rows, i + 1)[0]} y2={pt(rows, i + 1)[1]} />
+            ))}
+            {Array.from({ length: rows - 1 }, (_, i) => (
+              <line key={`r${i}`} x1={pt(i + 1, 0)[0]} y1={pt(i + 1, 0)[1]} x2={pt(i + 1, cols)[0]} y2={pt(i + 1, cols)[1]} />
+            ))}
+          </g>
+        </svg>
+        {sessions.map((s, i) => {
+          const r = Math.floor(i / cols);
+          const c = i % cols;
+          const [x, y] = pt(r, c);
+          return (
+            <div key={s.id} className="iso-cell" style={{ left: `${(x / VW) * 100}%`, top: `${((y + 25) / VH) * 100}%`, width: `${(72 / VW) * 100}%`, zIndex: r + c }}>
+              <HatchCell s={s} stage={stages.get(s.id)?.stage ?? 2} fresh={s.id === freshId} />
+            </div>
+          );
+        })}
       </div>
       {capped}
     </>

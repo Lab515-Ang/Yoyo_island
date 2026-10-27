@@ -20,6 +20,7 @@ import { FeedbackSheet, loadFeedback } from './components/Feedback';
 import { npsDue } from './domain/feedback';
 import { Sounds } from './pages/Sounds';
 import { Journey } from './pages/Journey';
+import { Codex } from './pages/Codex';
 import { Together } from './pages/Together';
 import { SettingsPage } from './pages/Settings';
 import { Shop } from './pages/Shop';
@@ -27,9 +28,9 @@ import { GuardPage, GuardScreen } from './pages/Guard';
 import { Coin, Modal } from './components/ui';
 import { Tour } from './components/Tour';
 import { hasReward } from './domain/quests';
-import { BarChart3, Bell, BookOpen, Home, ListChecks, Medal, Menu, Music, Settings as SettingsIcon, ShieldCheck, ShoppingBag, Trees, Users, type LucideIcon } from 'lucide-react';
+import { BarChart3, Bell, BookOpen, Home, ListChecks, Medal, Menu, Music, PawPrint, Settings as SettingsIcon, ShieldCheck, ShoppingBag, Trees, Users, type LucideIcon } from 'lucide-react';
 
-type View = 'lobby' | 'island' | 'quests' | 'records' | 'guard' | 'sounds' | 'journey' | 'friends' | 'achievements' | 'shop' | 'news' | 'settings';
+type View = 'lobby' | 'island' | 'quests' | 'records' | 'guard' | 'sounds' | 'journey' | 'codex' | 'friends' | 'achievements' | 'shop' | 'news' | 'settings';
 // 左側選單順序
 const NAV: { id: View; label: string; icon: LucideIcon; soon?: boolean }[] = [
   { id: 'lobby', label: '大廳', icon: Home },
@@ -39,12 +40,16 @@ const NAV: { id: View; label: string; icon: LucideIcon; soon?: boolean }[] = [
   { id: 'guard', label: '時間守護', icon: ShieldCheck },
   { id: 'sounds', label: '大自然交響樂', icon: Music },
   { id: 'journey', label: '我的歷程', icon: BookOpen },
+  { id: 'codex', label: '觀察圖鑑', icon: PawPrint },
   { id: 'friends', label: '好友', icon: Users },
   { id: 'achievements', label: '成就', icon: Medal, soon: true },
   { id: 'shop', label: '商店', icon: ShoppingBag },
   { id: 'news', label: '活動消息', icon: Bell, soon: true },
   { id: 'settings', label: '設定', icon: SettingsIcon },
 ];
+
+// 和大廳同一片深綠底的頁面（底色定義在 styles.css 的 --scene-bg）
+const SCENE = new Set<View>(['lobby', 'journey', 'codex', 'friends']);
 
 // 介面偏好，不屬於存檔：key 不用存檔前綴，避免觸發其他分頁的「存檔已更新」
 const NAV_KEY = 'qiguang-ui:navCollapsed';
@@ -110,7 +115,6 @@ function Main() {
   const [resting, setResting] = useState(false);
   const [recordsTag, setRecordsTag] = useState<string | null>(null);
   const reward = useMemo(() => hasReward(save, Date.now()), [save]); // 有寶箱可以開：選單上的小紅點
-  const [journeyTab, setJourneyTab] = useState<'timeline' | 'codex'>('timeline');
   const [askNps, setAskNps] = useState(false);
   const [navOpen, setNavOpen] = useState(false); // 手機：抽屜
   const [collapsed, setCollapsedState] = useState(readCollapsed); // 桌面：收合成圖示列
@@ -259,7 +263,6 @@ function Main() {
   const go = (v: View, h: HabitatId | null = null) => {
     setSummaryId(null);
     setRecordsTag(null);
-    setJourneyTab('timeline');
     setView(v);
     setHabitat(h);
     setNavOpen(false);
@@ -294,7 +297,7 @@ function Main() {
     );
   else
     body = (
-      <div className={`shell view-${view}${collapsed ? ' nav-collapsed' : ''}`}>
+      <div className={`shell view-${view}${SCENE.has(view) ? ' deep' : ''}${collapsed ? ' nav-collapsed' : ''}`}>
         <header className="topbar">
           <button
             className="menu-btn"
@@ -342,12 +345,13 @@ function Main() {
           {view === 'lobby' && save.sessions.filter((s) => s.endedAt).length === 1 && <FirstTour />}
           {view === 'lobby' && <RecapInvite />}
           {view === 'lobby' && askNps && <FeedbackSheet onClose={() => setAskNps(false)} />}
-          {view === 'island' && <IslandPage onLobby={() => go('lobby')} onCodex={() => (go('journey'), setJourneyTab('codex'))} />}
+          {view === 'island' && <IslandPage onLobby={() => go('lobby')} onCodex={() => go('codex')} />}
           {view === 'quests' && <Quests onIsland={() => go('island')} onLobby={() => go('lobby')} />}
           {view === 'records' && <Records key={recordsTag ?? 'all'} initialTag={recordsTag} />}
           {view === 'guard' && <GuardPage />}
           {view === 'sounds' && <Sounds onSettings={() => go('settings')} />}
-          {view === 'journey' && <Journey key={journeyTab} initialTab={journeyTab} />}
+          {view === 'journey' && <Journey />}
+          {view === 'codex' && <Codex />}
           {view === 'friends' && <Together />}
           {view === 'achievements' && <NotYet title="成就" />}
           {view === 'shop' && <Shop onLobby={() => go('lobby')} />}

@@ -29,7 +29,8 @@ export function Codex() {
   });
 
   return (
-    <div className="page sub">
+    <div className="page">
+      <h1>觀察圖鑑</h1>
       <div className="segmented view-toggle" role="radiogroup" aria-label="顯示方式">
         {(
           [

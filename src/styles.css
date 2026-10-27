@@ -1,5 +1,11 @@
 /* 改版「奶油森林」：奶油米白＋鼠尾草綠＋珊瑚橘＋蜂蜜黃。色票與字級對應 Figma 的「奶油森林」變數與文字樣式。 */
 :root {
+  /* 深綠場景底（大廳、我的歷程、觀察圖鑑、好友、專注紀錄上半部共用：改這裡就全部連動） */
+  --scene-top: #4f7e66;
+  --scene-glass: rgba(79, 126, 102, 0.9);
+  --scene-bg:
+    radial-gradient(ellipse 90% 55% at 50% 42%, rgba(156, 207, 160, 0.28), transparent 70%),
+    linear-gradient(180deg, var(--scene-top) 0%, #3f6b53 45%, #2c4d3c 100%);
   /* 底色 */
   --bg: #fbf6ec;
   --panel: #fffdf8;
@@ -1207,23 +1213,48 @@ button.danger-fill {
 }
 
 /* ---------- 大廳：整頁漸層，由上而下「做什麼 → 去找誰 → 多久 → 開始」 ---------- */
-.shell.view-lobby {
-  min-height: 100dvh;
-  /* 深森林綠漸層：上方帶一點湖水光，往下沉到林下的深綠 */
-  background:
-    radial-gradient(ellipse 90% 55% at 50% 42%, rgba(156, 207, 160, 0.28), transparent 70%),
-    linear-gradient(180deg, #4f7e66 0%, #3f6b53 45%, #2c4d3c 100%);
-  color: #f4f1e6;
+/* ---------- 深綠場景頁：底圖固定在畫面後面，捲動時不會被拉長 ---------- */
+.shell.deep::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--scene-bg);
+}
+.shell.deep {
+  isolation: isolate; /* 底圖的 z-index: -1 留在 shell 裡，不會被 body 的底色蓋掉 */
   padding-bottom: calc(1rem + env(safe-area-inset-bottom));
 }
-/* 大廳不顯示 App 名稱（保留位置讓金幣、頭像靠右） */
-.view-lobby .brand {
+/* 不顯示 App 名稱（保留位置讓金幣、頭像靠右） */
+.deep .brand {
   visibility: hidden;
+}
+.deep .topbar {
+  background: var(--scene-glass);
 }
 .view-lobby .topbar {
   background: transparent;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+}
+/* 直接放在深綠底上的文字改淺色；卡片、彈窗、按鈕裡面維持深色字 */
+.deep .content {
+  --text: #fffdf8;
+  --muted: rgba(255, 253, 248, 0.72);
+  color: var(--text);
+}
+.deep .content :is(.card, .codex-card, .tl-card, .tl-dot, .tl-day, .segmented, .install-hint, .notice, dialog, input, select, textarea, button:not(.link)) {
+  --text: #36302a;
+  --muted: #766b5e;
+}
+.deep .content :is(.card, .codex-card, .tl-card, .install-hint, .notice, dialog) {
+  color: var(--text);
+}
+.deep .content .tl-day {
+  background: var(--panel);
+}
+.deep .content .link {
+  color: #fffdf8;
 }
 .lobby {
   max-width: 520px;
@@ -3558,4 +3589,122 @@ button.link.inline {
   .ob-scope {
     animation: none;
   }
+}
+
+/* ---------- 專注紀錄：上半部和大廳同一片深綠（參考 Forest 的總覽） ---------- */
+.view-records .topbar {
+  background: var(--scene-top);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.view-records .brand {
+  visibility: hidden;
+}
+.records-hero {
+  margin: -0.5rem -1.25rem 0;
+  padding: 0.3rem 1.25rem 3.4rem;
+  background: var(--scene-bg);
+  color: #fffdf8;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.7rem;
+}
+.hero-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+button.hero-icon,
+span.hero-icon {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: none;
+  color: #fffdf8;
+  box-shadow: none;
+}
+button.hero-icon:disabled {
+  opacity: 0.3;
+}
+.records-hero .tag-select {
+  gap: 0.3rem;
+  min-height: 44px;
+  padding: 0 1.1rem 0 1.4rem;
+  font-size: 1.1rem;
+  color: #fffdf8;
+  background: rgba(0, 0, 0, 0.18);
+  border: none;
+}
+.records-hero .segmented {
+  display: flex;
+  margin: 0;
+  background: rgba(0, 0, 0, 0.2);
+}
+.records-hero .segmented button {
+  flex: 1;
+  color: rgba(255, 253, 248, 0.85);
+}
+.records-hero .segmented button.on {
+  background: var(--panel);
+  color: var(--text);
+}
+.records-hero .garden-nav {
+  margin: 0;
+}
+.records-hero .garden-nav strong {
+  font-family: var(--font-num), var(--font);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.records-hero .back-today {
+  color: #fffdf8;
+  vertical-align: middle;
+}
+.hero-count {
+  margin: 0;
+  text-align: right;
+  font-size: 0.9rem;
+  color: rgba(255, 253, 248, 0.85);
+}
+.hero-count strong {
+  font-family: var(--font-num);
+  font-size: 1.15rem;
+  color: #fffdf8;
+}
+/* 統計卡片疊在深綠區塊下緣 */
+.records .stats-card {
+  position: relative;
+  margin-top: -3.4rem;
+}
+/* 等角草地：SVG 畫地面，動物用絕對位置站在格子中心 */
+.hatch-plot.iso {
+  position: relative;
+  width: 100%;
+  margin-top: 8%;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+.hatch-plot.iso svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 14px 18px rgba(10, 30, 20, 0.35));
+}
+.iso-cell {
+  position: absolute;
+  transform: translate(-50%, -90%);
+}
+.iso-cell .hatch-cell {
+  background: none;
+}
+.records-hero .hatch-plot.big {
+  border-radius: var(--radius);
+  padding: 8px;
+  background: #a9cf80;
 }

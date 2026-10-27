@@ -8,6 +8,7 @@ import { addSegmentsByHour, localDateKey, localHourKey, shiftDateKey, weekStartK
 import { endedDayKeys, endedSessions, perSave, sightings, weekRecap } from '../domain/game';
 import { WeekRecap, lastWeekStart } from './Recap';
 import type { SaveFile } from '../domain/types';
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Info, RotateCcw, Share } from 'lucide-react';
 
 type Range = 'day' | 'week' | 'month' | 'year';
 const RANGES: [Range, string][] = [
@@ -17,9 +18,17 @@ const RANGES: [Range, string][] = [
   ['year', '年'],
 ];
 // 每種範圍的觀察格子：幾欄、至少幾格
-const PLOT: Record<Range, { cols: number; min: number }> = { day: { cols: 4, min: 8 }, week: { cols: 6, min: 12 }, month: { cols: 8, min: 24 }, year: { cols: 12, min: 48 } };
+// 等角草地用正方形最好看（參考 Forest）
+const PLOT: Record<Range, { cols: number; min: number }> = { day: { cols: 4, min: 16 }, week: { cols: 6, min: 36 }, month: { cols: 8, min: 64 }, year: { cols: 12, min: 144 } };
 const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日'];
 const RANGE_NAME: Record<Range, string> = { day: '前一天', week: '上一週', month: '上個月', year: '去年' };
+// 專注趨勢：看最近幾期、每一期怎麼稱呼
+const TREND: Record<Range, { n: number; unit: string; name: (key: string) => string }> = {
+  day: { n: 7, unit: '天', name: (k) => `${Number(k.slice(5, 7))}/${Number(k.slice(8))}` },
+  week: { n: 8, unit: '週', name: (k) => `${Number(weekStartKey(k).slice(5, 7))}/${Number(weekStartKey(k).slice(8))}` },
+  month: { n: 6, unit: '個月', name: (k) => `${Number(k.slice(5, 7))}月` },
+  year: { n: 5, unit: '年', name: (k) => k.slice(0, 4) },
+};
 
 const shiftMonth = (key: string, n: number) => {
   const [y, m] = key.split('-').map(Number);
@@ -152,7 +161,7 @@ function Bars({ values, labels, names }: { values: number[]; labels: string[]; n
 }
 
 /** 專注紀錄（參考 Forest）：觀察格子、專注時間統計、項目分布、最常遇見的動物、專注習慣。 */
-function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t: string[] | null) => void }) {
+function Overview({ tags: picked, onTags, onRecap }: { tags: string[] | null; onTags: (t: string[] | null) => void; onRecap?: () => void }) {
   const { save } = useSave();
   const tz = save.profile.timezone;
   const today = localDateKey(Date.now(), tz);
@@ -193,7 +202,19 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
     } else if (inRange(range, prev, dateKey) && (!isNow || posIn(range, dateKey, hour) <= nowPos)) prevTotal += v;
   }
 
-  // 專注項目分布（看全部標籤時才有意義）
+  // 專注趨勢：到這一期為止的最近幾期（天看 7 天、週看 8 週、月看 6 個月、年看 5 年）
+  const TREND_N = TREND[range].n;
+  const trendKeys = Array.from({ length: TREND_N }, (_, i) => shiftRange(range, cursor, i - TREND_N + 1));
+  const trend = Array<number>(TREND_N).fill(0);
+  for (const [k, v] of hourly) {
+    const i = trendKeys.findIndex((p) => inRange(range, p, k.slice(0, 10)));
+    if (i >= 0) trend[i] += v;
+  }
+  const trendName = (i: number) => TREND[range].name(trendKeys[i]);
+  const trendAvg = trend.reduce((a, b) => a + b, 0) / TREND_N;
+  const trendBest = trend.indexOf(Math.max(...trend));
+
+  // 專注項目分布
   // 只算落在這個範圍內的時間（跨過午夜等邊界的專注只算一部分，和總計一致）
   const byTag = new Map<string, number>();
   for (const [t, h] of tagHourly(save)) {
@@ -250,13 +271,23 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
 
   return (
     <>
-      <section className="card garden-card">
-        <div className="row between">
+      {/* 上半部和大廳同一片深綠：標籤篩選、天週月年、日期、等角草地 */}
+      <section className="records-hero">
+        <h1 className="sr-only">專注紀錄</h1>
+        <div className="hero-head">
+          {onRecap ? (
+            <button className="hero-icon" onClick={onRecap} aria-label="上週回顧">
+              <CalendarDays size={22} aria-hidden="true" />
+            </button>
+          ) : (
+            <span className="hero-icon" aria-hidden="true" />
+          )}
           <button className="tag-select" onClick={() => setPicking(true)} aria-label={`標籤篩選：${tagLabel}`}>
-            {tagLabel} ▾
+            {tagLabel}
+            <ChevronDown size={18} aria-hidden="true" />
           </button>
-          <button className="icon-btn" onClick={() => setSharing(true)} aria-label="分享專注成果統計圖">
-            ⤴
+          <button className="hero-icon" onClick={() => setSharing(true)} aria-label="分享專注成果統計圖">
+            <Share size={22} aria-hidden="true" />
           </button>
         </div>
         <div className="segmented" role="radiogroup" aria-label="紀錄範圍">
@@ -267,26 +298,26 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
           ))}
         </div>
         <div className="garden-nav">
-          <button className="time-step" onClick={() => setCursor(shiftRange(range, cursor, -1))} aria-label="上一段">
-            ‹
+          <button className="hero-icon" onClick={() => setCursor(shiftRange(range, cursor, -1))} aria-label="上一段">
+            <ChevronLeft size={26} aria-hidden="true" />
           </button>
           <strong>
             {label}
             {!isNow && (
               <button className="back-today" onClick={() => setCursor(today)} aria-label="回到今天">
-                ↺
+                <RotateCcw size={16} aria-hidden="true" />
               </button>
             )}
           </strong>
-          <button className="time-step" onClick={() => setCursor(shiftRange(range, cursor, 1))} disabled={isNow} aria-label="下一段">
-            ›
+          <button className="hero-icon" onClick={() => setCursor(shiftRange(range, cursor, 1))} disabled={isNow} aria-label="下一段">
+            <ChevronRight size={26} aria-hidden="true" />
           </button>
         </div>
         <HatchPlot sessions={shown} cols={PLOT[range].cols} minCells={PLOT[range].min} />
-        <p className="small center-text">
+        <p className="hero-count">
           {shown.length ? (
             <>
-              🔭 遇見 <strong>{hatched.length}</strong> 次{shown.length > hatched.length && ` · 💨 被嚇跑 ${shown.length - hatched.length} 次`}
+              遇見 <strong>{hatched.length}</strong> 次{shown.length > hatched.length && <> · 被嚇跑 <strong>{shown.length - hatched.length}</strong> 次</>}
             </>
           ) : isNow ? (
             '還是空的草地。完成一次探索，就會遇見第一隻動物。'
@@ -296,11 +327,11 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
         </p>
       </section>
 
-      <section className="card">
+      <section className="card stats-card">
         <div className="row between">
           <h2>專注時間統計</h2>
           <button className="icon-btn" onClick={() => setInfo(true)} aria-label="說明">
-            ⓘ
+            <Info size={20} aria-hidden="true" />
           </button>
         </div>
         <p>
@@ -315,24 +346,38 @@ function Overview({ tags: picked, onTags }: { tags: string[] | null; onTags: (t:
         <Bars key={`${range}${cursor}`} values={buckets} labels={axis} names={names} />
       </section>
 
+      <section className="card">
+        <h2>專注趨勢變化</h2>
+        <p className="small muted">
+          最近 {TREND_N} {TREND[range].unit}平均每{TREND[range].unit === '個月' ? '月' : TREND[range].unit} {shortTime(trendAvg)}
+          {trend[trendBest] > 0 && `・最多是 ${trendName(trendBest)}（${shortTime(trend[trendBest])}）`}
+        </p>
+        <Bars key={`t${range}${cursor}`} values={trend} labels={trendKeys.map((_, i) => trendName(i))} names={trendName} />
+      </section>
+
+      <section className="card">
+        <h2>專注項目分布</h2>
+        {tagRows.length ? (
+          <>
+            <div className="tag-donut" style={{ background: `conic-gradient(${donut})` }} role="img" aria-label="各標籤的專注時間比例" />
+            <ul className="tag-rows">
+              {tagRows.map(([t, v]) => (
+                <li key={t}>
+                  <span className="tag-dot" style={{ background: tagColor(t) }} aria-hidden="true" />
+                  <span>{t}</span>
+                  <span className="muted">{Math.round((v / tagSum) * 100)}%</span>
+                  <span className="small muted">{fmtMinutes(v)}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="small muted center-text">這段時間還沒有專注紀錄。</p>
+        )}
+      </section>
+
       {total > 0 && (
         <>
-          {tagRows.length > 1 && (
-            <section className="card">
-              <h2>專注項目分布</h2>
-              <div className="tag-donut" style={{ background: `conic-gradient(${donut})` }} role="img" aria-label="各標籤的專注時間比例" />
-              <ul className="tag-rows">
-                {tagRows.map(([t, v]) => (
-                  <li key={t}>
-                    <span className="tag-dot" style={{ background: tagColor(t) }} aria-hidden="true" />
-                    <span>{t}</span>
-                    <span className="muted">{Math.round((v / tagSum) * 100)}%</span>
-                    <span className="small muted">{fmtMinutes(v)}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
 
           {animalRows.length > 0 && (
             <section className="card">
@@ -395,17 +440,9 @@ export function Records({ initialTag = null }: { initialTag?: string | null }) {
   const [recap, setRecap] = useState(false);
   const week = lastWeekStart(save.profile.timezone);
   return (
-    <div className="page">
-      <div className="page-head">
-        <h1>專注紀錄</h1>
-        {weekRecap(save, week).total >= 60_000 && (
-          <button className="ghost small" onClick={() => setRecap(true)}>
-            📅 上週回顧
-          </button>
-        )}
-      </div>
+    <div className="page records">
       {recap && <WeekRecap weekStart={week} onClose={() => setRecap(false)} />}
-      <Overview tags={tagFilter} onTags={setTagFilter} />
+      <Overview tags={tagFilter} onTags={setTagFilter} onRecap={weekRecap(save, week).total >= 60_000 ? () => setRecap(true) : undefined} />
     </div>
   );
 }

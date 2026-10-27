@@ -7,7 +7,6 @@ import { renderSessionCard, ShareModal } from '../components/ShareCard';
 import { localDateKey, shiftDateKey } from '../domain/focus';
 import { animalsUnlockedBy, editSessionNote, endedSessions, islandId, NOTE_MAX, perSave, sightings } from '../domain/game';
 import type { FocusSession, SaveFile } from '../domain/types';
-import { Codex } from './Codex';
 
 // ---------- 時間歷程（參考 Forest）：依日期的時間軸 ----------
 
@@ -229,25 +228,12 @@ function Timeline() {
   );
 }
 
-/** 我的歷程：時間歷程與觀察圖鑑。 */
-export function Journey({ initialTab = 'timeline' }: { initialTab?: 'timeline' | 'codex' }) {
-  const [tab, setTab] = useState(initialTab);
+/** 我的歷程：時間歷程（觀察圖鑑是獨立的一頁）。 */
+export function Journey() {
   return (
     <div className="page">
       <h1>我的歷程</h1>
-      <div className="segmented" role="tablist">
-        {(
-          [
-            ['timeline', '時間歷程'],
-            ['codex', '觀察圖鑑'],
-          ] as const
-        ).map(([k, l]) => (
-          <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>
-            {l}
-          </button>
-        ))}
-      </div>
-      {tab === 'timeline' ? <Timeline /> : <Codex />}
+      <Timeline />
     </div>
   );
 }
