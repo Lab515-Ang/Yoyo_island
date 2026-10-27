@@ -20,6 +20,8 @@ export interface GeoDef {
    * 手繪地圖貼圖（GPT 照地形配置圖重畫，和世界地圖插畫同一種畫風）。
    * bounds 是整張貼圖對應的經緯度 [西, 南, 東, 北]（畫配置圖時算出），換貼圖要一起換。
    */
+  /** 山的高度倍率（預設 1）：地圖縮得越小，山也要跟著壓低，不然會變成細長的尖柱 */
+  relief?: number;
   art?: { src: string; bounds: [number, number, number, number]; sea: string }; // sea：貼圖四邊的海色，外圍的海用同一色
 }
 

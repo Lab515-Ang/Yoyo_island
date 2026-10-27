@@ -93,7 +93,7 @@ function useTerrain(geo: Geo) {
     return g;
   }, [geo]);
 }
-function buildTerrain({ bounds: [west, south, east, north], step, inside, heightAt, project }: Geo) {
+function buildTerrain({ bounds: [west, south, east, north], step, inside, heightAt, project, relief }: Geo) {
   {
     // 每個格點只判斷一次在不在島內（四個角共用）
     const cols = Math.ceil((east - west) / step) + 1;
@@ -107,7 +107,7 @@ function buildTerrain({ bounds: [west, south, east, north], step, inside, height
     const vert = (lon: number, lat: number) => {
       const h = heightAt(lon, lat);
       const [x, z] = project(lon, lat);
-      pos.push(x, h * HEIGHT, z);
+      pos.push(x, h * HEIGHT * (relief ?? 1), z);
       c.setRGB(...colorAt(h), THREE.SRGBColorSpace); // 頂點顏色要換成線性色彩，不然會偏白
       col.push(c.r, c.g, c.b);
     };
@@ -185,7 +185,7 @@ function DragRotate({ target }: { target: React.RefObject<THREE.Group | null> })
 function Pin({ geo, pin, onSelect }: { geo: Geo; pin: MapPin; onSelect: (id: string) => void }) {
   const a = animalDef(pin.id);
   const [x, z] = geo.project(a.habitat.lon, a.habitat.lat);
-  const y = geo.heightAt(a.habitat.lon, a.habitat.lat) * HEIGHT;
+  const y = geo.heightAt(a.habitat.lon, a.habitat.lat) * HEIGHT * (geo.relief ?? 1);
   const tex = useSvgTexture(pin.state === 'met' ? `animal:${a.id}:${pin.stage}` : `track:${a.id}`, () =>
     renderToStaticMarkup(pin.state === 'met' ? <AnimalArt id={a.id} stage={pin.stage} size={256} /> : <TrackArt id={a.id} size={256} />),
   );
