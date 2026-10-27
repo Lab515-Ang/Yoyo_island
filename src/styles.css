@@ -1239,6 +1239,7 @@ button.danger-fill {
   gap: 0.4rem;
   align-items: center;
   justify-content: center;
+  margin-top: 0.9rem;
 }
 .lobby .tag-chip,
 .lobby .title-chip {
