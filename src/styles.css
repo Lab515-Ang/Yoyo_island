@@ -344,7 +344,7 @@ legend {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: calc(0.1rem + var(--top-inset, var(--safe-area-inset-top, env(safe-area-inset-top)))) 1rem 0.35rem;
+  padding: calc(0.55rem + var(--top-inset, var(--safe-area-inset-top, env(safe-area-inset-top)))) 1rem 0.35rem;
   position: sticky;
   top: 0;
   z-index: 5;
@@ -1182,7 +1182,7 @@ button.danger-fill {
 @media (max-width: 420px) {
   .topbar {
     gap: 0.5rem;
-    padding: calc(0.1rem + var(--top-inset, var(--safe-area-inset-top, env(safe-area-inset-top)))) 0.75rem 0.35rem;
+    padding: calc(0.55rem + var(--top-inset, var(--safe-area-inset-top, env(safe-area-inset-top)))) 0.75rem 0.35rem;
   }
   .brand .small {
     display: none;
@@ -3629,11 +3629,11 @@ button.link.inline {
 /* 上方拆成幾條滿版深綠帶：總覽列、天週月年、日期列、草地。總覽列和日期列往下滑時釘在頂部列下面 */
 .page.records {
   gap: 0;
-  --topbar-h: calc(38px + 0.45rem + var(--top-inset, var(--safe-area-inset-top, env(safe-area-inset-top))));
+  --topbar-h: calc(38px + 0.9rem + var(--top-inset, var(--safe-area-inset-top, env(safe-area-inset-top))));
   --head-h: calc(44px + 0.7rem);
 }
 .mode-demo .page.records {
-  --topbar-h: calc(82px + 0.45rem + var(--top-inset, var(--safe-area-inset-top, env(safe-area-inset-top))));
+  --topbar-h: calc(82px + 0.9rem + var(--top-inset, var(--safe-area-inset-top, env(safe-area-inset-top))));
 }
 .records-band {
   margin: 0 -1.25rem;
