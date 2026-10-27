@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useSave } from '../app/store';
 import { ANIMALS, avatarEmoji, COPY, projectDef } from '../content/config';
 import { Progress, fmtDateTime, fmtMinutes } from '../components/ui';
-import { InviteCard } from '../components/Invite';
+import { InviteButton } from '../components/Invite';
 import { completeNow, createSession, localDateKey, shiftDateKey, weekStartKey } from '../domain/focus';
 import { activeProject, animalUnlocked, balance, closeSession, contribute, contributionsByUser, islandId, minutesByDay, unlockAnimal } from '../domain/game';
 import { demoGrant } from '../domain/save';
@@ -65,7 +65,10 @@ export function Together() {
 
   return (
     <div className="page">
-      <h1>好友</h1>
+      <div className="title-row">
+        <h1>好友</h1>
+        <InviteButton />
+      </div>
 
       <div className="segmented board-tabs" role="tablist" aria-label="排行範圍">
         {(
@@ -94,7 +97,6 @@ export function Together() {
           </li>
         ))}
       </ol>
-      <InviteCard />
 
       {demo ? (
         <div className="notice demo">

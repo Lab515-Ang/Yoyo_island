@@ -17,11 +17,28 @@ export const INVITEE_COINS = 300;
 /** 邀請碼：由玩家 id 算出來的 8 碼（多人連線開放後由伺服器核對）。 */
 const inviteCode = (id: string) => (parseInt(id.replace(/-/g, '').slice(0, 10), 16) || 0).toString(36).toUpperCase().padStart(8, '0').slice(-8);
 
+/** 好友頁右上角的「邀請拿獎勵」按鈕：點了在畫面中間跳出完整說明。 */
+export function InviteButton() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button className="invite-btn" onClick={() => setOpen(true)}>
+        <Gift size={16} aria-hidden="true" /> 邀請拿獎勵
+      </button>
+      {open && (
+        <Modal title="邀請拿獎勵" onClose={() => setOpen(false)} className="center-modal">
+          <InviteCard />
+        </Modal>
+      )}
+    </>
+  );
+}
+
 /**
- * 好友頁的「邀請拿獎勵」。
+ * 「邀請拿獎勵」的內容。
  * ponytail: 沒有伺服器就沒辦法核對邀請碼、累積朋友的專注時間；現在只有畫面和複製邀請碼，輸入邀請碼先提示上架後開放。
  */
-export function InviteCard() {
+function InviteCard() {
   const { save, notify } = useSave();
   const [entering, setEntering] = useState(false);
   const [code, setCode] = useState('');
@@ -36,15 +53,12 @@ export function InviteCard() {
   };
 
   return (
-    <section className="card invite-card">
+    <section className="invite-card">
       <div className="invite-head">
         <span className="invite-gift" aria-hidden="true">
           <Gift size={30} />
         </span>
-        <div>
-          <h2>邀請拿獎勵</h2>
-          <p className="small muted">你邀請的朋友專注越久，你的獎勵越多。</p>
-        </div>
+        <p className="small muted">你邀請的朋友專注越久，你的獎勵越多。</p>
       </div>
       <p className="invite-count">已邀請 0 人</p>
       <ol className="invite-track" aria-label="邀請獎勵">

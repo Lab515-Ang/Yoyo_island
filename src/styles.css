@@ -5023,3 +5023,31 @@ label.set-row input.switch:checked {
 .app.calm .kind-animal .item-art svg {
   animation: none;
 }
+/* 好友頁右上角的邀請按鈕；點了在畫面中間跳出（手機上也不從下面滑出） */
+.invite-btn {
+  flex-direction: row;
+  gap: 0.35rem;
+  min-height: 38px;
+  padding: 0 0.9rem;
+  border-radius: 999px;
+  background: var(--warm);
+  color: #5b4206;
+  font-weight: 700;
+  font-size: 0.88rem;
+  box-shadow: 0 4px 12px rgba(10, 30, 20, 0.2);
+}
+@media (max-width: 599px) {
+  .modal.center-modal {
+    width: calc(100% - 32px);
+    max-width: 420px;
+    max-height: calc(100% - 48px);
+    margin: auto;
+    border-radius: var(--radius-lg);
+  }
+  .modal.center-modal[open] {
+    animation: cel-card 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .modal.center-modal .modal-body::before {
+    display: none;
+  }
+}
