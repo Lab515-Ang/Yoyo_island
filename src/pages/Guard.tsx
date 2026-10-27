@@ -440,7 +440,6 @@ export function GuardPage() {
   const [cfg, setCfg] = useState<GuardConfig | null>(null);
   const [perm, setPerm] = useState({ usage: false, overlay: false });
   const [editing, setEditing] = useState(false);
-  const [preview, setPreview] = useState(false);
   const pet = guardPet(save);
 
   useEffect(() => {
@@ -470,12 +469,6 @@ export function GuardPage() {
       </div>
     </div>
   );
-  const previewBtn = (
-    <button className="link" onClick={() => setPreview(true)}>
-      預覽攔截畫面
-    </button>
-  );
-  const previewScreen = preview && <GuardScreen app={{ pkg: 'preview', label: '社群 App' }} onClose={() => setPreview(false)} />;
 
   if (!isAndroid)
     return (
@@ -484,9 +477,7 @@ export function GuardPage() {
         <section className="card">
           <p>選好想減少使用的 App，打開它們時小島會先請你停一下、深呼吸幾秒，再決定要不要解鎖 {UNLOCK_MINUTES} 分鐘。這裡也會顯示每天的手機使用時間。</p>
           <p className="muted small">目前只有 Android App 版可以使用；iPhone 版需要 Apple 的特別權限，之後推出。</p>
-          {previewBtn}
         </section>
-        {previewScreen}
       </div>
     );
   if (!cfg) return <div className="page muted">讀取中…</div>;
@@ -508,14 +499,10 @@ export function GuardPage() {
       )}
 
       <PlanCard cfg={cfg} onEdit={() => setEditing(true)} />
-      <p className="small muted">
-        打開計劃裡的 App 時，小島會先請你停一下、深呼吸 {THINK_SECONDS} 秒，再決定要不要解鎖 {UNLOCK_MINUTES} 分鐘。{previewBtn}
-      </p>
 
       {perm.usage ? <UsageDashboard cfg={cfg} tz={save.profile.timezone} /> : <p className="card muted small">開啟「使用情況存取權」後，這裡會顯示每天的手機使用時間。</p>}
 
       {editing && <PlanEditor cfg={cfg} ready={ready} onSave={saveCfg} onClose={() => setEditing(false)} />}
-      {previewScreen}
     </div>
   );
 }
