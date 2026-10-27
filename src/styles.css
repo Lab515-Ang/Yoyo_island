@@ -6,6 +6,11 @@
   --scene-bg:
     radial-gradient(ellipse 90% 55% at 50% 42%, rgba(156, 207, 160, 0.28), transparent 70%),
     linear-gradient(180deg, var(--scene-top) 0%, #3f6b53 45%, #2c4d3c 100%);
+  /* 商店底：蜂蜜光往下漸到淺薄荷，像午後的林間空地 */
+  --shop-top: #fbe7bd;
+  --shop-bg:
+    radial-gradient(ellipse 80% 40% at 85% 0%, rgba(255, 253, 248, 0.7), transparent 70%),
+    linear-gradient(180deg, var(--shop-top) 0%, #f7efd6 32%, #e8f1dc 70%, #d3e8d6 100%);
   /* 底色 */
   --bg: #fbf6ec;
   --panel: #fffdf8;
@@ -1214,12 +1219,22 @@ button.danger-fill {
 
 /* ---------- 大廳：整頁漸層，由上而下「做什麼 → 去找誰 → 多久 → 開始」 ---------- */
 /* ---------- 深綠場景頁：底圖固定在畫面後面，捲動時不會被拉長 ---------- */
+.shell.view-shop::before,
 .shell.deep::before {
   content: '';
   position: fixed;
   inset: 0;
   z-index: -1;
   background: var(--scene-bg);
+}
+.shell.view-shop {
+  isolation: isolate;
+}
+.shell.view-shop::before {
+  background: var(--shop-bg);
+}
+.view-shop .topbar {
+  background: rgba(251, 231, 189, 0.88);
 }
 .shell.deep {
   isolation: isolate; /* 底圖的 z-index: -1 留在 shell 裡，不會被 body 的底色蓋掉 */
@@ -3600,14 +3615,45 @@ button.link.inline {
 .view-records .brand {
   visibility: hidden;
 }
+/* 上方拆成幾條滿版深綠帶：總覽列、天週月年、日期列、草地。總覽列和日期列往下滑時釘在頂部列下面 */
+.page.records {
+  gap: 0;
+  --topbar-h: calc(44px + 1.2rem + env(safe-area-inset-top));
+  --head-h: calc(44px + 0.7rem);
+}
+.mode-demo .page.records {
+  --topbar-h: calc(88px + 1.2rem + env(safe-area-inset-top));
+}
+.records-band {
+  margin: 0 -1.25rem;
+  padding: 0.35rem 1.25rem;
+  background: var(--scene-top);
+  color: #fffdf8;
+}
+.page.records > .records-band:first-of-type {
+  margin-top: -0.5rem;
+}
+.sticky-head {
+  position: sticky;
+  top: var(--topbar-h);
+  z-index: 4;
+}
+.sticky-date {
+  position: sticky;
+  top: calc(var(--topbar-h) + var(--head-h));
+  z-index: 4;
+}
 .records-hero {
-  margin: -0.5rem -1.25rem 0;
+  margin: 0 -1.25rem;
   padding: 0.3rem 1.25rem 3.4rem;
-  background: var(--scene-bg);
+  background: linear-gradient(180deg, var(--scene-top), #2f5240);
   color: #fffdf8;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0.7rem;
+}
+.page.records > .card:not(.stats-card) {
+  margin-top: 1rem;
 }
 .hero-head {
   display: flex;
@@ -3629,7 +3675,7 @@ span.hero-icon {
 button.hero-icon:disabled {
   opacity: 0.3;
 }
-.records-hero .tag-select {
+.records-band .tag-select {
   gap: 0.3rem;
   min-height: 44px;
   padding: 0 1.1rem 0 1.4rem;
@@ -3638,28 +3684,25 @@ button.hero-icon:disabled {
   background: rgba(0, 0, 0, 0.18);
   border: none;
 }
-.records-hero .segmented {
+.records-band .segmented {
   display: flex;
   margin: 0;
   background: rgba(0, 0, 0, 0.2);
 }
-.records-hero .segmented button {
+.records-band .segmented button {
   flex: 1;
   color: rgba(255, 253, 248, 0.85);
 }
-.records-hero .segmented button.on {
+.records-band .segmented button.on {
   background: var(--panel);
   color: var(--text);
 }
-.records-hero .garden-nav {
-  margin: 0;
-}
-.records-hero .garden-nav strong {
+.records-band.garden-nav strong {
   font-family: var(--font-num), var(--font);
   font-size: 1.1rem;
   font-weight: 700;
 }
-.records-hero .back-today {
+.records-band .back-today {
   color: #fffdf8;
   vertical-align: middle;
 }
@@ -3710,38 +3753,55 @@ button.hero-icon:disabled {
 }
 
 /* ---------- 換頁動畫 ---------- */
+/* 換頁：整頁先淡入，裡面的區塊再一個接一個柔和地浮上來（easeOutExpo，比較不僵硬） */
 .view-in {
-  animation: view-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-soft: cubic-bezier(0.16, 1, 0.3, 1);
+  animation: screen-in 0.45s ease-out;
 }
-@keyframes view-in {
+.view-in > :is(.page, .lobby) > * {
+  animation: rise-in 0.7s var(--ease-soft) backwards;
+}
+.view-in > :is(.page, .lobby) > :nth-child(2) {
+  animation-delay: 0.06s;
+}
+.view-in > :is(.page, .lobby) > :nth-child(3) {
+  animation-delay: 0.12s;
+}
+.view-in > :is(.page, .lobby) > :nth-child(4) {
+  animation-delay: 0.18s;
+}
+.view-in > :is(.page, .lobby) > :nth-child(n + 5) {
+  animation-delay: 0.24s;
+}
+@keyframes rise-in {
   from {
     opacity: 0;
-    transform: translateY(14px);
+    transform: translateY(22px) scale(0.985);
   }
 }
 .screen-in {
-  animation: screen-in 0.4s ease-out;
+  animation: screen-in 0.55s ease-out;
 }
 @keyframes screen-in {
   from {
     opacity: 0;
   }
 }
-/* 設定的子頁面：從右邊滑進來 */
+/* 子頁面、商店分頁、排行切換：從右邊滑進來 */
 .slide-in {
-  animation: slide-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: slide-in 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes slide-in {
   from {
-    opacity: 0.4;
-    transform: translateX(40px);
+    opacity: 0;
+    transform: translateX(36px);
   }
 }
-.app.calm :is(.view-in, .screen-in, .slide-in) {
+.app.calm :is(.view-in, .screen-in, .slide-in, .view-in > .page > *, .view-in > .lobby > *) {
   animation: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  :is(.view-in, .screen-in, .slide-in) {
+  :is(.view-in, .screen-in, .slide-in, .view-in > .page > *, .view-in > .lobby > *) {
     animation: none;
   }
 }
@@ -4016,4 +4076,7 @@ label.set-row input.switch:checked {
 .board-invite {
   flex-direction: row;
   gap: 0.4rem;
+}
+.view-shop .avatar-btn {
+  background: var(--panel);
 }

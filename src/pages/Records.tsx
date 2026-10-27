@@ -271,25 +271,25 @@ function Overview({ tags: picked, onTags, onRecap }: { tags: string[] | null; on
 
   return (
     <>
-      {/* 上半部和大廳同一片深綠：標籤篩選、天週月年、日期、等角草地 */}
-      <section className="records-hero">
-        <h1 className="sr-only">專注紀錄</h1>
-        <div className="hero-head">
-          {onRecap ? (
-            <button className="hero-icon" onClick={onRecap} aria-label="上週回顧">
-              <CalendarDays size={22} aria-hidden="true" />
-            </button>
-          ) : (
-            <span className="hero-icon" aria-hidden="true" />
-          )}
-          <button className="tag-select" onClick={() => setPicking(true)} aria-label={`標籤篩選：${tagLabel}`}>
-            {tagLabel}
-            <ChevronDown size={18} aria-hidden="true" />
+      {/* 上半部和大廳同一片深綠：標籤篩選、天週月年、日期、等角草地。總覽列和日期列往下滑時釘在上方（參考 Forest） */}
+      <h1 className="sr-only">專注紀錄</h1>
+      <div className="hero-head records-band sticky-head">
+        {onRecap ? (
+          <button className="hero-icon" onClick={onRecap} aria-label="上週回顧">
+            <CalendarDays size={22} aria-hidden="true" />
           </button>
-          <button className="hero-icon" onClick={() => setSharing(true)} aria-label="分享專注成果統計圖">
-            <Share size={22} aria-hidden="true" />
-          </button>
-        </div>
+        ) : (
+          <span className="hero-icon" aria-hidden="true" />
+        )}
+        <button className="tag-select" onClick={() => setPicking(true)} aria-label={`標籤篩選：${tagLabel}`}>
+          {tagLabel}
+          <ChevronDown size={18} aria-hidden="true" />
+        </button>
+        <button className="hero-icon" onClick={() => setSharing(true)} aria-label="分享專注成果統計圖">
+          <Share size={22} aria-hidden="true" />
+        </button>
+      </div>
+      <div className="records-band">
         <div className="segmented" role="radiogroup" aria-label="紀錄範圍">
           {RANGES.map(([k, l]) => (
             <button key={k} role="radio" aria-checked={range === k} className={range === k ? 'on' : ''} onClick={() => (setRange(k), setCursor(today))}>
@@ -297,22 +297,24 @@ function Overview({ tags: picked, onTags, onRecap }: { tags: string[] | null; on
             </button>
           ))}
         </div>
-        <div className="garden-nav">
-          <button className="hero-icon" onClick={() => setCursor(shiftRange(range, cursor, -1))} aria-label="上一段">
-            <ChevronLeft size={26} aria-hidden="true" />
-          </button>
-          <strong>
-            {label}
-            {!isNow && (
-              <button className="back-today" onClick={() => setCursor(today)} aria-label="回到今天">
-                <RotateCcw size={16} aria-hidden="true" />
-              </button>
-            )}
-          </strong>
-          <button className="hero-icon" onClick={() => setCursor(shiftRange(range, cursor, 1))} disabled={isNow} aria-label="下一段">
-            <ChevronRight size={26} aria-hidden="true" />
-          </button>
-        </div>
+      </div>
+      <div className="garden-nav records-band sticky-date">
+        <button className="hero-icon" onClick={() => setCursor(shiftRange(range, cursor, -1))} aria-label="上一段">
+          <ChevronLeft size={26} aria-hidden="true" />
+        </button>
+        <strong>
+          {label}
+          {!isNow && (
+            <button className="back-today" onClick={() => setCursor(today)} aria-label="回到今天">
+              <RotateCcw size={16} aria-hidden="true" />
+            </button>
+          )}
+        </strong>
+        <button className="hero-icon" onClick={() => setCursor(shiftRange(range, cursor, 1))} disabled={isNow} aria-label="下一段">
+          <ChevronRight size={26} aria-hidden="true" />
+        </button>
+      </div>
+      <section className="records-hero">
         <HatchPlot sessions={shown} cols={PLOT[range].cols} minCells={PLOT[range].min} />
         <p className="hero-count">
           {shown.length ? (
