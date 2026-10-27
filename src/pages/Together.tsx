@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useSave } from '../app/store';
 import { ANIMALS, avatarEmoji, COPY, projectDef } from '../content/config';
-import { Progress, fmtDateTime } from '../components/ui';
+import { Progress, fmtDateTime, fmtMinutes } from '../components/ui';
+import { UserPlus } from 'lucide-react';
 import { completeNow, createSession, localDateKey, shiftDateKey, weekStartKey } from '../domain/focus';
 import { activeProject, animalUnlocked, balance, closeSession, contribute, contributionsByUser, islandId, minutesByDay, unlockAnimal } from '../domain/game';
 import { demoGrant } from '../domain/save';
@@ -10,6 +11,7 @@ import { PROJECTS } from '../content/config';
 
 export function Together() {
   const { save, mode, switchMode, resetDemo, update, notify } = useSave();
+  const [board, setBoard] = useState<'today' | 'week'>('today');
   const demo = mode === 'demo';
   const byUser = contributionsByUser(save);
   const members = save.memberships.filter((m) => m.islandId === islandId(save));
@@ -49,9 +51,53 @@ export function Together() {
       return next;
     }) && notify('示範路線已全部完成，每種動物都遇見了一次。到「我的小島」看看吧。');
 
+  // 專注排行榜（參考 Forest）：今天或這一週的專注時間，由多到少
+  const tz = save.profile.timezone;
+  const today = localDateKey(Date.now(), tz);
+  const week = weekStartKey(today);
+  const days = board === 'today' ? [today] : Array.from({ length: 7 }, (_, i) => shiftDateKey(week, i));
+  const ranking = members
+    .map((m) => {
+      const byDay = minutesByDay(save, m.userId);
+      return { m, ms: days.reduce((a, d) => a + (byDay.get(d) ?? 0), 0) };
+    })
+    .sort((a, b) => b.ms - a.ms);
+
   return (
     <div className="page">
       <h1>好友</h1>
+
+      <div className="segmented board-tabs" role="tablist" aria-label="排行範圍">
+        {(
+          [
+            ['today', '今日專注'],
+            ['week', '本週排行'],
+          ] as const
+        ).map(([k, l]) => (
+          <button key={k} role="tab" aria-selected={board === k} className={board === k ? 'on' : ''} onClick={() => setBoard(k)}>
+            {l}
+          </button>
+        ))}
+      </div>
+      <ol className="board slide-in" key={board} aria-label={board === 'today' ? '今日專注排行' : '本週專注排行'}>
+        {ranking.map(({ m, ms }, i) => (
+          <li key={m.userId} className={m.userId === save.profile.id ? 'me' : ''}>
+            <span className="board-rank">{i + 1}</span>
+            <span className="avatar-sm" aria-hidden="true">
+              {avatarEmoji(m.demoAvatarId ?? save.profile.avatarId)}
+            </span>
+            <span className="board-name">
+              <strong>{m.demoNickname ?? `${save.profile.nickname}（你）`}</strong>
+              <small>貢獻 {byUser.get(m.userId) ?? 0} 點</small>
+            </span>
+            <span className="board-time">{fmtMinutes(ms)}</span>
+          </li>
+        ))}
+      </ol>
+      <button className="board-invite" disabled title={COPY.multiplayerOff}>
+        <UserPlus size={18} aria-hidden="true" /> 邀請好友（{COPY.multiplayerOff}）
+      </button>
+
       {demo ? (
         <div className="notice demo">
           <strong>🧪 {COPY.demoBanner}</strong>
@@ -63,25 +109,6 @@ export function Together() {
           <p className="small">目前是單人小島。真實邀請與共同修復會在接上雲端後開放；在那之前不會產生任何邀請碼。你可以先開啟「本機合作示範」看看多人時的樣子。</p>
         </div>
       )}
-
-      <section className="card">
-        <h2>成員</h2>
-        <ul className="members">
-          {members.map((m) => (
-            <li key={m.userId}>
-              <span className="avatar-sm">{avatarEmoji(m.demoAvatarId ?? save.profile.avatarId)}</span>
-              <div>
-                <strong>{m.demoNickname ?? `${save.profile.nickname}（你）`}</strong>
-                <div className="small muted">{m.role === 'owner' ? '島主' : '成員'}</div>
-              </div>
-              <span className="small">貢獻 {byUser.get(m.userId) ?? 0} 點</span>
-            </li>
-          ))}
-        </ul>
-        <button disabled title={COPY.multiplayerOff}>
-          邀請朋友（{COPY.multiplayerOff}）
-        </button>
-      </section>
 
       <section className="card">
         <h2>共同工程</h2>

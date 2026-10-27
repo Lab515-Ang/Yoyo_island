@@ -1452,7 +1452,7 @@ button.danger-fill {
 .time-sheet .deep-box {
   margin: 0;
 }
-.time-sheet input.switch:checked {
+.time-sheet label.toggle input.switch:checked {
   background: var(--primary);
 }
 .result-scene .scene {
@@ -3707,4 +3707,313 @@ button.hero-icon:disabled {
   border-radius: var(--radius);
   padding: 8px;
   background: #a9cf80;
+}
+
+/* ---------- 換頁動畫 ---------- */
+.view-in {
+  animation: view-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes view-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+.screen-in {
+  animation: screen-in 0.4s ease-out;
+}
+@keyframes screen-in {
+  from {
+    opacity: 0;
+  }
+}
+/* 設定的子頁面：從右邊滑進來 */
+.slide-in {
+  animation: slide-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes slide-in {
+  from {
+    opacity: 0.4;
+    transform: translateX(40px);
+  }
+}
+.app.calm :is(.view-in, .screen-in, .slide-in) {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.view-in, .screen-in, .slide-in) {
+    animation: none;
+  }
+}
+
+/* ---------- 設定（參考 Forest：分組的圓角清單） ---------- */
+.set-profile {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 0.8rem;
+  min-height: 76px;
+  padding: 0.7rem 1rem;
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  text-align: left;
+  color: var(--text);
+}
+.set-profile .avatar-sm {
+  width: 52px;
+  height: 52px;
+  font-size: 1.7rem;
+}
+.set-profile > span:nth-child(2) {
+  flex: 1;
+  display: grid;
+}
+.set-profile small,
+.set-row small {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+.set-profile > svg {
+  color: var(--muted);
+}
+.set-group {
+  display: grid;
+  gap: 0.45rem;
+}
+.set-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.4rem 0 0 0.3rem;
+  font-size: 0.95rem;
+  color: var(--sage-deep);
+}
+.set-list {
+  display: grid;
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.set-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  min-height: 54px;
+  margin: 0;
+  padding: 0.55rem 1rem;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-align: left;
+}
+.set-row + .set-row,
+.set-list > * + .set-row {
+  border-top: 1px solid var(--line);
+}
+.set-row:active {
+  transform: none;
+  background: var(--soft);
+}
+.set-value {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 400;
+  min-width: 0;
+  text-align: right;
+}
+label.set-row input.switch:checked {
+  background: var(--primary);
+}
+.set-slider input[type='range'] {
+  flex: 0 1 58%;
+  min-height: 0;
+}
+.set-note {
+  margin: 0;
+  padding: 0 1rem 0.6rem;
+}
+.danger-text {
+  justify-content: center;
+  color: var(--danger);
+}
+.sub-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.sub-head h1 {
+  margin: 0;
+}
+
+/* ---------- 商店（參考 Forest：分頁、精選大卡、三欄商品格） ---------- */
+.shop-tabs {
+  display: flex;
+  gap: 1.4rem;
+  border-bottom: 1px solid var(--line);
+}
+.shop-tabs button {
+  min-height: 44px;
+  padding: 0 0.1rem;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  font-weight: 600;
+  border-bottom: 3px solid transparent;
+}
+.shop-tabs button.on {
+  color: var(--sage-deep);
+  border-bottom-color: var(--primary);
+}
+.shop-hero {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 1.2rem 1.2rem 1.4rem;
+  border-radius: var(--radius-lg);
+  background: radial-gradient(circle at 50% 35%, #fffdf8, #f6efd9 55%, #e7efd9);
+  box-shadow: var(--shadow-lift);
+  color: var(--text);
+  text-align: center;
+}
+.shop-hero strong {
+  font-family: var(--font-title);
+  font-weight: 400;
+  font-size: 1.5rem;
+}
+.shop-hero .small {
+  color: var(--muted);
+  font-weight: 400;
+}
+.shop-sub {
+  margin: 1.2rem 0 0.6rem;
+  font-size: 1.05rem;
+}
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+.shop-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 0;
+  padding: 0.6rem 0.4rem 0.7rem;
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  color: var(--text);
+}
+.shop-art {
+  width: 100%;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: var(--sage-tint);
+}
+.shop-item.owned .shop-art {
+  background: var(--honey-soft);
+}
+.shop-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.price-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  background: var(--soft);
+  font-family: var(--font-num), var(--font);
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text);
+}
+.shop-item.owned .price-pill {
+  background: none;
+  color: var(--sage-deep);
+  font-family: var(--font);
+}
+.price-pill.big {
+  margin-top: 0.4rem;
+  padding: 0.5rem 1.6rem;
+  font-size: 1.05rem;
+  background: var(--primary);
+  color: #fff;
+}
+.shop .slide-in > p {
+  margin-top: 0.8rem;
+}
+
+/* ---------- 好友：專注排行榜（參考 Forest 的深綠排行） ---------- */
+.board-tabs {
+  display: flex;
+  margin: 0;
+}
+.board-tabs button {
+  flex: 1;
+}
+.board {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+.board li {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 64px;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.16);
+}
+.board li.me {
+  background: rgba(255, 253, 248, 0.16);
+  box-shadow: inset 0 0 0 1.5px var(--warm);
+}
+.board-rank {
+  width: 1.4rem;
+  text-align: center;
+  font-family: var(--font-num);
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+.board li:first-child .board-rank {
+  color: var(--warm);
+}
+.board-name {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+}
+.board-name small {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.board-time {
+  font-family: var(--font-num), var(--font);
+  font-weight: 800;
+}
+.board-invite {
+  flex-direction: row;
+  gap: 0.4rem;
 }

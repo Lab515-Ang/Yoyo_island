@@ -341,6 +341,8 @@ function Main() {
           ))}
         </nav>
         <main className="content" key={mode}>
+          {/* 換頁時整頁淡入、往上浮一點（低動態效果時關掉） */}
+          <div className="view-in" key={view}>
           {view === 'lobby' && <Lobby onStarted={() => setSummaryId(null)} onShop={() => go('shop')} />}
           {view === 'lobby' && save.sessions.filter((s) => s.endedAt).length === 1 && <FirstTour />}
           {view === 'lobby' && <RecapInvite />}
@@ -357,12 +359,13 @@ function Main() {
           {view === 'shop' && <Shop onLobby={() => go('lobby')} />}
           {view === 'news' && <NotYet title="活動消息" />}
           {view === 'settings' && <SettingsPage />}
+          </div>
         </main>
       </div>
     );
 
   return (
-    <div className={`app mode-${mode}`}>
+    <div className={`app mode-${mode}${save.settings.reducedMotion ? ' calm' : ''}`}>
       {mode === 'demo' && (
         <div className="demo-banner" role="note">
           <span>🧪 {COPY.demoBanner} · 示範資料與你的小島分開保存</span>
@@ -374,7 +377,10 @@ function Main() {
         </div>
       )}
       {writeError && <div className="error-bar" role="alert">{writeError}</div>}
-      {body}
+      {/* 專注、結算、休息與一般頁面之間切換時淡入 */}
+      <div className="screen-in" key={open ? 'focus' : resting ? 'rest' : summaryId ? 'summary' : 'shell'}>
+        {body}
+      </div>
       {guardApp && <GuardScreen key={guardApp.at} app={guardApp} onClose={() => setGuardApp(null)} />}
       {toast && (
         <div className="toast" role="status">
