@@ -5732,3 +5732,527 @@ label.toggle input.switch::after {
 .ach-cel-card {
   box-shadow: inset 0 -5px 0 rgba(90, 70, 40, 0.08), inset 0 2px 0 #fff, 0 24px 60px rgba(0, 0, 0, 0.35);
 }
+
+/* ---------- 選單（參考 Forest）：背景變暗變模糊，選項一個接一個滑進來 ---------- */
+.nav-scrim {
+  background: rgba(30, 40, 32, 0.38);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  animation: scrim-in 0.25s ease both;
+}
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+}
+.sidenav.open > * {
+  animation: nav-item-in 0.38s cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
+}
+.sidenav.open > :nth-child(2) { animation-delay: 0.03s; }
+.sidenav.open > :nth-child(3) { animation-delay: 0.06s; }
+.sidenav.open > :nth-child(4) { animation-delay: 0.09s; }
+.sidenav.open > :nth-child(5) { animation-delay: 0.12s; }
+.sidenav.open > :nth-child(6) { animation-delay: 0.15s; }
+.sidenav.open > :nth-child(7) { animation-delay: 0.18s; }
+.sidenav.open > :nth-child(8) { animation-delay: 0.21s; }
+.sidenav.open > :nth-child(9) { animation-delay: 0.24s; }
+.sidenav.open > :nth-child(10) { animation-delay: 0.27s; }
+.sidenav.open > :nth-child(n + 11) { animation-delay: 0.3s; }
+@keyframes nav-item-in {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+}
+/* 按下選單鍵：外圈亮一下 */
+.menu-btn:active:not(:disabled) {
+  box-shadow: 0 0 0 7px rgba(140, 166, 122, 0.3);
+}
+
+/* ---------- 開寶箱（參考 Forest）：擠一下、彈起來、白圈爆開，再一項一項揭曉 ---------- */
+.chest-ring {
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  width: 120px;
+  height: 120px;
+  margin: -60px 0 0 -60px;
+  border-radius: 50%;
+  border: 6px solid #fff;
+  opacity: 0;
+  pointer-events: none;
+}
+.chest-tap.popping .chest {
+  animation: chest-pop 0.7s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+.chest-tap.popping .chest-ring {
+  animation: ring-burst 0.55s 0.25s ease-out both;
+}
+.chest-tap.popping .chest-glow {
+  animation: glow-flash 0.7s ease both;
+}
+.chest-tap.popping > span:last-child {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+@keyframes chest-pop {
+  25% {
+    transform: scale(1.12, 0.86);
+  }
+  45% {
+    transform: scale(0.92, 1.12) translateY(-16px);
+  }
+  70% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+}
+@keyframes ring-burst {
+  from {
+    opacity: 0.95;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+@keyframes glow-flash {
+  60% {
+    transform: scale(1.8);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+.chest-reward {
+  animation: none;
+}
+.chest-reward > * {
+  animation: reward-in 0.5s cubic-bezier(0.3, 1.5, 0.5, 1) both;
+}
+.chest-reward > :nth-child(2) { animation-delay: 0.1s; }
+.chest-reward > :nth-child(3) { animation-delay: 0.4s; }
+.chest-reward > :nth-child(4) { animation-delay: 0.55s; }
+.chest-reward > :nth-child(5) { animation-delay: 0.7s; }
+.chest-reward > :nth-child(n + 6) { animation-delay: 0.9s; }
+@keyframes reward-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.85);
+  }
+}
+/* 獎勵後面慢慢轉的光芒 */
+.chest-burst::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 320px;
+  height: 320px;
+  margin: -160px 0 0 -160px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(rgba(243, 197, 102, 0.3) 0 10deg, transparent 10deg 30deg);
+  -webkit-mask: radial-gradient(circle, #000 25%, transparent 70%);
+  mask: radial-gradient(circle, #000 25%, transparent 70%);
+  animation: rays-spin 16s linear infinite;
+  pointer-events: none;
+}
+@keyframes rays-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+/* ---------- 新手任務（參考 Forest）：步驟條＋每一步一張小卡 ---------- */
+.starter-steps {
+  gap: 0;
+  margin-bottom: 0.3rem;
+}
+.starter-steps > i {
+  width: 26px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--line);
+  transition: background 0.4s;
+}
+.starter-steps > i.on {
+  background: var(--sage);
+}
+.starter-list {
+  display: grid;
+  gap: 0.5rem;
+  width: 100%;
+  margin: 0.8rem 0;
+}
+.starter-task {
+  width: 100%;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 16px;
+  background: var(--panel);
+  color: var(--text);
+  text-align: left;
+  font-weight: 400;
+  box-shadow: var(--raise);
+}
+.starter-task {
+  justify-content: stretch;
+  align-items: stretch;
+}
+.starter-task .quest-bar {
+  grid-area: auto;
+  background: var(--soft);
+  box-shadow: var(--sink);
+}
+.starter-task:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.starter-task-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.starter-task-top svg {
+  flex: none;
+  color: var(--muted);
+}
+.starter-check {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--sage);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+.starter-task.ok .quest-bar i {
+  background: linear-gradient(90deg, #f6d27a, var(--warm));
+}
+/* 進度條：出現時從 0 長到目前的進度 */
+.quest-bar i,
+.bar span {
+  animation: bar-grow 0.9s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+@keyframes bar-grow {
+  from {
+    width: 0;
+  }
+}
+
+/* ---------- 時間守護引導（參考 Forest）：小故事＋手機插圖＋回話按鈕 ---------- */
+.gi {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  padding: calc(0.8rem + var(--top-inset, var(--safe-area-inset-top, env(safe-area-inset-top)))) 1.2rem calc(1.2rem + var(--bottom-inset, var(--safe-area-inset-bottom, env(safe-area-inset-bottom))));
+  background: linear-gradient(180deg, #e3f0e4 0%, var(--bg) 70%);
+  overflow-y: auto;
+}
+.gi-top {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+.gi-progress {
+  flex: 1;
+  display: flex;
+  gap: 6px;
+}
+.gi-progress span {
+  flex: 1;
+  height: 5px;
+  border-radius: 5px;
+  background: rgba(99, 133, 83, 0.18);
+  transition: background 0.4s;
+}
+.gi-progress span.on {
+  background: var(--primary);
+}
+.gi-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+  padding-top: 1.4rem;
+  text-align: center;
+  animation: gi-in 0.45s ease both;
+}
+.gi-page h1 {
+  margin: 0;
+  font-size: 1.45rem;
+  white-space: pre-line;
+}
+.gi-page > p {
+  margin: 0;
+  max-width: 300px;
+}
+.gi-reply {
+  margin-top: auto;
+  animation: gi-in 0.5s 1s ease both;
+}
+@keyframes gi-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+.gi-phone {
+  position: relative;
+  flex: none;
+  width: min(56vw, 220px);
+  aspect-ratio: 9 / 16;
+  margin: 0.4rem 0;
+  border: 8px solid #3f6b53;
+  border-radius: 34px;
+  background: linear-gradient(180deg, #d6ecdf, #f3f8ee);
+  box-shadow: var(--raise), 0 16px 34px rgba(40, 70, 50, 0.2);
+  overflow: hidden;
+}
+.gi-notch {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  z-index: 2;
+  width: 44px;
+  height: 6px;
+  margin-left: -22px;
+  border-radius: 6px;
+  background: #3f6b53;
+}
+.gi-scene {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.gi-grid {
+  position: absolute;
+  inset: 34px 18px auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.gi-grid span {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: var(--sage);
+  box-shadow: var(--bevel-dark);
+}
+.gi-grid span:nth-child(6n + 2) { background: #e08a70; }
+.gi-grid span:nth-child(6n + 3) { background: #e8b84f; }
+.gi-grid span:nth-child(6n + 4) { background: #7aa7c9; }
+.gi-grid span:nth-child(6n + 5) { background: #b38ad1; }
+.gi-grid span:nth-child(6n) { background: #638553; }
+.gi-grid.dim {
+  filter: blur(2px);
+  opacity: 0.45;
+}
+.gi-ask b {
+  position: relative;
+  font-family: var(--font-num);
+  font-size: 6rem;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--primary);
+  text-shadow: 0 6px 0 rgba(40, 70, 50, 0.15);
+  animation: gi-bob 2.4s ease-in-out infinite;
+}
+.gi-spark {
+  position: absolute;
+  top: 34%;
+  right: 24%;
+  width: 14px;
+  height: 14px;
+  background: var(--warm);
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  animation: gi-twinkle 1.6s ease-in-out infinite;
+}
+.gi-spark.two {
+  top: 60%;
+  right: auto;
+  left: 22%;
+  animation-delay: 0.8s;
+}
+@keyframes gi-bob {
+  50% {
+    transform: translateY(-8px) rotate(-4deg);
+  }
+}
+@keyframes gi-twinkle {
+  50% {
+    transform: scale(0.4);
+    opacity: 0.4;
+  }
+}
+/* 滑不完的動態：兩份一樣的貼文往上捲，捲到一半剛好接回開頭 */
+.gi-feed {
+  justify-content: flex-start;
+  padding: 30px 16px 0;
+}
+.gi-feed-roll {
+  width: 100%;
+  animation: gi-scroll 6s linear infinite;
+}
+.gi-post {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 10px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: var(--raise);
+}
+.gi-post span {
+  height: 70px;
+  border-radius: 10px;
+  background: var(--sage);
+}
+.gi-post.c1 span { background: #e08a70; }
+.gi-post.c2 span { background: #e8b84f; }
+.gi-post.c3 span { background: #7aa7c9; }
+.gi-post i {
+  height: 6px;
+  border-radius: 6px;
+  background: var(--line);
+}
+.gi-post i.short {
+  width: 60%;
+}
+@keyframes gi-scroll {
+  to {
+    transform: translateY(-50%);
+  }
+}
+.gi-shield {
+  z-index: 1;
+  width: 56px;
+  height: 56px;
+  margin-bottom: -4px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  background: var(--coral);
+  color: #fff;
+  box-shadow: var(--bevel-dark), 0 6px 14px rgba(224, 138, 112, 0.35);
+  animation: gi-bob 2.6s 0.3s ease-in-out infinite;
+}
+.gi-pet > :last-child {
+  animation: gi-bob 2.6s ease-in-out infinite;
+}
+.gi-sprout {
+  font-size: 4rem;
+}
+.gi-grid span.locked em {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--coral);
+}
+.gi-pop {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: 14%;
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.8rem;
+  border-radius: 18px;
+  background: var(--panel);
+  box-shadow: var(--raise), 0 10px 24px rgba(40, 70, 50, 0.25);
+  animation: gi-pop 3s ease-in-out infinite;
+}
+.gi-pop strong {
+  color: var(--sage-deep);
+}
+.gi-pop small {
+  color: var(--muted);
+}
+@keyframes gi-pop {
+  0%,
+  15% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.8);
+  }
+  30%,
+  85% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.gi-perm {
+  align-items: stretch;
+  text-align: left;
+}
+.gi-perm > p {
+  max-width: none;
+}
+.gi-promise {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.8rem 1rem;
+  border-radius: 16px;
+  background: var(--sage-tint);
+  color: var(--sage-deep);
+  font-size: 0.88rem;
+}
+.gi-promise span::before {
+  content: '✕ ';
+  color: var(--coral);
+  font-weight: 700;
+}
+.gi-perm .primary {
+  margin-top: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidenav.open > *,
+  .nav-scrim,
+  .chest-tap.popping .chest,
+  .chest-tap.popping .chest-ring,
+  .chest-tap.popping .chest-glow,
+  .chest-reward > *,
+  .chest-burst::before,
+  .quest-bar i,
+  .bar span,
+  .gi-page,
+  .gi-reply,
+  .gi-ask b,
+  .gi-spark,
+  .gi-feed-roll,
+  .gi-shield,
+  .gi-pet > :last-child,
+  .gi-pop {
+    animation: none;
+  }
+}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useNow, useSave } from '../app/store';
 import { COPY } from '../content/config';
 import { ChestArt, ChestOpen, chestTier } from '../components/Chest';
@@ -38,7 +38,7 @@ function QuestCard({ q, onClaim }: { q: Quest; onClaim: () => void }) {
 }
 
 /** 任務：新手任務、本月挑戰、每日挑戰（完成後開寶箱），修復工程摘要。 */
-export function Quests({ onIsland, onLobby }: { onIsland: () => void; onLobby: () => void }) {
+export function Quests({ onIsland, onLobby, onRecords }: { onIsland: () => void; onLobby: () => void; onRecords: () => void }) {
   const { save, update, notify } = useSave();
   const now = useNow(60_000);
   const [opening, setOpening] = useState<{ key: string; title: string } | null>(null);
@@ -86,30 +86,45 @@ export function Quests({ onIsland, onLobby }: { onIsland: () => void; onLobby: (
 
       {!starter.claimed && (
         <section className="card starter-quest">
+          {/* 步驟條：完成的圓圈打勾，中間的線跟著填滿，最後是寶箱 */}
           <div className="starter-steps" aria-hidden="true">
             {starter.steps.map((st, i) => (
-              <span key={i} className={st.ok ? 'on' : ''}>
-                {st.ok ? '✓' : i + 1}
-              </span>
+              <Fragment key={i}>
+                {i > 0 && <i className={starter.steps[i - 1].ok ? 'on' : ''} />}
+                <span className={st.ok ? 'on' : ''}>{st.ok ? '✓' : i + 1}</span>
+              </Fragment>
             ))}
+            <i className={starter.ready ? 'on' : ''} />
             <span className={starter.ready ? 'gift on' : 'gift'}>
               <ChestArt tier="green" size={30} />
             </span>
           </div>
-          <h2>你的獎勵正等著你！</h2>
+          <h2>{starter.ready ? '你的獎勵正等著你！' : starter.steps.some((st) => st.ok) ? '只差一點！' : '專注，從這裡開始'}</h2>
           <p className="small muted">
             完成新手任務，寶箱裡有{starter.animal ? `「${starter.animal.name}」的探索路線和` : ''} {STARTER_REWARD} 金幣。
           </p>
-          <ol className="starter-list">
+          {/* 每一步都是一張小卡：有進度條，還沒完成的點一下就帶你去做 */}
+          <ul className="starter-list">
             {starter.steps.map((st) => (
-              <li key={st.title} className={st.ok ? 'ok' : ''}>
-                {st.ok ? '✅' : '⬜'} {st.title}
+              <li key={st.title}>
+                <button className={st.ok ? 'starter-task ok' : 'starter-task'} disabled={st.ok} onClick={st.go === 'records' ? onRecords : onLobby}>
+                  <span className="starter-task-top">
+                    <strong>{st.title}</strong>
+                    {st.ok ? <span className="starter-check">✓</span> : <ChevronRight size={18} aria-hidden="true" />}
+                  </span>
+                  <span className="quest-bar">
+                    <i style={{ width: `${(st.have / st.need) * 100}%` }} />
+                    <small>{st.ok ? '完成' : `${st.have}/${st.need}`}</small>
+                  </span>
+                </button>
               </li>
             ))}
-          </ol>
-          <button className="primary" disabled={!starter.ready} onClick={() => setOpening({ key: starter.key, title: '新手任務' })}>
-            {starter.ready ? '打開寶箱' : `下一步：${starter.steps.find((st) => !st.ok)?.title}`}
-          </button>
+          </ul>
+          {starter.ready && (
+            <button className="primary" onClick={() => setOpening({ key: starter.key, title: '新手任務' })}>
+              打開寶箱
+            </button>
+          )}
         </section>
       )}
 

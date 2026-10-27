@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useSave } from '../app/store';
 import { AnimalArt, TrackArt } from '../components/Animal';
 import { Modal, fmtMinutes } from '../components/ui';
+import { GuardIntro, guardIntroSeen } from '../components/GuardIntro';
 import { animalDef } from '../content/config';
 import { localDateKey } from '../domain/focus';
 import { growthOf, openSession, sceneAnimals } from '../domain/game';
@@ -440,6 +441,7 @@ export function GuardPage() {
   const [cfg, setCfg] = useState<GuardConfig | null>(null);
   const [perm, setPerm] = useState({ usage: false, overlay: false });
   const [editing, setEditing] = useState(false);
+  const [intro, setIntro] = useState(() => isAndroid && !guardIntroSeen()); // 第一次進來先看引導
   const pet = guardPet(save);
 
   useEffect(() => {
@@ -485,6 +487,16 @@ export function GuardPage() {
   const ready = perm.usage && perm.overlay;
   return (
     <div className="page">
+      {intro && (
+        <GuardIntro
+          petId={pet?.id}
+          petStage={pet ? growthOf(save, pet.id).stage : 2}
+          onDone={(ok) => {
+            setIntro(false);
+            if (ok) setEditing(true); // 權限開好了：直接建立守護計劃
+          }}
+        />
+      )}
       {hero}
 
       {!ready && (

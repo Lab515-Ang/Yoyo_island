@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { animalDef } from '../content/config';
 import { TrackArt } from './Animal';
 import { Coin, Gem } from './ui';
+import { tapHaptic } from '../platform';
 import chestWood from '../assets/icons/chest-wood.webp';
 import chestGreen from '../assets/icons/chest-green.webp';
 import chestRoyal from '../assets/icons/chest-royal.webp';
@@ -35,25 +36,30 @@ export function ChestOpen({
   onFind?: (animalId: string) => void;
 }) {
   const [got, setGot] = useState<{ coins: number; gems?: number; animalId?: string } | null>(null);
+  const [popping, setPopping] = useState(false);
+  const timer = useRef(0);
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const d = ref.current!;
     if (!d.open) d.showModal();
-    return () => d.close();
+    return () => (d.close(), clearTimeout(timer.current));
   }, []);
   const open = () => {
-    if (got) return;
-    const r = onOpen();
-    if (r) setGot(r);
-    else onClose();
+    if (got || popping) return;
+    const r = onOpen(); // 先領取（存檔），表演只是延後揭曉
+    if (!r) return onClose();
+    tapHaptic();
+    setPopping(true);
+    timer.current = window.setTimeout(() => setGot(r), 700);
   };
   const a = got?.animalId ? animalDef(got.animalId) : null;
   return (
     <dialog ref={ref} className="chest-open" aria-label={title} onCancel={(e) => e.target === e.currentTarget && (e.preventDefault(), onClose())} onClick={got && !a ? onClose : undefined}>
       <p className="eyebrow">{title}</p>
       {!got ? (
-        <button className="chest-tap" onClick={open} aria-label="打開寶箱">
+        <button className={popping ? 'chest-tap popping' : 'chest-tap'} onClick={open} aria-label="打開寶箱">
           <span className="chest-glow" aria-hidden="true" />
+          <span className="chest-ring" aria-hidden="true" />
           <ChestArt tier={tier} size={190} />
           <span>點一下打開寶箱</span>
         </button>

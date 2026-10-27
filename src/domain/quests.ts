@@ -79,11 +79,13 @@ export function monthQuest(save: SaveFile, month: string): Quest {
 /** 新手任務：三個步驟，全部完成後打開寶箱。 */
 export function starterQuest(save: SaveFile) {
   const done = endedSessions(save).filter((s) => s.status === 'completed');
+  const min = Math.floor(done.reduce((a, s) => a + s.accumulatedMs, 0) / MIN);
+  // have／need：進度條；go：點這一步要帶玩家去哪裡完成
   const steps = [
-    { title: '完成第一次探索', ok: done.length > 0 },
-    { title: '幫探索寫一則筆記', ok: done.some((s) => s.note?.trim()) },
-    { title: '累積專注 60 分鐘', ok: done.reduce((a, s) => a + s.accumulatedMs, 0) >= 60 * MIN },
-  ];
+    { title: '完成第一次探索', have: Math.min(done.length, 1), need: 1, go: 'lobby' as const },
+    { title: '幫探索寫一則筆記', have: done.some((s) => s.note?.trim()) ? 1 : 0, need: 1, go: 'records' as const },
+    { title: '累積專注 60 分鐘', have: Math.min(min, 60), need: 60, go: 'lobby' as const },
+  ].map((st) => ({ ...st, ok: st.have >= st.need }));
   return { key: 'quest:starter', steps, ready: steps.every((s) => s.ok), claimed: claimedKeys(save).has('quest:starter'), animal: starterAnimal(save) };
 }
 
