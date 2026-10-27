@@ -1,5 +1,5 @@
 // 存檔建立、驗證、示範資料與舊存檔轉換
-import { ANIMALS, CONTENT_VERSION, HABITATS, PROJECTS } from '../content/config';
+import { ANIMALS, CONTENT_VERSION, HABITATS, PROJECTS, REGIONS } from '../content/config';
 import { balance, coins, contribute, gems, investAll } from './game';
 import { questGemOk, questRewardOk } from './quests';
 import { LANDS } from '../content/shop';
@@ -31,6 +31,7 @@ export const defaultSettings = (): Settings => ({
   dayStartHour: 0,
   dailyReminder: { on: false, hour: 20, minute: 0 },
   landId: 'classic',
+  regionId: 'tw',
 });
 
 export const deviceTimezone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -176,6 +177,7 @@ export function validateSave(input: unknown, now = Date.now()): Validation {
   if (!isObj(r) || typeof r.on !== 'boolean' || !Number.isInteger(r.hour) || !Number.isInteger(r.minute) || (r.hour as number) < 0 || (r.hour as number) > 23 || (r.minute as number) < 0 || (r.minute as number) > 59) settings.dailyReminder = defaultSettings().dailyReminder;
   if (!isStr(settings.eggId)) settings.eggId = defaultSettings().eggId;
   if (!LANDS.some((l) => l.id === settings.landId)) settings.landId = 'classic';
+  if (!REGIONS.some((r) => r.id === settings.regionId)) settings.regionId = 'tw';
   if (!HABITAT_IDS.includes(settings.preferredHabitatId)) settings.preferredHabitatId = 'forest';
   const save = { ...raw, settings } as unknown as SaveFile;
 
@@ -255,8 +257,9 @@ export function validateSave(input: unknown, now = Date.now()): Validation {
     return def && r.islandId === save.profile.activeIslandId && !r.completedAt && r.contributedPoints >= def.requiredPoints ? { ...r, completedAt: new Date(now).toISOString() } : r;
   });
   for (const def of PROJECTS) {
-    const row = projects.find((r) => r.projectId === def.id && r.islandId === save.profile.activeIslandId);
-    if (!row) return fail('工程紀錄不完整。');
+    let row = projects.find((r) => r.projectId === def.id && r.islandId === save.profile.activeIslandId);
+    // 新版加入的工程（例如新的區域）：舊存檔補上空白的紀錄
+    if (!row) projects.push((row = { islandId: save.profile.activeIslandId, projectId: def.id, contributedPoints: 0, completedAt: null }));
     if ((sums.get(def.id) ?? 0) !== row.contributedPoints) return fail('工程進度與投入紀錄不符。');
   }
   return { ok: true, save: { ...save, projects } };

@@ -1,5 +1,5 @@
 // 經濟、工程、探索動物與統計：全部是對 SaveFile 的純函式
-import { ANIMALS, HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, PROJECTS, SOUNDS, animalDef, growthFor, projectDef, stageOfGrowth, type AnimalDef, type ProjectDef, type SoundUnlock } from '../content/config';
+import { ANIMALS, HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, PROJECTS, SOUNDS, animalDef, animalRegion, regionDef, growthFor, projectDef, stageOfGrowth, type AnimalDef, type ProjectDef, type SoundUnlock } from '../content/config';
 import { addSegmentsByDay, createSession, isOpen, localDateKey, settle, shiftDateKey } from './focus';
 import type { FocusSession, HabitatId, ID, SaveFile, TimerMode } from './types';
 
@@ -71,11 +71,19 @@ export function animalUnlocked(save: SaveFile, a: AnimalDef) {
   return false;
 }
 
-/** 大廳預設的探索目標：上次選的；還沒解鎖（例如從示範模式帶來的）就用第一種。 */
+/** 大廳預設的探索目標：上次選的；還沒解鎖或不是目前區域的，就用這個區域第一種解鎖的。 */
 export const chosenAnimal = (save: SaveFile) => {
+  const region = currentRegion(save);
   const a = animalDef(save.settings.eggId);
-  return animalUnlocked(save, a) ? a : ANIMALS[0];
+  return animalUnlocked(save, a) && animalRegion(a) === region ? a : (ANIMALS.find((x) => animalRegion(x) === region && animalUnlocked(save, x)) ?? ANIMALS[0]);
 };
+
+// ---------- 區域：修完前一個區域才開放（看該區主棲地的開放條件） ----------
+
+export const regionOpen = (save: SaveFile, id: string) => habitatOpen(save, regionDef(id).habitatId);
+/** 目前的區域（設定記的區域還沒開放，就回到台灣）。 */
+export const currentRegion = (save: SaveFile) => (regionOpen(save, save.settings.regionId) ? regionDef(save.settings.regionId).id : 'tw');
+export const currentHabitat = (save: SaveFile) => regionDef(currentRegion(save)).habitatId;
 
 /** 自己的專注中，有結果（完成＝遇見、放棄＝被嚇跑）的探索。 */
 export const endedSessions = (save: SaveFile) => save.sessions.filter((s) => s.userId === save.profile.id && s.endedAt && (s.status === 'completed' || s.status === 'abandoned'));

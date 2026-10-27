@@ -694,11 +694,11 @@ describe('商店與寶石', () => {
     const gemItem = picks.find((it) => 'gems' in it.price)!;
     expect(buyItem(save, gemItem.id, T0).ok).toBe(false);
     // 寶箱送的寶石（示範用 key 不行，用本月挑戰的 key）
-    save = { ...save, transactions: [...save.transactions, { id: 'g', userId: save.profile.id, islandId: save.profile.activeIslandId, kind: 'gem_grant', amount: 120, idempotencyKey: 'quest:month:2026-10:gems', createdAt: new Date(T0).toISOString() }] };
+    save = { ...save, transactions: [...save.transactions, { id: 'g', userId: save.profile.id, islandId: save.profile.activeIslandId, kind: 'gem_grant', amount: 300, idempotencyKey: 'quest:month:2026-10:gems', createdAt: new Date(T0).toISOString() }] };
     const ex = exchangeCoins(save, 'bag', T0);
     expect(ex.ok).toBe(true);
     if (!ex.ok) return;
-    expect(gems(ex.save)).toBe(70);
+    expect(gems(ex.save)).toBe(250);
     const bought = buyItem(ex.save, gemItem.id, T0);
     expect(bought.ok).toBe(true);
     if (!bought.ok) return;

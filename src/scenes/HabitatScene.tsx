@@ -1,5 +1,6 @@
 import { Component, lazy, memo, Suspense, useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useSave } from '../app/store';
+import { PROJECTS, REGIONS, animalDef, animalRegion } from '../content/config';
 import { isDone, projectQuarter, sceneAnimals } from '../domain/game';
 import type { HabitatId } from '../domain/types';
 import Scene2D from './Scene2D';
@@ -39,9 +40,13 @@ export const prefersReducedMotion = () => typeof matchMedia !== 'undefined' && m
 export const HabitatScene = memo(function HabitatScene({ habitatId, onSelect, calm = false, bubble = false, hide }: { habitatId: HabitatId; onSelect?: (id: string) => void; calm?: boolean; bubble?: boolean; hide?: string }) {
   const { save, notify } = useSave();
   const [degraded, setDegraded] = useState(slowDevice);
-  const done = useCallback((id: string) => isDone(save, id), [save]);
-  const prog = useCallback((id: string) => projectQuarter(save, id), [save]);
-  const animals = useMemo(() => sceneAnimals(save).filter((a) => a.id !== hide), [save, hide]);
+  // 場景用森林工程的 id 畫每一處變化；其他區域的工程用 sceneChangeKey 對到同一處（例如日本的杉林小徑＝森林步道）
+  const keyToId = useMemo(() => new Map(PROJECTS.filter((p) => p.habitatId === habitatId).map((p) => [p.sceneChangeKey, p.id])), [habitatId]);
+  const done = useCallback((key: string) => isDone(save, keyToId.get(key) ?? key), [save, keyToId]);
+  const prog = useCallback((key: string) => projectQuarter(save, keyToId.get(key) ?? key), [save, keyToId]);
+  // 只放這個區域的動物
+  const region = REGIONS.find((r) => r.habitatId === habitatId)?.id ?? 'tw';
+  const animals = useMemo(() => sceneAnimals(save, 24).filter((a) => a.id !== hide && animalRegion(animalDef(a.animalId)) === region).slice(0, 6), [save, hide, region]);
   // 專注背景（calm）一畫好就不動：專注最長 3 小時，持續重繪很耗電
   const reducedMotion = calm || save.settings.reducedMotion || prefersReducedMotion();
   const props = { habitatId, done, prog, animals, reducedMotion, onSelect: calm || bubble ? undefined : onSelect, backdrop: calm, bubble, lowPower: calm || bubble };
@@ -53,7 +58,7 @@ export const HabitatScene = memo(function HabitatScene({ habitatId, onSelect, ca
   }, [notify]);
   const use3D = WEBGL && save.settings.sceneMode === 'auto' && !degraded;
   return (
-    <div className="scene">
+    <div className={`scene scene-${habitatId}`}>
       {use3D ? (
         <Boundary fallback={flat} onError={() => ((slowDevice = true), setDegraded(true))}>
           <Suspense fallback={<div className="scene-loading">場景載入中…</div>}>

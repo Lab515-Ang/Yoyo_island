@@ -1,8 +1,8 @@
 // 商店：買商品、寶石換金幣、每日精選與精選推薦。全部是對 SaveFile 的純函式。
-import { ANIMALS, SOUNDS, animalDef } from '../content/config';
+import { ANIMALS, SOUNDS, animalDef, animalRegion } from '../content/config';
 import { COIN_PACKS, DAILY_PICKS, REFRESH_COINS, SHOP_ITEMS, shopItem, type ShopItem } from '../content/shop';
 import { localDateKey, nextLocalMidnight, weekStartKey } from './focus';
-import { animalUnlocked, coins, gems, islandId, soundUnlocked, type ActionResult } from './game';
+import { animalUnlocked, coins, gems, islandId, regionOpen, soundUnlocked, type ActionResult } from './game';
 import type { PointTransaction, SaveFile } from './types';
 
 const iso = (t: number) => new Date(t).toISOString();
@@ -21,12 +21,16 @@ export function owned(save: SaveFile, it: ShopItem) {
   return save.transactions.some((t) => t.idempotencyKey === itemKey(save, it));
 }
 
+/** 還沒開放的區域的動物不賣（例如台灣還沒修完時的日本動物）。 */
+export const available = (save: SaveFile, it: ShopItem) => it.kind !== 'animal' || regionOpen(save, animalRegion(animalDef(it.ref)));
+export const shopItems = (save: SaveFile) => SHOP_ITEMS.filter((it) => available(save, it));
+
 export const landOwned = (save: SaveFile, landId: string) => landId === 'classic' || owned(save, shopItem(`land:${landId}`)!);
 
 /** 用金幣或寶石買商品（真錢的上架後才開放）。 */
 export function buyItem(save: SaveFile, itemId: string, now: number): ActionResult {
   const it = shopItem(itemId);
-  if (!it || 'iap' in it.price) return { ok: false, error: '這個商品現在還不能買。' };
+  if (!it || 'iap' in it.price || !available(save, it)) return { ok: false, error: '這個商品現在還不能買。' };
   if (owned(save, it)) return { ok: false, error: `已經擁有${it.name}了。` };
   const base = { id: newId(), userId: save.profile.id, islandId: islandId(save), idempotencyKey: itemKey(save, it), createdAt: iso(now), ...(it.kind === 'animal' ? { animalId: it.ref } : {}) };
   let t: PointTransaction;
@@ -90,7 +94,7 @@ export function dailyPicks(save: SaveFile, now: number) {
   const since = rs.length ? rs[rs.length - 1].createdAt : null;
   const tz = save.profile.timezone;
   const before = { ...save, transactions: save.transactions.filter((t) => (since ? t.createdAt < since : localDateKey(Date.parse(t.createdAt), tz) < day)) };
-  const pool = SHOP_ITEMS.filter((it) => !('iap' in it.price) && !owned(before, it));
+  const pool = shopItems(save).filter((it) => !('iap' in it.price) && !owned(before, it));
   const r = rng(`${save.profile.id}:${day}:${rs.length}`);
   const gemPool = shuffle(pool.filter((it) => 'gems' in it.price), r);
   const coinPool = shuffle(pool.filter((it) => 'coins' in it.price), r);
@@ -112,7 +116,7 @@ export function refreshPicks(save: SaveFile, now: number): ActionResult {
 /** 精選推薦：每週換 3 個，從新物種、特別探索與土地造型裡挑（優先還沒擁有的）。 */
 export function featuredItems(save: SaveFile, now: number) {
   const week = weekStartKey(localDateKey(now, save.profile.timezone));
-  const special = SHOP_ITEMS.filter((it) => it.kind === 'land' || (it.kind === 'animal' && ['gems', 'iap', 'coins'].includes(animalDef(it.ref).unlock.kind)));
+  const special = shopItems(save).filter((it) => it.kind === 'land' || (it.kind === 'animal' && ['gems', 'iap', 'coins'].includes(animalDef(it.ref).unlock.kind)));
   const r = rng(`${save.profile.id}:featured:${week}`);
   const [fresh, have] = [special.filter((it) => !owned(save, it)), special.filter((it) => owned(save, it))];
   return [...shuffle(fresh, r), ...shuffle(have, r)].slice(0, 3);

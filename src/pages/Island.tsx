@@ -1,9 +1,10 @@
 import { useCallback, useState } from 'react';
 import { useSave } from '../app/store';
-import { ANIMALS, COPY, PROJECTS } from '../content/config';
+import { COPY, habitatName, regionAnimals, regionDef, regionProjects } from '../content/config';
+import { RegionChip } from '../components/Region';
 import { AnimalCard, GrowthTag, Progress, fmtMinutes } from '../components/ui';
 import { AnimalArt } from '../components/Animal';
-import { activeProject, animalsUnlockedBy, balance, contribute, growthOf, habitatProgress, habitatSound, hatchCounts, isDone, projectRow, remainingFor, sceneAnimals } from '../domain/game';
+import { animalsUnlockedBy, balance, contribute, currentRegion, growthOf, habitatProgress, habitatSound, hatchCounts, isDone, projectRow, regionOpen, remainingFor, sceneAnimals } from '../domain/game';
 import { HabitatScene } from '../scenes/HabitatScene';
 import { IslandMap } from '../scenes/IslandMap';
 import { useAmbient } from '../sound';
@@ -13,30 +14,39 @@ export function IslandPage({ onLobby, onCodex }: { onLobby: () => void; onCodex:
   const { save } = useSave();
   const [card, setCard] = useState<string | null>(null);
   // 固定的函式：打開動物卡時場景不用整個重畫
-  const pick = useCallback((sid: string) => setCard(sceneAnimals(save).find((x) => x.id === sid)?.animalId ?? null), [save]);
-  useAmbient(save.settings.soundEnabled, save.settings.soundVolume, habitatSound(save, 'forest'));
-  const done = PROJECTS.filter((p) => isDone(save, p.id)).length;
-  const pct = habitatProgress(save, 'forest');
-  const hasAnimals = sceneAnimals(save).length > 0;
+  const pick = useCallback((sid: string) => setCard(sceneAnimals(save, 24).find((x) => x.id === sid)?.animalId ?? null), [save]);
+  // 每個區域一座小島：場景、工程、動物都只看目前的區域
+  const region = currentRegion(save);
+  const habitat = regionDef(region).habitatId;
+  const projects = regionProjects(region);
+  useAmbient(save.settings.soundEnabled, save.settings.soundVolume, habitatSound(save, habitat));
+  const done = projects.filter((p) => isDone(save, p.id)).length;
+  const pct = habitatProgress(save, habitat);
+  const hasAnimals = regionAnimals(region).some((a) => hatchCounts(save).get(a.id));
 
   return (
     <div className="page">
-      <h1>我的小島</h1>
+      <div className="title-row">
+        <h1>我的小島</h1>
+        <RegionChip />
+      </div>
       <p className="muted small island-sub">
-        棲光森林・修復 {pct > 0 ? Math.max(1, Math.round(pct * 100)) : 0}%・工程 {done} / {PROJECTS.length}
+        {habitatName(habitat)}・修復 {pct > 0 ? Math.max(1, Math.round(pct * 100)) : 0}%・工程 {done} / {projects.length}
       </p>
       <section className="card flush">
-        <HabitatScene habitatId="forest" onSelect={pick} />
+        <HabitatScene habitatId={habitat} onSelect={pick} />
       </section>
       <p className="small muted center-text">{hasAnimals ? '點森林裡的動物，看看牠現在長多大了。' : '完成第一次探索，遇見的動物就會出現在這裡。'}</p>
 
       <RestorePanel />
       <ForestAnimals onCard={setCard} onLobby={onLobby} onCodex={onCodex} />
 
-      <section className="card flush">
-        <IslandMap save={save} onEnter={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
-        <p className="small muted pad">溪流濕地、潮間帶海岸、海灣水下會在日後改版開放，到時候會有新的動物等你去找。</p>
-      </section>
+      {region === 'tw' && (
+        <section className="card flush">
+          <IslandMap save={save} onEnter={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
+          <p className="small muted pad">溪流濕地、潮間帶海岸、海灣水下會在日後改版開放，到時候會有新的動物等你去找。</p>
+        </section>
+      )}
       {card && <AnimalCard save={save} animalId={card} onClose={() => setCard(null)} />}
     </div>
   );
@@ -49,13 +59,17 @@ function RestorePanel() {
   // 完成後先停在完成卡，避免連點把點數投進下一個工程（只有示範模式手上會有點數）
   const [justDone, setJustDone] = useState<{ title: string; message: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const project = activeProject(save);
+  // 只看目前區域的工程（台灣修完後，日本的工程在日本的小島上修）
+  const region = currentRegion(save);
+  const projects = regionProjects(region);
+  const project = projects.find((p) => !isDone(save, p.id)) ?? null;
   const wallet = balance(save);
+  const next = regionDef(region === 'tw' ? 'jp' : region);
 
   const route = (
     <>
       <ol className="route-track" aria-label="修復路線">
-        {PROJECTS.map((p, i) => {
+        {projects.map((p, i) => {
           const state = isDone(save, p.id) ? 'done' : p.id === project?.id ? 'current' : 'later';
           return (
             <li key={p.id} className={state} title={p.title}>
@@ -72,7 +86,7 @@ function RestorePanel() {
       </button>
       {open && (
         <ol className="route">
-          {PROJECTS.map((p) => {
+          {projects.map((p) => {
             const row = projectRow(save, p.id);
             const finished = isDone(save, p.id);
             const back = animalsUnlockedBy(p.id).map((a) => a.name).join('、');
@@ -113,6 +127,7 @@ function RestorePanel() {
       <section className="card">
         <p className="eyebrow">修復進度</p>
         <p>{COPY.allRestored}</p>
+        {region === 'tw' && regionOpen(save, next.id) && <p className="small">{next.flag} {next.name}開放了！點上方的區域按鈕，到新的小島繼續修復。</p>}
         {route}
       </section>
     );
@@ -179,14 +194,15 @@ function RestorePanel() {
 function ForestAnimals({ onCard, onLobby, onCodex }: { onCard: (id: string) => void; onLobby: () => void; onCodex: () => void }) {
   const { save } = useSave();
   const counts = hatchCounts(save);
-  const met = ANIMALS.filter((a) => counts.get(a.id));
+  const all = regionAnimals(currentRegion(save));
+  const met = all.filter((a) => counts.get(a.id));
   const adults = met.filter((a) => growthOf(save, a.id).stage === 2).length;
   return (
     <section className="card">
       <div className="row between">
         <h2>森林裡的動物</h2>
         <span className="small muted">
-          {met.length} / {ANIMALS.length} 種・成年 {adults}
+          {met.length} / {all.length} 種・成年 {adults}
         </span>
       </div>
       {met.length ? (

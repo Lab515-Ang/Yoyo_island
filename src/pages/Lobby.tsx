@@ -1,17 +1,16 @@
 import { useRef, useState, type CSSProperties } from 'react';
 import { useSave } from '../app/store';
-import { ANIMALS, HABITATS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, TAGS, animalDef, clampMinutes, habitatName, tagColor } from '../content/config';
+import { MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, TAGS, animalDef, animalRegion, clampMinutes, regionAnimals, tagColor } from '../content/config';
 import { Modal } from '../components/ui';
 import { AnimalArt, TrackArt } from '../components/Animal';
 import { GrowthTag, unlockText } from '../components/ui';
-import { animalUnlocked, chosenAnimal, growthOf, habitatOpen, hatchCounts, newAnimals, startFocus } from '../domain/game';
-import type { HabitatId } from '../domain/types';
+import { animalUnlocked, chosenAnimal, currentHabitat, currentRegion, growthOf, hatchCounts, newAnimals, startFocus } from '../domain/game';
 import { DEEP_GRACE_MS, TimeGuard, isAndroid, isNative, requestNotifyPermission, type GuardApp } from '../platform';
 import { AppPicker } from './Guard';
 import { DeepSetup, deepPerm, deepSetupSeen } from '../components/DeepSetup';
 import { ChevronDown, PencilLine } from 'lucide-react';
 
-type Sheet = 'tag' | 'title' | 'time' | 'habitat' | 'egg' | 'allow' | 'deep' | 'deepInfo' | null;
+type Sheet = 'tag' | 'title' | 'time' | 'egg' | 'allow' | 'deep' | 'deepInfo' | null;
 
 /** 首頁大廳（參考 Forest 構圖）：左上標籤與標題、中央棲地泡泡、大字時間、開始按鈕；細項點了才展開。 */
 export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: () => void }) {
@@ -25,7 +24,9 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
   });
   // 舊存檔可能記著 5 分鐘：收進 10～180 分鐘（示範的 10 秒例外）
   const [seconds, setSeconds] = useState(mode === 'demo' && st.lastTargetSeconds === 10 ? 10 : clampMinutes(st.lastTargetSeconds / 60) * 60);
-  const [habitat, setHabitat] = useState<HabitatId>(habitatOpen(save, st.preferredHabitatId) ? st.preferredHabitatId : 'forest');
+  // 專注的場景跟著目前的區域（台灣森林、日本里山…）
+  const habitat = currentHabitat(save);
+  const region = currentRegion(save);
   // 選的探索目標直接記進設定：去商店或其他頁再回來也不會跑掉
   const egg = chosenAnimal(save).id;
   const setEgg = (id: string) => update((s) => ({ ...s, settings: { ...s.settings, eggId: id } }));
@@ -42,10 +43,8 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
   const shown = seconds < 60 ? `00:${String(seconds).padStart(2, '0')}` : `${Math.round(seconds / 60)}:00`;
 
   // 可以去找、但還沒遇見過的動物：標「新」，遇見一次就消失
-  const fresh = newAnimals(save);
+  const fresh = newAnimals(save).filter((a) => animalRegion(a) === region);
   const counts = hatchCounts(save);
-  // 目前只有一個場景：開放兩個以上才顯示場景選擇
-  const openHabitats = HABITATS.filter((h) => habitatOpen(save, h.id));
 
   // 深度專注（Android）：預設開；第一段專注先不開，熟悉之後再挑戰
   const deep = isAndroid && st.deepFocus && !firstTime;
@@ -125,12 +124,6 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
             </span>
           )}
         </button>
-        {openHabitats.length > 1 && (
-          <button className="target-chip" onClick={() => setSheet('habitat')}>
-            {habitatName(habitat)}
-            <ChevronDown size={14} aria-hidden="true" />
-          </button>
-        )}
       </div>
 
       {/* 多久：點數字打開時間設定 */}
@@ -301,7 +294,7 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
         <Modal title="這次想去找誰？" onClose={() => setSheet(null)}>
           <p className="small muted">專注時牠會慢慢靠近，完成就遇見牠，留下一筆觀察紀錄；提前放棄牠就被嚇跑了。同一種動物遇見越多次，族群越穩定，看到的就越成熟（60 分鐘以上的探索算 2 點成長）。</p>
           <div className="plant-pick" role="radiogroup" aria-label="動物">
-            {ANIMALS.map((a) => {
+            {regionAnimals(region).map((a) => {
               const ok = animalUnlocked(save, a);
               const g = growthOf(save, a.id);
               const met = (counts.get(a.id) ?? 0) > 0;
@@ -335,27 +328,6 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
         </Modal>
       )}
 
-      {sheet === 'habitat' && (
-        <Modal title="專注背景" onClose={() => setSheet(null)}>
-          <div className="sheet-list" role="radiogroup" aria-label="專注背景">
-            {HABITATS.filter((h) => habitatOpen(save, h.id)).map((h) => (
-              <button
-                key={h.id}
-                role="radio"
-                aria-checked={habitat === h.id}
-                className={habitat === h.id ? 'sheet-row on' : 'sheet-row'}
-                onClick={() => {
-                  setHabitat(h.id);
-                  setSheet(null);
-                }}
-              >
-                {h.name}
-              </button>
-            ))}
-          </div>
-          <p className="small muted">修好更多棲地，就能選更多地方當專注背景。</p>
-        </Modal>
-      )}
     </div>
   );
 }

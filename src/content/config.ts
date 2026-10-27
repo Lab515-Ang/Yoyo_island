@@ -44,6 +44,8 @@ export const HABITATS: HabitatDef[] = [
   { id: 'wetland', name: '溪流濕地', playable: false, unlockProjectId: null, blurb: '日後改版開放' },
   { id: 'coast', name: '潮間帶海岸', playable: false, unlockProjectId: null, blurb: '日後改版開放' },
   { id: 'bay', name: '海灣水下', playable: false, unlockProjectId: null, blurb: '日後改版開放' },
+  // 第二個區域：台灣森林修完（保育救傷站）才開放
+  { id: 'satoyama', name: '日本里山', playable: true, unlockProjectId: 'fo_rescue', blurb: '日本的里山：杉林、梯田、溪流與山中小屋。' },
 ];
 export const habitatName = (id: HabitatId) => HABITATS.find((h) => h.id === id)?.name ?? id;
 
@@ -68,6 +70,13 @@ export const PROJECTS: ProjectDef[] = [
   { id: 'fo_spring', habitatId: 'forest', title: '整理森林水源地', description: '清澈的泉水流進小水池', requiredPoints: 2450, prerequisiteProjectId: 'fo_corridor', sceneChangeKey: 'fo_spring', promise: '水源地就會恢復清澈' },
   { id: 'fo_canopy', habitatId: 'forest', title: '搭建樹冠步道', description: '高處的木棧道，看得到整片樹海', requiredPoints: 2600, prerequisiteProjectId: 'fo_spring', sceneChangeKey: 'fo_canopy', promise: '樹冠步道就能完成' },
   { id: 'fo_rescue', habitatId: 'forest', title: '設立保育救傷站', description: '受傷的動物在這裡被好好照顧', requiredPoints: 2700, prerequisiteProjectId: 'fo_canopy', sceneChangeKey: 'fo_rescue', promise: '保育救傷站就會設立' },
+  // 日本里山（台灣修完之後接著修）；sceneChangeKey 借用森林場景的同一處變化
+  { id: 'jp_path', habitatId: 'satoyama', title: '清出杉林小徑', description: '倒下的杉木搬開了，小徑可以走了', requiredPoints: 300, prerequisiteProjectId: 'fo_rescue', sceneChangeKey: 'fo_trail', promise: '杉林小徑就會清出來' },
+  { id: 'jp_terrace', habitatId: 'satoyama', title: '復原里山梯田', description: '梯田重新灌水，青蛙和水鳥回來了', requiredPoints: 800, prerequisiteProjectId: 'jp_path', sceneChangeKey: 'fo_saplings', promise: '里山梯田就會復原' },
+  { id: 'jp_hut', habitatId: 'satoyama', title: '修好山中小屋', description: '小屋亮起燈，可以安靜地觀察里山', requiredPoints: 1100, prerequisiteProjectId: 'jp_terrace', sceneChangeKey: 'fo_cabin', promise: '山中小屋就能修好' },
+  { id: 'jp_bamboo', habitatId: 'satoyama', title: '疏伐過密的竹林', description: '陽光照進林下，原生植物長回來', requiredPoints: 1300, prerequisiteProjectId: 'jp_hut', sceneChangeKey: 'fo_undergrowth', promise: '林下植物就會長回來' },
+  { id: 'jp_stream', habitatId: 'satoyama', title: '恢復清澈溪流', description: '溪水變清，魚群又游了回來', requiredPoints: 1500, prerequisiteProjectId: 'jp_bamboo', sceneChangeKey: 'fo_spring', promise: '溪流就會恢復清澈' },
+  { id: 'jp_rescue', habitatId: 'satoyama', title: '設立野生動物保護站', description: '受傷的動物在這裡被好好照顧', requiredPoints: 1600, prerequisiteProjectId: 'jp_stream', sceneChangeKey: 'fo_rescue', promise: '野生動物保護站就會設立' },
 ];
 export const projectDef = (id: string) => PROJECTS.find((p) => p.id === id);
 
@@ -90,6 +99,7 @@ export interface AnimalDef {
   unlock: AnimalUnlock;
   blurb: string;
   habitat: Habitat;
+  region?: RegionId; // 沒寫就是台灣
 }
 
 /**
@@ -106,6 +116,20 @@ export interface Habitat {
 }
 export const ZONE_NAME: Record<Habitat['zone'], string> = { low: '低海拔', mid: '中海拔', high: '中高海拔', legend: '傳說' };
 export const LEVEL_NAME: Record<Habitat['level'], string> = { 1: '一級・瀕臨絕種', 2: '二級・珍貴稀有', 3: '三級・其他應予保育' };
+// 日本的保護等級說法不同（天然紀念物、種の保存法）
+const LEVEL_NAME_JP: Record<Habitat['level'], string> = { 1: '特別天然紀念物', 2: '國內稀少野生物種', 3: '地區族群瀕危' };
+export const levelName = (a: AnimalDef) => (animalRegion(a) === 'jp' ? LEVEL_NAME_JP : LEVEL_NAME)[a.habitat.level];
+
+// ---------- 區域（國家）：每個區域一座小島、一套動物與修復工程；金幣、寶石全區共用 ----------
+export type RegionId = 'tw' | 'jp';
+export const REGIONS: { id: RegionId; name: string; flag: string; habitatId: HabitatId }[] = [
+  { id: 'tw', name: '台灣', flag: '🇹🇼', habitatId: 'forest' },
+  { id: 'jp', name: '日本', flag: '🇯🇵', habitatId: 'satoyama' },
+];
+export const regionDef = (id: string) => REGIONS.find((r) => r.id === id) ?? REGIONS[0];
+export const animalRegion = (a: AnimalDef): RegionId => a.region ?? 'tw';
+export const regionAnimals = (id: string) => ANIMALS.filter((a) => animalRegion(a) === id);
+export const regionProjects = (id: string) => PROJECTS.filter((p) => p.habitatId === regionDef(id).habitatId);
 export const ANIMALS: AnimalDef[] = [
   { id: 'blue_magpie', name: '台灣藍鵲', shape: 'bird', color: '#2f6fd6', accent: '#e23b2e', unlock: { kind: 'start' }, blurb: '一身寶藍色的羽毛和長長的尾巴，常成群在樹林間穿梭。', habitat: { zone: 'low', region: '全島低至中海拔山區的闊葉林', elevation: '約 300～1,200 公尺', level: 3, lon: 121.55, lat: 25.12 } },
   { id: 'scops_owl', name: '領角鴞', shape: 'owl', color: '#9a7b5a', accent: '#f0c869', unlock: { kind: 'start' }, blurb: '夜裡活動的小型貓頭鷹，頭上有一對像耳朵的羽毛。', habitat: { zone: 'low', region: '全島平地到低海拔，都市公園也看得到', elevation: '約 1,200 公尺以下', level: 2, lon: 120.3, lat: 23.05 } },
@@ -125,6 +149,15 @@ export const ANIMALS: AnimalDef[] = [
   { id: 'maroon_oriole', name: '朱鸝', shape: 'bird', color: '#8f1d2c', accent: '#2a1a1a', unlock: { kind: 'coins', price: 1800 }, blurb: '全身酒紅色、頭是黑色，數量稀少的美麗鳥兒。', habitat: { zone: 'low', region: '低海拔闊葉林，東部與南部較常見', elevation: '約 1,000 公尺以下', level: 2, lon: 121.3, lat: 22.9 } },
   { id: 'yellow_tit', name: '黃山雀', shape: 'bird', color: '#f2c230', accent: '#1f2a3a', unlock: { kind: 'gems', price: 70 }, blurb: '台灣特有種，黃色的身體配上黑色的冠羽。', habitat: { zone: 'mid', region: '中海拔闊葉林', elevation: '約 1,000～2,500 公尺', level: 2, lon: 121.0, lat: 24.05 } },
   { id: 'fish_owl', name: '黃魚鴞', shape: 'owl', color: '#c08a3e', accent: '#f2c230', unlock: { kind: 'gems', price: 90 }, blurb: '台灣最大的貓頭鷹，住在溪流旁，夜裡會抓魚。', habitat: { zone: 'mid', region: '中低海拔原始闊葉林的溪流沿岸', elevation: '約 500～2,000 公尺', level: 1, lon: 121.3, lat: 24.2 } },
+  // 日本（第二個區域；保育等級與棲息地上架前要再核對）
+  { id: 'iriomote_cat', region: 'jp', name: '西表山貓', shape: 'cat', color: '#b49a74', accent: '#4a3b2a', unlock: { kind: 'start' }, blurb: '只住在西表島的野生貓，耳朵背面有白色斑點。', habitat: { zone: 'low', region: '西表島的亞熱帶森林與紅樹林', elevation: '低海拔', level: 1, lon: 123.82, lat: 24.33 } },
+  { id: 'okinawa_woodpecker', region: 'jp', name: '野口啄木鳥', shape: 'bird', color: '#6b2a22', accent: '#c8433a', unlock: { kind: 'start' }, blurb: '只住在沖繩本島北部森林的啄木鳥，全身深紅褐色。', habitat: { zone: 'low', region: '沖繩本島北部（山原）的常綠闊葉林', elevation: '約 500 公尺以下', level: 1, lon: 128.2, lat: 26.73 } },
+  { id: 'japanese_serow', region: 'jp', name: '日本鬣羚', shape: 'goat', color: '#5a4a3c', accent: '#cbbca6', unlock: { kind: 'project', id: 'jp_path' }, blurb: '住在山地森林，常一動也不動地站在岩石上。', habitat: { zone: 'mid', region: '本州、四國、九州的山地森林', elevation: '約 500～2,500 公尺', level: 1, lon: 137.6, lat: 36.2 } },
+  { id: 'ptarmigan', region: 'jp', name: '雷鳥', shape: 'pheasant', color: '#eeeeea', accent: '#d8392f', unlock: { kind: 'project', id: 'jp_terrace' }, blurb: '住在高山上，冬天換上一身雪白的羽毛。', habitat: { zone: 'high', region: '日本阿爾卑斯等高山的岩石與灌叢', elevation: '約 2,200～3,000 公尺', level: 1, lon: 137.65, lat: 36.3 } },
+  { id: 'blakiston_owl', region: 'jp', name: '毛腿魚鴞', shape: 'owl', color: '#8a6a48', accent: '#f2c230', unlock: { kind: 'project', id: 'jp_hut' }, blurb: '世界上最大的貓頭鷹之一，夜裡在河邊抓魚。', habitat: { zone: 'low', region: '北海道東部的河畔原生林', elevation: '低至中海拔', level: 2, lon: 144.5, lat: 43.6 } },
+  { id: 'tsushima_cat', region: 'jp', name: '對馬山貓', shape: 'cat', color: '#a88a60', accent: '#4a3826', unlock: { kind: 'project', id: 'jp_bamboo' }, blurb: '只住在對馬島的石虎，額頭有白色條紋。', habitat: { zone: 'low', region: '長崎縣對馬島的森林與水田', elevation: '低海拔', level: 2, lon: 129.3, lat: 34.4 } },
+  { id: 'steller_eagle', region: 'jp', name: '虎頭海鵰', shape: 'raptor', color: '#3a2e26', accent: '#f2a020', unlock: { kind: 'project', id: 'jp_stream' }, blurb: '有巨大的橘黃色嘴巴，冬天從俄羅斯飛來北海道。', habitat: { zone: 'low', region: '北海道的海岸與湖泊（冬候鳥）', elevation: '海岸與湖泊', level: 2, lon: 145.3, lat: 44.0 } },
+  { id: 'moon_bear', region: 'jp', name: '月輪熊', shape: 'bear', color: '#221e1b', accent: '#f1ecdf', unlock: { kind: 'project', id: 'jp_rescue' }, blurb: '胸前有月牙形的白斑，四國的族群已經非常稀少。', habitat: { zone: 'mid', region: '本州、四國的山地森林', elevation: '約 500～2,500 公尺', level: 3, lon: 133.9, lat: 33.7 } },
   { id: 'clouded_leopard', name: '台灣雲豹', shape: 'cat', color: '#c2a476', accent: '#5b4630', unlock: { kind: 'iap', price: 'NT$90' }, blurb: '身上有像雲朵的斑紋。野外已多年沒有確切紀錄，是森林裡的傳說。', habitat: { zone: 'legend', region: '過去分布在中低海拔原始林；2013 年研究團隊調查後認為台灣野外可能已滅絕', elevation: '已多年沒有確切紀錄', level: 1, lon: 120.9, lat: 22.8 } },
   { id: 'black_eagle', name: '林鵰', shape: 'raptor', color: '#2b2622', accent: '#f2c230', unlock: { kind: 'iap', price: 'NT$60' }, blurb: '全身深色的大型猛禽，常貼著樹冠緩緩滑翔。', habitat: { zone: 'mid', region: '中低海拔原始闊葉林', elevation: '約 500～2,500 公尺', level: 2, lon: 121.45, lat: 23.85 } },
 ];

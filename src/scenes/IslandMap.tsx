@@ -1,5 +1,5 @@
 // 島嶼總覽：中央的棲光森林（目前唯一開放的陸地），水域與海岸留待日後改版
-import { HABITATS } from '../content/config';
+import { HABITATS, REGIONS } from '../content/config';
 import { AnimalArt } from '../components/Animal';
 import { habitatOpen, habitatProgress, sceneAnimals } from '../domain/game';
 import type { HabitatId, SaveFile } from '../domain/types';
@@ -9,7 +9,10 @@ const POS: Record<HabitatId, [number, number]> = {
   wetland: [262, 70],
   coast: [292, 196],
   bay: [52, 206],
+  satoyama: [0, 0], // 日本是另一座島，不畫在台灣的小島地圖上
 };
+// 只畫台灣這座島上的棲地（其他區域的主棲地不在這張圖）
+const HERE = HABITATS.filter((h) => !REGIONS.some((r) => r.id !== 'tw' && r.habitatId === h.id));
 
 export function IslandMap({ save, onEnter }: { save: SaveFile; onEnter: (h: HabitatId) => void }) {
   const prog = habitatProgress(save, 'forest');
@@ -34,7 +37,7 @@ export function IslandMap({ save, onEnter }: { save: SaveFile; onEnter: (h: Habi
           </g>
         );
       })}
-      {HABITATS.map((h) => {
+      {HERE.map((h) => {
         const [x, y] = POS[h.id];
         const open = habitatOpen(save, h.id);
         // 有進度就至少顯示 1%（第一個工程很小，四捨五入會變成 0%）

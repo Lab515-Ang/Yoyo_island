@@ -1,13 +1,16 @@
 // 節奏模擬：用「一般玩家」的專注習慣跑完整條路線，檢查各里程碑落在目標時間內。
 // 調整 config.ts 的數值後執行 npm test，就能看到節奏有沒有跑掉（結果也會印出來）。
 import { describe, expect, it } from 'vitest';
-import { ANIMALS, PROJECTS } from '../content/config';
-import { activeProject, animalUnlocked, applyFocusRewards, coins, growthOf, hatchCounts, isDone, settleOpenSessions, startFocus, unlockAnimal } from './game';
+import { regionAnimals, regionProjects } from '../content/config';
+import { animalUnlocked, applyFocusRewards, coins, growthOf, hatchCounts, isDone, settleOpenSessions, startFocus, unlockAnimal } from './game';
 import { newSave } from './save';
 import type { SaveFile } from './types';
 
 const DAY = 86_400_000;
 const T0 = Date.parse('2026-01-05T00:00:00Z'); // 週一
+// 模擬台灣這一區（日本等之後的區域要修完台灣才開放）
+const ANIMALS = regionAnimals('tw');
+const PROJECTS = regionProjects('tw');
 
 interface Habit {
   sessionsPerDay: number;
@@ -41,7 +44,7 @@ function simulate(h: Habit, days: number) {
       }
     }
     for (const p of PROJECTS) if (isDone(save, p.id)) mark(`完成 ${p.title}`, d + 1);
-    if (!activeProject(save)) mark('全部工程完成', d + 1);
+    if (PROJECTS.every((p) => isDone(save, p.id))) mark('全部工程完成', d + 1);
     const free = ANIMALS.filter((a) => a.unlock.kind !== 'iap' && a.unlock.kind !== 'gems'); // 寶石物種要付費或寶箱的寶石，不算玩得到
     if (free.every((a) => hatchCounts(save).get(a.id))) mark('遇見所有可取得的動物', d + 1);
     if (free.every((a) => growthOf(save, a.id).stage === 2)) mark('所有可取得的動物都看到成年', d + 1);

@@ -2,7 +2,7 @@
 export type ID = string;
 export type ISODate = string;
 export type AppMode = 'personal' | 'demo';
-export type HabitatId = 'forest' | 'wetland' | 'coast' | 'bay';
+export type HabitatId = 'forest' | 'wetland' | 'coast' | 'bay' | 'satoyama';
 export type TimerMode = 'countdown' | 'stopwatch';
 export type Outcome = 'done' | 'partial' | 'continue';
 
@@ -37,6 +37,7 @@ export interface Settings {
   dayStartHour: number; // 一天從幾點開始算（0～6，夜貓子可以把凌晨算進前一天）
   dailyReminder: { on: boolean; hour: number; minute: number }; // 每天提醒專注（Android 通知）
   landId: string; // 土地造型（專注紀錄的草地）
+  regionId: string; // 目前的區域（台灣、日本…）：大廳、小島、圖鑑只顯示這個區域
 }
 
 export interface Island {

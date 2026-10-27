@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useNow, useSave } from '../app/store';
 import { SOUNDS, animalDef, type AnimalDef } from '../content/config';
-import { COIN_PACKS, GEM_PACKS, REFRESH_COINS, SHOP_ITEMS, landDef, type ShopItem } from '../content/shop';
+import { COIN_PACKS, GEM_PACKS, REFRESH_COINS, landDef, type ShopItem } from '../content/shop';
 import { AnimalArt, TrackArt } from '../components/Animal';
 import { Coin, Gem, Modal } from '../components/ui';
 import { coins, gems, type ActionResult } from '../domain/game';
-import { buyItem, dailyPicks, exchangeCoins, featuredItems, landOwned, owned, refreshPicks } from '../domain/shop';
+import { buyItem, dailyPicks, exchangeCoins, featuredItems, landOwned, owned, refreshPicks, shopItems } from '../domain/shop';
 import { Check, RefreshCw } from 'lucide-react';
 import type { SaveFile } from '../domain/types';
 
@@ -166,7 +166,7 @@ export function Shop({ onLobby }: { onLobby: () => void }) {
                 </button>
               ))}
             </div>
-            <div className="shop-grid">{SHOP_ITEMS.filter((it) => filter === 'all' || it.kind === filter).map(card)}</div>
+            <div className="shop-grid">{shopItems(save).filter((it) => filter === 'all' || it.kind === filter).map(card)}</div>
           </>
         )}
 

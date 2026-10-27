@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useSave } from '../app/store';
-import { ANIMALS } from '../content/config';
+import { regionAnimals } from '../content/config';
+import { RegionChip } from '../components/Region';
 import { AnimalArt } from '../components/Animal';
 import { AnimalCard, GrowthTag, unlockText } from '../components/ui';
-import { animalUnlocked, growthOf, hatchCounts } from '../domain/game';
+import { animalUnlocked, currentRegion, growthOf, hatchCounts } from '../domain/game';
 import { TaiwanMap } from '../scenes/TaiwanMap';
 import type { MapPin } from '../scenes/TaiwanMap3D';
 
@@ -11,7 +12,12 @@ import type { MapPin } from '../scenes/TaiwanMap3D';
 export function Codex() {
   const { save } = useSave();
   const [show, setShow] = useState<'all' | 'found' | 'missing'>('all');
-  const [view, setView] = useState<'list' | 'map'>('list');
+  const [picked, setView] = useState<'list' | 'map'>('list');
+  // 只看目前區域的動物；地圖目前只有台灣（日本的地圖製作中）
+  const region = currentRegion(save);
+  const ANIMALS = regionAnimals(region);
+  const hasMap = region === 'tw';
+  const view = hasMap ? picked : 'list';
   const [card, setCard] = useState<string | null>(null);
   const counts = hatchCounts(save);
   const stageOf = (id: string) => growthOf(save, id).stage;
@@ -28,19 +34,24 @@ export function Codex() {
 
   return (
     <div className="page">
-      <h1>觀察圖鑑</h1>
-      <div className="segmented view-toggle" role="radiogroup" aria-label="顯示方式">
-        {(
-          [
-            ['list', '清單'],
-            ['map', '🗺️ 地圖'],
-          ] as const
-        ).map(([k, l]) => (
-          <button key={k} role="radio" aria-checked={view === k} className={view === k ? 'on' : ''} onClick={() => setView(k)}>
-            {l}
-          </button>
-        ))}
+      <div className="title-row">
+        <h1>觀察圖鑑</h1>
+        <RegionChip />
       </div>
+      {hasMap && (
+        <div className="segmented view-toggle" role="radiogroup" aria-label="顯示方式">
+          {(
+            [
+              ['list', '清單'],
+              ['map', '🗺️ 地圖'],
+            ] as const
+          ).map(([k, l]) => (
+            <button key={k} role="radio" aria-checked={view === k} className={view === k ? 'on' : ''} onClick={() => setView(k)}>
+              {l}
+            </button>
+          ))}
+        </div>
+      )}
       {view === 'map' && (
         <>
           <TaiwanMap pins={pins} onSelect={setCard} />
