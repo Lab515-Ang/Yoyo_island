@@ -1,5 +1,5 @@
 // 望遠鏡視野（專注畫面）：鏡頭在一張橫向全景上左右搜尋、推近拉遠。
-// 前半段什麼都看不到；中段才在很遠的地方出現（小、霧霧的），之後分 6～15 段（每段專注隨機）越來越近、越來越清楚，
+// 一開始什麼都看不到；大約 15%～25% 時在很遠的地方出現（小、霧霧的），之後分 6～15 段（每段專注隨機）越來越近、越來越清楚，
 // 每一段的位置都不一樣，而且只在鏡頭轉開（看不到牠）的時候換；看得到的時候牠會自己走幾步、張望、低頭。
 // 時間到才走到鏡頭正前方。出現的樣子依習性：
 //   walk  地上的動物（貓科、穿山甲、熊、山羊、貂、雉雞類）
@@ -49,7 +49,7 @@ function seeded(seed: string) {
 function route(mode: Mode, seed: string): { steps: number[]; path: Pos[] } {
   const r = seeded(seed);
   const n = 6 + Math.floor(r() * 10);
-  const start = 0.38 + r() * 0.1; // 中段才出現
+  const start = 0.15 + r() * 0.1; // 專注一小段時間後就在遠方出現（每段專注隨機）
   const steps = Array.from({ length: n }, (_, i) => (i === n - 1 ? 1 : start + (0.96 - start) * (i / (n - 2))));
   const path: Pos[] = [];
   let lastX = SPOT.x;
