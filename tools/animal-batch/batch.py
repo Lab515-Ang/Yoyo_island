@@ -41,7 +41,7 @@ SKIP = {'leopard_cat'}  # 已有主圖且綁好骨架，先保留（2026-10-28 �
 VIEW = 'Right-facing strict side profile: nose toward image RIGHT, body perfectly side-on, no head turn, true orthographic'
 # 蝴蝶側面幾乎看不到翅膀，拍翅動畫也要翅膀展開，所以例外（2026-10-28 決定）
 VIEW_SHAPE = {'butterfly': 'Seen from above, slightly tilted: wings fully open, flat and symmetrical, head toward the top of the image'}
-BIRDS = art_data.BIRD_SHAPES | {'wader'}
+BIRDS = art_data.BIRD_SHAPES | {'wader', 'seabird'}
 POSE_MAMMAL = ('standing calmly on all four legs, legs slightly apart so all four are readable '
                '(near legs in front, far legs slightly darker behind), head level, tail relaxed and fully visible')
 POSE_BIRD = ('standing calmly on the ground, wings folded against the body, both legs visible '
@@ -55,6 +55,10 @@ POSE_SHAPE = {
              'far legs slightly darker behind'),
     'bat': 'resting upright with both wings folded tightly against the body, feet visible below, head level',
     'butterfly': 'resting with wings fully spread open, antennae and body fully visible',
+    'rabbit': ('crouching calmly on all four legs, near legs in front, far legs slightly darker behind, '
+               'short ears and short tail fully visible, head level'),
+    'salamander': ('resting low on the ground, four short legs splayed so all four are readable '
+                   '(near legs in front, far legs slightly darker behind), tail lying straight behind, head level'),
 }
 AQUATIC = {'fish', 'dolphin', 'turtle', 'otter'}  # 風格圖改用 skill 的鯊魚
 PROJECT = ('Project rules (wildlife-conservation focus app): exactly one animal. Cute but species-accurate: players must '
@@ -192,6 +196,7 @@ POSE_TEXT = ('The SAME animal as the reference (identical design, colors, markin
 EXTRA = {
     ('fly', 'bird'): 'in flight: strict side profile facing RIGHT, both wings raised and spread in a flapping pose, legs tucked under the body, tail slightly spread',
     ('fly', 'raptor'): 'in flight: strict side profile facing RIGHT, wings spread wide and flat, soaring, legs tucked under the body, tail slightly spread',
+    ('fly', 'seabird'): 'gliding: strict side profile facing RIGHT, long narrow wings spread straight and flat, feet tucked under the tail',
     ('fly', 'bat'): 'in flight: strict side profile facing RIGHT, both wings fully spread in a flapping pose, legs trailing behind',
     ('swim', 'otter'): 'swimming: strict side profile facing RIGHT, body long and horizontal, legs paddling, thick tail stretched out behind',
     ('leap', 'dolphin'): 'leaping: strict side profile facing RIGHT, body arched in a jump, flippers and tail flukes fully visible',
@@ -209,7 +214,8 @@ PEELS = {'cat': MAMMAL_PEELS, 'bear': MAMMAL_PEELS, 'mustelid': MAMMAL_PEELS, 'p
          'wader': BIRD_PEELS,  # 飛行姿勢是選配，要做再加 'fly'（EXTRA 也要補）
          'owl': ['bhead', 'eye', 'tuft', 'look'],
          'fish': ['fin'], 'turtle': ['flipper', 'look'], 'dolphin': ['fin', 'look', 'leap'],
-         'butterfly': ['perch'], 'frog': ['hleg', 'eye', 'look'], 'bat': ['look', 'fly', 'hang']}
+         'butterfly': ['perch'], 'frog': ['hleg', 'eye', 'look'], 'bat': ['look', 'fly', 'hang'],
+         'rabbit': MAMMAL_PEELS, 'salamander': ['e1', 'eye', 'look'], 'seabird': BIRD_PEELS + ['fly']}
 RIG = ROOT / 'tools/animal-rig'
 # 石虎的主圖和剝層圖在 .forge/rive-test（網格版已綁好），只補後來新增的剝層
 MASTER = {'leopard_cat': ROOT / '.forge/rive-test/side/generated_orig.png'}

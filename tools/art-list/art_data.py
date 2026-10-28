@@ -186,11 +186,13 @@ LOOK.update({
 
 
 # ---------- 日本保育動物（美術清單用的名單，2026-10-28 重新整理） ----------
-# 等級＝環境省紅色名錄類別＋法定保護身分（文化財保護法的特別天然紀念物／天然紀念物、種之保存法的國內稀少野生動植物種）。
+# 等級：照台灣的一～三級換算（使用者 2026-10-28 決定）：CR→第一級、EN→第二級、VU／NT／未列→第三級；
+# 原本的環境省紅色名錄類別與法定保護身分（特別天然紀念物／天然紀念物、國內稀少野生動植物種）寫在備註。
 # 鳥類、兩生爬蟲類：第 5 次紅色名錄（2026-03-17 公布，已核對官方新舊對照表）。
 # 哺乳類、魚類：第 5 次版本還沒公布，先用紅色名錄 2020，公布後要再核對。
 # 月輪熊拿掉：全國沒有列入紅色名錄（只有四國等地區族群列為瀕危）。
 JP_LEVEL = {'CR': '絕滅危懼 IA 類（CR）', 'EN': '絕滅危懼 IB 類（EN）', 'VU': '絕滅危懼 II 類（VU）', 'NT': '準絕滅危懼（NT）', '-': '紅色名錄未列'}
+JP_TIER = {'CR': 1, 'EN': 2, 'VU': 3, 'NT': 3, '-': 3}
 JP_ROSTER = [
     # (代號, 名稱, 體型, 紅色名錄, 法定身分, 備註)
     ('iriomote_cat', '西表山貓', 'cat', 'CR', '特別天然紀念物・國內稀少種', '紅色名錄 2020'),
@@ -269,8 +271,9 @@ def animals():
         a = cfg.get(aid)
         stages = 3 if a and a['stages'] else 1
         unlock = unlock_text(a['unlock']) if a else '待定（新物種）'
-        level = JP_LEVEL[rl] if legal == '—' else f'{JP_LEVEL[rl]}｜{legal}'
-        rows.append(row(sum(1 for r in rows if r['region'] == '日本') + 1, aid, name, shape, '日本', stages, level, unlock, BATCH.get(aid, 6), note))
+        src = JP_LEVEL[rl] if legal == '—' else f'{JP_LEVEL[rl]}｜{legal}'
+        rows.append(row(sum(1 for r in rows if r['region'] == '日本') + 1, aid, name, shape, '日本', stages, LEVEL[JP_TIER[rl]], unlock,
+                        BATCH.get(aid, 6), f'{src}；{note}' if note else src))
     return rows
 
 
