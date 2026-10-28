@@ -6590,3 +6590,72 @@ label.toggle input.switch::after {
     transition: none;
   }
 }
+
+/* ---------- 望遠鏡畫面的版面：鏡片是主角，下面只有時間、一句狀態、按鈕 ---------- */
+.focus.scoped {
+  --lens: min(88vw, 46dvh, 360px);
+  --lens-top: calc(76px + var(--top-inset, var(--safe-area-inset-top, env(safe-area-inset-top))));
+  justify-content: flex-start;
+  gap: 0;
+}
+.focus-info {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+  margin-top: calc(var(--lens-top) + var(--lens) + 5vh);
+  text-align: center;
+}
+.focus-info .focus-time {
+  font-size: clamp(3rem, 15vw, 4.2rem);
+  color: #fbf6ec;
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.25);
+}
+.focus-line {
+  margin: 0;
+  min-height: 1.6em;
+  max-width: 300px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(251, 246, 236, 0.88);
+  animation: line-in 0.5s ease both;
+}
+/* 足跡提示：同一行換成暖黃色的字 */
+.focus-line.moment {
+  color: #f3d58a;
+}
+@keyframes line-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.focus-info .focus-endtime {
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgba(251, 246, 236, 0.55);
+  text-shadow: none;
+}
+.focus-info .focus-quote {
+  margin: 0 0 0.3rem;
+  max-width: 300px;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  color: rgba(251, 246, 236, 0.7);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.focus.scoped .focus-controls {
+  margin-top: auto;
+}
+.focus > .focus-info {
+  animation: rise-in 0.7s 0.1s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .focus-line,
+  .focus > .focus-info {
+    animation: none;
+  }
+}

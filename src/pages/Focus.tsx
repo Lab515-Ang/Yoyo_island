@@ -204,27 +204,19 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
             {soundOn ? <Volume2 size={20} aria-hidden="true" /> : <VolumeX size={20} aria-hidden="true" />}
           </button>
         </div>
-        {quote && <p className="focus-quote">{quote}</p>}
-        {/* 足跡提示：浮在上方天空 */}
-        {moment && (
-          <p className="focus-moment" role="status">
-            {moment}
-          </p>
-        )}
-        <div className="focus-bubble">
+        {/* 鏡片下面只放三行：時間、一句狀態（有足跡提示時換成提示）、預計結束 */}
+        <div className="focus-info">
+          {quote && <p className="focus-quote">{quote}</p>}
           <div className="focus-time" role="timer" aria-live="off" aria-label={over ? '超過目標的時間' : countdown ? '剩餘時間' : '已專注時間'}>
             {label}
           </div>
-          {paused && (
-            <p className="focus-status" aria-live="polite">
-              已暫停{session.pauseLimitAt ? `・${clock(Math.max(0, Date.parse(session.pauseLimitAt) - now))} 後自動繼續` : ''}
-            </p>
-          )}
+          <p className={moment && !paused && progress < 1 ? 'focus-line moment' : 'focus-line'} key={paused ? 'paused' : moment ?? 'status'} aria-live="polite">
+            {paused
+              ? `已暫停${session.pauseLimitAt ? `・${clock(Math.max(0, Date.parse(session.pauseLimitAt) - now))} 後自動繼續` : ''}`
+              : (progress < 1 && moment) || (over ? `找到${animalDef(session.animalId).name}了！想繼續就繼續，按 ■ 完成` : progress < 0.5 ? `正在靠近${animalDef(session.animalId).name}…` : progress < 1 ? `${animalDef(session.animalId).name}就在附近了…` : `找到${animalDef(session.animalId).name}了！`)}
+          </p>
+          {endAt && <p className="focus-endtime">預計 {endAt} {session.extend ? '達成目標' : '結束'}</p>}
         </div>
-        <p className="focus-target" aria-live="polite">
-          {over ? `找到${animalDef(session.animalId).name}了！想繼續就繼續，按 ■ 完成` : progress < 0.5 ? `正在靠近${animalDef(session.animalId).name}…` : progress < 1 ? `${animalDef(session.animalId).name}就在附近了…` : `找到${animalDef(session.animalId).name}了！`}
-        </p>
-        {endAt && <p className="focus-endtime">預計 {endAt} {session.extend ? '達成目標' : '結束'}</p>}
         <div className="focus-controls">
           {grace > 0 && !paused ? (
             // 開始後 10 秒內：免費取消，不算放棄
