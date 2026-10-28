@@ -39,10 +39,24 @@ OUT = ROOT / '.forge/animals'
 SKIP = {'leopard_cat'}  # 已有主圖且綁好骨架，先保留（2026-10-28 決定）
 
 VIEW = 'Right-facing strict side profile: nose toward image RIGHT, body perfectly side-on, no head turn, true orthographic'
+# 蝴蝶側面幾乎看不到翅膀，拍翅動畫也要翅膀展開，所以例外（2026-10-28 決定）
+VIEW_SHAPE = {'butterfly': 'Seen from above, slightly tilted: wings fully open, flat and symmetrical, head toward the top of the image'}
+BIRDS = art_data.BIRD_SHAPES | {'wader'}
 POSE_MAMMAL = ('standing calmly on all four legs, legs slightly apart so all four are readable '
                '(near legs in front, far legs slightly darker behind), head level, tail relaxed and fully visible')
 POSE_BIRD = ('standing calmly on the ground, wings folded against the body, both legs visible '
              '(far leg slightly behind and darker), tail fully visible, head level')
+POSE_SHAPE = {
+    'fish': 'swimming calmly with the body horizontal, all fins relaxed and fully visible, tail fin fully visible',
+    'dolphin': 'swimming calmly with the body horizontal, flippers, dorsal fin and tail flukes fully visible',
+    'turtle': ('swimming calmly with the shell horizontal, all four flippers readable '
+               '(near flippers in front, far flippers slightly darker behind), head extended'),
+    'frog': ('sitting calmly in a typical frog crouch, near front and hind legs fully visible, '
+             'far legs slightly darker behind'),
+    'bat': 'resting upright with both wings folded tightly against the body, feet visible below, head level',
+    'butterfly': 'resting with wings fully spread open, antennae and body fully visible',
+}
+AQUATIC = {'fish', 'dolphin', 'turtle', 'otter'}  # 風格圖改用 skill 的鯊魚
 PROJECT = ('Project rules (wildlife-conservation focus app): exactly one animal. Cute but species-accurate: players must '
            'recognize the real species. Not anthropomorphic, no clothes. Keep a clean readable silhouette with no limb hidden, '
            'because the image will be cut into parts for 2D mesh animation.')
@@ -66,8 +80,8 @@ def build_prompt(a, transparent, note, photos):
         '[SPECIES / BREED]': f"{a['name']} ({a['id'].replace('_', ' ')})",
         '[SPECIES FEATURES]': a['look'],
         '[SELECTED EXPRESSION]': 'calm neutral',
-        '[POSE]': POSE_BIRD if a['shape_id'] in art_data.BIRD_SHAPES else POSE_MAMMAL,
-        '[VIEW]': VIEW,
+        '[POSE]': POSE_SHAPE.get(a['shape_id'], POSE_BIRD if a['shape_id'] in BIRDS else POSE_MAMMAL),
+        '[VIEW]': VIEW_SHAPE.get(a['shape_id'], VIEW),
         # 棲光小島主圖：本體寬約 850～950 / 1024
         'Fit largest projected view within approximately 75% canvas': 'The animal spans about 85-90% of the canvas width',
     }
@@ -84,8 +98,10 @@ def build_prompt(a, transparent, note, photos):
 
 def refs_for(a):
     # skill 的風格圖沒有鳥：鳥類加上批次 1 通過的八色鳥（2026-10-28 決定）
-    if a['shape_id'] in art_data.BIRD_SHAPES:
+    if a['shape_id'] in BIRDS:
         style = [SKILL / 'assets/style-bee.png', pathlib.Path(__file__).parent / 'style-bird-pitta.png']
+    elif a['shape_id'] in AQUATIC:
+        style = [SKILL / 'assets/style-bee.png', SKILL / 'assets/style-shark.png']
     else:
         style = [SKILL / 'assets/style-bee.png', SKILL / 'assets/style-tiger.png']
     photos = sorted(p for p in (OUT / a['id'] / 'refs').glob('*') if p.suffix.lower() in ('.png', '.jpg', '.jpeg', '.webp'))
@@ -159,20 +175,41 @@ PEEL_TEXT = {
     'look': ('Turn ONLY the HEAD toward the viewer: the face now looks straight at the camera (front view of the face, both '
              'eyes visible, symmetrical), as if the animal calmly noticed the viewer. The neck turns naturally with it. Keep the '
              'same head size, colors and markings (now seen from the front) and a calm neutral expression. The body, legs, '
-             'wings, tail and their positions stay exactly the same.'),
+             'wings, fins, tail and their positions stay exactly the same.'),
+    'fin': ('Remove the near-side PECTORAL FIN completely. Paint the side of the body that was hidden behind it, with the '
+            'same colors and markings continuing naturally.'),
+    'flipper': ('Remove the NEAR-side FRONT FLIPPER completely. Paint the shell edge and body side that were hidden behind it; '
+                'the far front flipper, partly hidden before, is now fully visible (slightly darker as the far one).'),
+    'hleg': ('Remove the NEAR-side HIND LEG completely. The FAR-side hind leg, partly hidden behind it, is now fully visible: '
+             'paint its hidden parts completely, slightly darker as the far leg. Paint the body side where the near leg was.'),
     'tuft': ('Remove BOTH EAR TUFTS (the feather tufts on top of the head) completely. Paint the smooth rounded top of the head '
              'with the same feather colors continuing naturally.'),
 }
-FLY = ('The SAME bird as the reference (identical design, colors, markings, proportions and surface style), now in flight: '
-       'strict side profile facing RIGHT, {pose}, legs tucked under the body, tail slightly spread. Plain pure white background, '
-       'same canvas size, the bird at about the same scale, no shadow.')
-FLY_POSE = {'bird': 'both wings raised and spread in a flapping pose', 'raptor': 'wings spread wide and flat, soaring'}
-# 依體型的剝層清單（e5 閉眼在各體型共用 eye；look＝E7 頭轉向鏡頭）
-PEELS = {'cat': ['e1', 'e3', 'e4', 'eye', 'look'], 'bear': ['e1', 'e3', 'e4', 'eye', 'look'],
-         'mustelid': ['e1', 'e3', 'e4', 'eye', 'look'], 'pangolin': ['e1', 'e3', 'e4', 'eye', 'look'],
-         'goat': ['e1', 'e3', 'e4', 'eye', 'look'],  # ponytail: 山羊的「拿掉鬃毛」到批次 3 再加
-         'bird': ['wing', 'bhead', 'eye', 'bleg', 'look', 'fly'], 'pheasant': ['wing', 'bhead', 'eye', 'bleg', 'look'],
-         'raptor': ['wing', 'bhead', 'eye', 'bleg', 'look', 'fly'], 'owl': ['bhead', 'eye', 'tuft', 'look']}
+# 額外姿勢：不是編輯圖（不對齊），同一隻動物換姿勢
+POSE_TEXT = ('The SAME animal as the reference (identical design, colors, markings, proportions and surface style), now {pose}. '
+             'Plain pure white background, same canvas size, the animal at about the same scale, no shadow, no water, '
+             'no branch, flower or any other prop.')
+EXTRA = {
+    ('fly', 'bird'): 'in flight: strict side profile facing RIGHT, both wings raised and spread in a flapping pose, legs tucked under the body, tail slightly spread',
+    ('fly', 'raptor'): 'in flight: strict side profile facing RIGHT, wings spread wide and flat, soaring, legs tucked under the body, tail slightly spread',
+    ('fly', 'bat'): 'in flight: strict side profile facing RIGHT, both wings fully spread in a flapping pose, legs trailing behind',
+    ('swim', 'otter'): 'swimming: strict side profile facing RIGHT, body long and horizontal, legs paddling, thick tail stretched out behind',
+    ('leap', 'dolphin'): 'leaping: strict side profile facing RIGHT, body arched in a jump, flippers and tail flukes fully visible',
+    ('perch', 'butterfly'): 'perched with wings closed upright above the body: strict side profile facing RIGHT, legs below, antennae forward',
+    ('hang', 'bat'): 'hanging upside down by its feet from the top of the canvas, wings wrapped around the body, head at the bottom looking RIGHT',
+}
+EXTRA_CODES = {c for c, _ in EXTRA}
+# 依體型的剝層清單（e5 閉眼在各體型共用 eye；look＝E7 頭轉向鏡頭，魚、蝴蝶除外）
+MAMMAL_PEELS = ['e1', 'e3', 'e4', 'eye', 'look']
+BIRD_PEELS = ['wing', 'bhead', 'eye', 'bleg', 'look']
+PEELS = {'cat': MAMMAL_PEELS, 'bear': MAMMAL_PEELS, 'mustelid': MAMMAL_PEELS, 'pangolin': MAMMAL_PEELS,
+         'goat': MAMMAL_PEELS,  # ponytail: 山羊的「拿掉鬃毛」到批次 3 再加
+         'otter': MAMMAL_PEELS + ['swim'],
+         'bird': BIRD_PEELS + ['fly'], 'pheasant': BIRD_PEELS, 'raptor': BIRD_PEELS + ['fly'],
+         'wader': BIRD_PEELS,  # 飛行姿勢是選配，要做再加 'fly'（EXTRA 也要補）
+         'owl': ['bhead', 'eye', 'tuft', 'look'],
+         'fish': ['fin'], 'turtle': ['flipper', 'look'], 'dolphin': ['fin', 'look', 'leap'],
+         'butterfly': ['perch'], 'frog': ['hleg', 'eye', 'look'], 'bat': ['look', 'fly', 'hang']}
 RIG = ROOT / 'tools/animal-rig'
 # 石虎的主圖和剝層圖在 .forge/rive-test（網格版已綁好），只補後來新增的剝層
 MASTER = {'leopard_cat': ROOT / '.forge/rive-test/side/generated_orig.png'}
@@ -185,14 +222,14 @@ def gen_peel(a, code, args):
     d = fresh(OUT / a['id'] / 'peels' / code, args.redo)
     if d is None:
         return f"{a['id']}/{code}", 'skip (已有)'
-    if code == 'fly':
-        prompt = FLY.format(pose=FLY_POSE[a['shape_id']])
+    if code in EXTRA_CODES:
+        prompt = POSE_TEXT.format(pose=EXTRA[code, a['shape_id']])
     else:
         prompt = EDIT_HEAD + PEEL_TEXT[code]
     if args.note:
         prompt += '\nCorrection from review: ' + args.note
     res = route(prompt, [master], d, f"animal peel {a['id']} {code}", args)
-    if code != 'fly' and (d / 'generated.png').exists():
+    if code not in EXTRA_CODES and (d / 'generated.png').exists():
         res = align(master, d)
     return f"{a['id']}/{code}", res
 
@@ -282,7 +319,7 @@ def peel_sheet(rows, path):
         dr.text((5, y + 5), f"{a['name']} 主圖", fill='#222', font=font)
         for j, c in enumerate(PEELS[a['shape_id']], 1):
             d = OUT / a['id'] / 'peels' / c
-            f = d / ('generated.png' if c == 'fly' else 'reg_check.png')
+            f = d / ('generated.png' if c in EXTRA_CODES else 'reg_check.png')
             label = (d / 'align.txt').read_text(encoding='utf-8') if (d / 'align.txt').exists() else ''
             dr.text((j * T + 5, y + 5), c, fill='#222', font=font)
             dr.text((j * T + 5, y + 27), label, fill='#c00' if label.startswith(('需看', '對齊失敗')) else '#666', font=font)
@@ -327,7 +364,8 @@ def sheet(rows, path):
 # ---------- 審圖網頁、退回重產、打包 ----------
 CODE_NAME = {'master': '主圖', 'e1': 'E1 拿掉近側腿', 'e3': 'E3 拿掉頭', 'e4': 'E4 拿掉耳朵', 'eye': 'E5 閉眼',
              'look': 'E7 頭轉向鏡頭', 'wing': '拿掉近側翅膀', 'bhead': '拿掉頭', 'bleg': '拿掉近側腳', 'tuft': '拿掉耳羽',
-             'fly': '飛行姿勢'}
+             'fly': '飛行姿勢', 'fin': '拿掉胸鰭', 'flipper': '拿掉近側前鰭', 'hleg': '拿掉近側後腳',
+             'swim': '游泳姿勢', 'leap': '躍出水面', 'perch': '停棲（翅膀合起）', 'hang': '倒掛'}
 DONE_FILE = {('leopard_cat', c): ROOT / f'.forge/rive-test/rig/{e}_aligned.png'
              for c, e in (('e1', 'e1'), ('e3', 'e3'), ('e4', 'e4'), ('eye', 'e5'))}
 REVIEW = OUT / 'review.json'
@@ -350,13 +388,15 @@ def collect(rows):
             out.append({'key': f"{a['id']}/master", 'a': a, 'code': 'master', 'file': base / 'master/generated.png', 'dir': base / 'master'})
         for c in PEELS[a['shape_id']]:
             d = base / 'peels' / c
-            f = DONE_FILE.get((a['id'], c)) or d / ('generated.png' if c == 'fly' else 'reg_aligned.png')
+            f = DONE_FILE.get((a['id'], c)) or d / ('generated.png' if c in EXTRA_CODES else 'reg_aligned.png')
             if f.exists():
                 out.append({'key': f"{a['id']}/{c}", 'a': a, 'code': c, 'file': f, 'dir': d, 'done': (a['id'], c) in DONE_FILE})
     return out
 
 
 def api_items():
+    import importlib
+    importlib.reload(art_data)  # 審圖網頁開著時美術清單可能被改，每次都讀新的
     forge, rv, out = ROOT / '.forge', load_review(), []
     url = lambda f: f'/{f.relative_to(forge).as_posix()}?v={ver(f)}'
     for it in collect(art_data.animals()):
@@ -437,12 +477,15 @@ PACK_README = """# 棲光小島｜動物圖包
 給「動物動態（網格骨架）」流程用。規範：專案 docs/規格-動物動態網格.md。
 
 每隻一個資料夾：
-- `<代號>-master.png`：主圖（正側面朝右、白底）。**所有部件的唯一像素來源**，剝層圖都是對它做的、已對齊到它。
+- `<代號>-master.png`：主圖（正側面朝右、白底；寬尾鳳蝶例外：翅膀展開、從上方斜看）。**所有部件的唯一像素來源**，
+  剝層圖都是對它做的、已對齊到它。
 - `<代號>-2_1024.png`／`<代號>-2.png`：標準化後的靜態圖（1024 製作主圖／App 用 512 透明、腳底 y=472）。不要拿來切部件。
-- `peels/<代號>-<剝層>.png`：剝層圖（已用 register.py 對齊、校色）。飛行姿勢不是編輯圖，沒有對齊。
+- `peels/<代號>-<剝層>.png`：剝層圖（已用 register.py 對齊、校色）。額外姿勢（fly、swim、leap、perch、hang）
+  不是編輯圖，沒有對齊。
 
 剝層代號：e1＝E1 拿掉近側腿、e3＝E3 拿掉頭、e4＝E4 拿掉耳朵、eye＝E5 閉眼、look＝E7 頭轉向鏡頭、wing＝拿掉近側翅膀、
-bhead＝鳥拿掉頭、bleg＝拿掉近側腳、tuft＝拿掉耳羽、fly＝飛行姿勢。
+bhead＝鳥拿掉頭、bleg＝拿掉近側腳、tuft＝拿掉耳羽、fin＝拿掉胸鰭、flipper＝拿掉近側前鰭、hleg＝拿掉近側後腳。
+額外姿勢：fly＝飛行、swim＝游泳、leap＝躍出水面、perch＝停棲（翅膀合起）、hang＝倒掛。
 
 manifest.json 記每張圖的審核狀態（pass 通過／reject 退回／unreviewed 未審／done 以前就完成）與對齊結果；
 reject、unreviewed 的圖先不要用。
@@ -528,7 +571,7 @@ def main():
             master = MASTER.get(a['id'], OUT / a['id'] / 'master/generated.png')
             for c in PEELS[a['shape_id']]:
                 d = OUT / a['id'] / 'peels' / c
-                if c != 'fly' and (d / 'generated.png').exists():
+                if c not in EXTRA_CODES and (d / 'generated.png').exists():
                     print(f"{a['id']}/{c}", align(master, d), flush=True)
     elif args.cmd == 'normalize':
         for a in rows:
