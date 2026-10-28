@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>動物審圖</title>
+<style>
+  :root { --bg: #FBF6EC; --panel: #FFFDF8; --ink: #2e3a28; --muted: #6b7565; --line: #e4dccb;
+          --green: #638553; --coral: #E08A70; --dark: #2B2B2B; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 "Microsoft JhengHei", system-ui, sans-serif; background: var(--bg); color: var(--ink); }
+  header { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header b { font-size: 17px; }
+  select, button, textarea { font: inherit; }
+  button { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 6px 12px; cursor: pointer; color: var(--ink); }
+  button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; padding: 16px; max-width: 1400px; margin: 0 auto; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  .stage { border-radius: 12px; border: 1px solid var(--line); display: grid; place-items: center; min-height: 60vh; overflow: hidden; }
+  .stage img { max-width: 100%; max-height: 78vh; display: block; }
+  .stage.light { background: #fff; } .stage.dark { background: var(--dark); }
+  .stage.checker { background: repeating-conic-gradient(#ddd 0 25%, #fff 0 50%) 0 0 / 24px 24px; }
+  aside { display: flex; flex-direction: column; gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .name { font-size: 20px; font-weight: 700; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 13px; }
+  .pass { background: #e3eedb; color: #3d5a30; } .reject { background: #f8e0d8; color: #9a4128; } .todo { background: #eee; color: #666; }
+  textarea { width: 100%; min-height: 72px; border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: #fff; }
+  .big { flex: 1; padding: 12px; font-size: 17px; font-weight: 700; }
+  #pass { background: var(--green); color: #fff; border-color: var(--green); }
+  #reject { background: var(--coral); color: #fff; border-color: var(--coral); }
+  .warn { color: #9a4128; }
+  kbd { border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; font-size: 12px; background: #fff; }
+</style>
+</head>
+<body>
+<header>
+  <b>動物審圖</b>
+  <span id="progress" class="muted"></span>
+  <label>顯示 <select id="filter">
+    <option value="todo">未審</option><option value="all">全部</option>
+    <option value="reject">退回</option><option value="pass">通過</option>
+  </select></label>
+  <label>批次 <select id="batch"><option value="">全部</option></select></label>
+</header>
+<main>
+  <section>
+    <div id="stage" class="stage light"><img id="img" alt=""></div>
+    <div class="row" style="margin-top:10px">
+      <span class="muted">背景</span>
+      <button data-bg="light" class="on">白</button><button data-bg="dark">深</button><button data-bg="checker">格子</button>
+      <span class="muted" style="margin-left:12px">顯示</span>
+      <button data-view="img" class="on">這張圖</button><button data-view="check">疊色檢查</button><button data-view="master">主圖對照</button>
+    </div>
+  </section>
+  <aside>
+    <div class="card" id="info"></div>
+    <div class="card">
+      <textarea id="note" placeholder="退回原因（重產時會附在提示最後，例如：尾巴太短、身體也要正側面）。按 R 開始打字，Ctrl+Enter 退回"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button id="pass" class="big">通過 <kbd>P</kbd></button>
+        <button id="reject" class="big">退回 <kbd>R</kbd></button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="prev">← 上一張</button><button id="next">下一張 →</button>
+      </div>
+      <p class="muted">疊色檢查：洋紅＝這張和主圖不一樣的地方，應該只在該改的位置；整隻都洋紅＝身體被重畫了。<br>空白鍵按住＝暫時看主圖。</p>
+    </div>
+  </aside>
+</main>
+<script>
+let items = [], cur = 0, view = 'img';
+const $ = id => document.getElementById(id);
+const statusOf = it => it.review ? it.review.status : 'todo';
+
+function list() {
+  const f = $('filter').value, b = $('batch').value;
+  return items.filter(it => (f === 'all' || statusOf(it) === f) && (!b || String(it.batch) === b));
+}
+
+function render() {
+  const L = list();
+  const done = items.filter(it => it.review).length, rej = items.filter(it => statusOf(it) === 'reject').length;
+  $('progress').textContent = `已審 ${done} / ${items.length}（退回 ${rej}）`;
+  if (!L.length) {
+    $('img').removeAttribute('src');
+    $('info').innerHTML = '<div class="name">這個篩選沒有圖了</div><p class="muted">改「顯示」看其他狀態。</p>';
+    return;
+  }
+  cur = Math.min(Math.max(cur, 0), L.length - 1);
+  const it = L[cur], st = statusOf(it);
+  if (view === 'check' && !it.check) view = 'img';
+  document.querySelectorAll('[data-view]').forEach(b => {
+    b.classList.toggle('on', b.dataset.view === view);
+    b.disabled = b.dataset.view === 'check' && !it.check;
+  });
+  $('img').src = it[view];
+  $('note').value = it.review ? it.review.note : '';
+  $('info').innerHTML = `
+    <div class="muted">${cur + 1} / ${L.length}　批次 ${it.batch}</div>
+    <div class="name">${it.name}</div>
+    <div>${it.label} <span class="muted">${it.key}</span></div>
+    <div style="margin-top:6px"><span class="tag ${st}">${{todo: '未審', pass: '通過', reject: '退回'}[st]}</span></div>
+    ${it.align ? `<div class="muted" style="margin-top:6px">對齊：${it.align}</div>` : ''}
+    ${it.prev ? `<div class="warn" style="margin-top:6px">上一版退回原因：${it.prev}</div>` : ''}`;
+}
+
+async function decide(status) {
+  const L = list(); if (!L.length) return;
+  const it = L[cur], note = $('note').value.trim();
+  if (status === 'reject' && !note && !confirm('沒有寫退回原因，重產時 GPT 不知道要改什麼。還是要退回嗎？')) return;
+  await fetch('/api/review', { method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ key: it.key, status, note, ver: it.ver }) });
+  it.review = { status, note, ver: it.ver };
+  if (list().includes(it)) cur++;   // 還在篩選裡才往下；被篩掉時同一個位置就是下一張
+  render();
+}
+
+$('pass').onclick = () => decide('pass');
+$('reject').onclick = () => decide('reject');
+$('prev').onclick = () => { cur--; render(); };
+$('next').onclick = () => { cur++; render(); };
+$('filter').onchange = $('batch').onchange = () => { cur = 0; render(); };
+document.querySelectorAll('[data-bg]').forEach(b => b.onclick = () => {
+  $('stage').className = 'stage ' + b.dataset.bg;
+  document.querySelectorAll('[data-bg]').forEach(x => x.classList.toggle('on', x === b));
+});
+document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { view = b.dataset.view; render(); });
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'TEXTAREA') { if (e.key === 'Enter' && e.ctrlKey) decide('reject'); return; }
+  const k = e.key.toLowerCase();
+  if (k === 'p') decide('pass');
+  else if (k === 'r') $('note').focus();
+  else if (k === 'arrowright') { cur++; render(); }
+  else if (k === 'arrowleft') { cur--; render(); }
+  else if (k === ' ' && !e.repeat) { e.preventDefault(); const L = list(); if (L.length) $('img').src = L[cur].master; }
+});
+document.addEventListener('keyup', e => { if (e.key === ' ' && e.target.tagName !== 'TEXTAREA') render(); });
+
+fetch('/api/items').then(r => r.json()).then(data => {
+  items = data;
+  [...new Set(items.map(it => it.batch))].sort().forEach(b => $('batch').add(new Option('批次 ' + b, b)));
+  render();
+});
+</script>
+</body>
+</html>

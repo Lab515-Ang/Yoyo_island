@@ -26,6 +26,12 @@
         "--strictPort"
       ],
       "port": 4173
+    },
+    {
+      "name": "animal-review",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-I", "tools/animal-batch/batch.py", "serve", "--port", "8765"],
+      "port": 8765
     }
   ]
 }

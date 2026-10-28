@@ -8,6 +8,9 @@
   python -I tools/animal-batch/batch.py normalize --batch 1               # 審過後：<代號>-2_1024.png、<代號>-2.png（512）
   python -I tools/animal-batch/batch.py peels --batch 1 [--only e1,eye]   # 剝層圖＋自動對齊 → <代號>/peels/<代號>/reg_*.png
   python -I tools/animal-batch/batch.py sheet --batch 1 --peels           # 剝層圖總表（洋紅＝有改變的範圍）
+  python -I tools/animal-batch/batch.py serve                             # 審圖網頁 http://localhost:8765/（結果存 .forge/animals/review.json）
+  python -I tools/animal-batch/batch.py redo [--route ...]                # 網頁上退回的圖，帶退回原因重產
+  python -I tools/animal-batch/batch.py pack --batch 1                    # 打包 .forge/animals/export/*.zip（含 manifest.json、README.md）
 
 輸出：.forge/animals/<代號>/master/generated.png（重產時舊的移到 master-1、master-2…）。
 物種照片（只管解剖與毛色）放 .forge/animals/<代號>/refs/，有就自動帶上。
@@ -321,9 +324,170 @@ def sheet(rows, path):
     page.save(path)
 
 
+# ---------- 審圖網頁、退回重產、打包 ----------
+CODE_NAME = {'master': '主圖', 'e1': 'E1 拿掉近側腿', 'e3': 'E3 拿掉頭', 'e4': 'E4 拿掉耳朵', 'eye': 'E5 閉眼',
+             'look': 'E7 頭轉向鏡頭', 'wing': '拿掉近側翅膀', 'bhead': '拿掉頭', 'bleg': '拿掉近側腳', 'tuft': '拿掉耳羽',
+             'fly': '飛行姿勢'}
+DONE_FILE = {('leopard_cat', c): ROOT / f'.forge/rive-test/rig/{e}_aligned.png'
+             for c, e in (('e1', 'e1'), ('e3', 'e3'), ('e4', 'e4'), ('eye', 'e5'))}
+REVIEW = OUT / 'review.json'
+
+
+def ver(f):
+    return str(f.stat().st_mtime_ns)  # 重產後檔案變了，舊的審核結果就不算
+
+
+def load_review():
+    return json.loads(REVIEW.read_text(encoding='utf-8')) if REVIEW.exists() else {}
+
+
+def collect(rows):
+    """所有已產的圖。done＝石虎以前就完成、不用再審的剝層圖。"""
+    out = []
+    for a in rows:
+        base = OUT / a['id']
+        if a['id'] not in SKIP and (base / 'master/generated.png').exists():
+            out.append({'key': f"{a['id']}/master", 'a': a, 'code': 'master', 'file': base / 'master/generated.png', 'dir': base / 'master'})
+        for c in PEELS[a['shape_id']]:
+            d = base / 'peels' / c
+            f = DONE_FILE.get((a['id'], c)) or d / ('generated.png' if c == 'fly' else 'reg_aligned.png')
+            if f.exists():
+                out.append({'key': f"{a['id']}/{c}", 'a': a, 'code': c, 'file': f, 'dir': d, 'done': (a['id'], c) in DONE_FILE})
+    return out
+
+
+def api_items():
+    forge, rv, out = ROOT / '.forge', load_review(), []
+    url = lambda f: f'/{f.relative_to(forge).as_posix()}?v={ver(f)}'
+    for it in collect(art_data.animals()):
+        if it.get('done'):
+            continue
+        a, f, r = it['a'], it['file'], rv.get(it['key'])
+        check, align_txt = it['dir'] / 'reg_check.png', it['dir'] / 'align.txt'
+        out.append({
+            'key': it['key'], 'name': a['name'], 'id': a['id'], 'batch': a['batch'], 'label': CODE_NAME[it['code']],
+            'img': url(f), 'master': url(MASTER.get(a['id'], OUT / a['id'] / 'master/generated.png')),
+            'check': url(check) if check.exists() else None,
+            'align': align_txt.read_text(encoding='utf-8') if align_txt.exists() else '',
+            'ver': ver(f), 'review': r if r and r['ver'] == ver(f) else None,
+            'prev': r['note'] if r and r['ver'] != ver(f) and r['status'] == 'reject' else '',
+        })
+    return out
+
+
+def serve(port):
+    from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+    page = pathlib.Path(__file__).with_name('review.html')
+
+    class H(SimpleHTTPRequestHandler):
+        def __init__(s, *a, **k):
+            super().__init__(*a, directory=str(ROOT / '.forge'), **k)
+
+        def reply(s, data, ctype):
+            s.send_response(200)
+            s.send_header('Content-Type', ctype)
+            s.send_header('Content-Length', str(len(data)))
+            s.end_headers()
+            s.wfile.write(data)
+
+        def do_GET(s):
+            if s.path in ('/', '/review.html'):
+                return s.reply(page.read_bytes(), 'text/html; charset=utf-8')
+            if s.path == '/api/items':
+                return s.reply(json.dumps(api_items(), ensure_ascii=False).encode('utf-8'), 'application/json; charset=utf-8')
+            super().do_GET()
+
+        def do_POST(s):
+            body = json.loads(s.rfile.read(int(s.headers['Content-Length'])))
+            rv = load_review()
+            rv[body['key']] = {'status': body['status'], 'note': body.get('note', ''), 'ver': body['ver']}
+            REVIEW.write_text(json.dumps(rv, ensure_ascii=False, indent=1), encoding='utf-8')
+            s.reply(b'{}', 'application/json')
+
+        def log_message(s, *a):
+            pass
+
+    print(f'審圖網頁：http://localhost:{port}/', flush=True)
+    ThreadingHTTPServer(('127.0.0.1', port), H).serve_forever()
+
+
+def redo_rejected(rows, args):
+    """審圖網頁退回的圖，帶著退回原因重產（只重產目前這一版被退的）。"""
+    rv = load_review()
+    todo = [it for it in collect(rows) if not it.get('done') and rv.get(it['key'], {}).get('status') == 'reject'
+            and rv[it['key']]['ver'] == ver(it['file'])]
+
+    def one(it):
+        sub = argparse.Namespace(**{**vars(args), 'redo': True, 'note': rv[it['key']]['note']})
+        if it['code'] == 'master':
+            res = gen_master(it['a'], sub)[1] + f"（主圖換了，剝層圖要重做：peels --ids {it['a']['id']} --redo）"
+        else:
+            res = gen_peel(it['a'], it['code'], sub)[1]
+        return it['key'], res
+
+    with ThreadPoolExecutor(1 if args.route == 'codex-cli' else args.jobs) as ex:
+        for key, res in ex.map(one, todo):
+            print(key, res, flush=True)
+    if not todo:
+        print('沒有被退回的圖')
+
+
+PACK_README = """# 棲光小島｜動物圖包
+
+給「動物動態（網格骨架）」流程用。規範：專案 docs/規格-動物動態網格.md。
+
+每隻一個資料夾：
+- `<代號>-master.png`：主圖（正側面朝右、白底）。**所有部件的唯一像素來源**，剝層圖都是對它做的、已對齊到它。
+- `<代號>-2_1024.png`／`<代號>-2.png`：標準化後的靜態圖（1024 製作主圖／App 用 512 透明、腳底 y=472）。不要拿來切部件。
+- `peels/<代號>-<剝層>.png`：剝層圖（已用 register.py 對齊、校色）。飛行姿勢不是編輯圖，沒有對齊。
+
+剝層代號：e1＝E1 拿掉近側腿、e3＝E3 拿掉頭、e4＝E4 拿掉耳朵、eye＝E5 閉眼、look＝E7 頭轉向鏡頭、wing＝拿掉近側翅膀、
+bhead＝鳥拿掉頭、bleg＝拿掉近側腳、tuft＝拿掉耳羽、fly＝飛行姿勢。
+
+manifest.json 記每張圖的審核狀態（pass 通過／reject 退回／unreviewed 未審／done 以前就完成）與對齊結果；
+reject、unreviewed 的圖先不要用。
+"""
+
+
+def pack(rows, tag):
+    import datetime
+    import zipfile
+    rv, items = load_review(), collect(rows)
+    (OUT / 'export').mkdir(exist_ok=True)
+    path = OUT / 'export' / f"qiguang-animals-{tag}-{datetime.date.today():%Y%m%d}.zip"
+    manifest = []
+    with zipfile.ZipFile(path, 'w', zipfile.ZIP_STORED) as z:  # PNG 已壓縮
+        for a in rows:
+            aid, files = a['id'], []
+            master = MASTER.get(aid, OUT / aid / 'master/generated.png')
+            for src, name in ((master, f'{aid}-master.png'), (OUT / aid / f'{aid}-2_1024.png', f'{aid}-2_1024.png'),
+                              (OUT / aid / f'{aid}-2.png', f'{aid}-2.png')):
+                if src.exists():
+                    z.write(src, f'{aid}/{name}')
+                    files.append({'file': name, 'code': 'master' if name.endswith('master.png') else 'normalized'})
+            for it in (i for i in items if i['a']['id'] == aid and i['code'] != 'master'):
+                r = rv.get(it['key'])
+                status = 'done' if it.get('done') else (r['status'] if r and r['ver'] == ver(it['file']) else 'unreviewed')
+                align_txt = it['dir'] / 'align.txt'
+                name = f"peels/{aid}-{it['code']}.png"
+                z.write(it['file'], f'{aid}/{name}')
+                files.append({'file': name, 'code': it['code'], 'label': CODE_NAME[it['code']], 'status': status,
+                              'align': align_txt.read_text(encoding='utf-8') if align_txt.exists() else ''})
+            r = rv.get(f'{aid}/master')
+            mstatus = 'done' if aid in SKIP else (r['status'] if r and master.exists() and r['ver'] == ver(master) else 'unreviewed')
+            manifest.append({'id': aid, 'name': a['name'], 'shape': a['shape_id'], 'batch': a['batch'],
+                             'master_status': mstatus, 'missing': [c for c in PEELS[a['shape_id']]
+                                                                   if not any(f.get('code') == c for f in files)],
+                             'files': files})
+        z.writestr('manifest.json', json.dumps(manifest, ensure_ascii=False, indent=1))
+        z.writestr('README.md', PACK_README)
+    return path
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('cmd', choices=['masters', 'sheet', 'normalize', 'peels', 'align'])
+    ap.add_argument('cmd', choices=['masters', 'sheet', 'normalize', 'peels', 'align', 'serve', 'redo', 'pack'])
+    ap.add_argument('--port', type=int, default=8765)
     ap.add_argument('--peels', action='store_true', help='sheet：改出剝層圖總表')
     ap.add_argument('--only', help='peels：只做這些代號（逗號分隔，例如 e1,eye）')
     ap.add_argument('--batch', type=int)
@@ -353,6 +517,12 @@ def main():
         with ThreadPoolExecutor(jobs) as ex:
             for name, res in ex.map(lambda t: gen_peel(*t, args), todo):
                 print(name, res, flush=True)
+    elif args.cmd == 'serve':
+        serve(args.port)
+    elif args.cmd == 'redo':
+        redo_rejected(rows, args)
+    elif args.cmd == 'pack':
+        print(pack(rows, 'batch' + str(args.batch) if args.batch else 'all'))
     elif args.cmd == 'align':  # 改了 register.py 之後，已產的剝層圖重新對齊
         for a in rows:
             master = MASTER.get(a['id'], OUT / a['id'] / 'master/generated.png')
