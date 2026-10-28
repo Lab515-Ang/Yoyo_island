@@ -2,7 +2,7 @@
 :root {
   /* 深綠場景底（大廳、我的歷程、觀察圖鑑、好友、專注紀錄上半部共用：改這裡就全部連動） */
   --scene-top: #4f7e66;
-  --scene-glass: rgba(79, 126, 102, 0.9);
+  --scene-glass: rgba(79, 126, 102, 0.97);
   --scene-bg:
     radial-gradient(ellipse 90% 55% at 50% 42%, rgba(156, 207, 160, 0.28), transparent 70%),
     linear-gradient(180deg, var(--scene-top) 0%, #3f6b53 45%, #2c4d3c 100%);
@@ -356,9 +356,7 @@ legend {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: rgba(251, 246, 236, 0.92);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(251, 246, 236, 0.97); /* 不用背景模糊：捲動時每一格都要重算模糊，耗電 */
 }
 .mode-demo .topbar {
   top: 44px;
@@ -6324,6 +6322,12 @@ label.toggle input.switch::after {
   }
 }
 /* 按下開始專注（時間 = LEAVE_MS）：上下的東西淡出，圓圈先縮一下再放大淡掉，像走進森林 */
+/* 淡出中、選單滑下去時不能再點（不然會在換畫面前又開別的東西） */
+.lobby.leaving,
+.shell:has(.lobby.leaving),
+.modal.closing {
+  pointer-events: none;
+}
 .lobby.leaving > :not(.lobby-target),
 .lobby.leaving .next-step {
   animation: lobby-out 0.35s ease both;
@@ -6380,7 +6384,17 @@ label.toggle input.switch::after {
   z-index: 60;
   background: #2c4d3c;
   pointer-events: none;
+  opacity: 0; /* 動畫被關掉（減少動態效果）時不能整片蓋住畫面 */
   animation: veil-out 0.7s 0.05s ease both;
+}
+/* 上一個畫面沒有先淡出（例如倒數自然結束）：只淡淡地蓋一下 */
+.veil.soft {
+  animation: veil-dip 0.8s ease both;
+}
+@keyframes veil-dip {
+  35% {
+    opacity: 0.55;
+  }
 }
 @keyframes veil-out {
   from {
@@ -6928,5 +6942,10 @@ label.toggle input.switch::after {
 }
 /* 小島插畫：網格動物自己會呼吸，不用整張上下晃 */
 .forest-animal.meshed {
+  animation: none;
+}
+
+/* App 的「低動態效果」：後來加的動畫也一起停（系統的「減少動態效果」由前面的全域規則處理） */
+.app.calm :is(.scope-sway, .scope-gait, .scope-eyes i, .chest, .chest-tap .chest, .chest-burst::before, .gi-page, .gi-reply, .gi-ask b, .gi-spark, .gi-feed-roll, .gi-shield, .gi-pet > :last-child, .gi-pop, .sidenav.open > *, .nav-scrim, .chest-reward > *, .lobby .ring-art, .focus-bg img, .focus > *, .screen-in > .result > *, .growth-bar, .growth-track, .growth-track i, .growth-track::after, .growth-bar em, .quest-bar i, .bar span, .starter-list > li, .focus-line) {
   animation: none;
 }

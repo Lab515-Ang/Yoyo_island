@@ -5,7 +5,8 @@
 //   perch 一般鳥類：遠處飛，後來停到倒木上
 //   soar  猛禽：天空盤旋，越飛越低，最後降落
 //   eyes  貓頭鷹：夜裡先看到一對發光的眼睛，後來停到倒木上、慢慢看清楚
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useSave } from '../app/store';
 import pano from '../assets/scenes/focus-done.webp'; // 原型：先用白天山景當全景（夜晚用調色暫代）
 import { animalDef } from '../content/config';
 import { AnimalArt } from './Animal';
@@ -75,7 +76,10 @@ function Log() {
 /** 動物在全景上佔的半寬（％）；飛的會左右來回，範圍比較大。 */
 const margin = (q: Pos) => ACTOR_W * q.s * (q.look === 'flying' ? 2 : 0.6);
 
-export function Scope({ id, stage, progress, paused, seed }: { id: string | undefined; stage: number; progress: number; paused: boolean; seed: string }) {
+// memo：專注畫面每秒更新時間，望遠鏡的參數沒變就不用重畫
+export const Scope = memo(function Scope({ id, stage, progress, paused, seed }: { id: string | undefined; stage: number; progress: number; paused: boolean; seed: string }) {
+  // 減少動態：系統設定或 App 的「低動態效果」都算
+  const calm = useSave().save.settings.reducedMotion || matchMedia('(prefers-reduced-motion: reduce)').matches;
   const pan = useRef<HTMLDivElement>(null);
   const look = useRef<HTMLDivElement>(null);
   const p = Math.max(0, Math.min(1, progress));
@@ -99,7 +103,7 @@ export function Scope({ id, stage, progress, paused, seed }: { id: string | unde
     // 往左看、停一下、掃到右邊、停一下、回到附近、再往左
     const pts = [-1, -1, 0.35, 1, 1, -0.2, -1];
     const offset = [0, 0.14, 0.32, 0.5, 0.64, 0.82, 1];
-    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduce = calm;
     if (reduce || amp < 1) {
       el.style.transform = `translateX(${clamp(center)}px)`;
       return;
@@ -119,12 +123,12 @@ export function Scope({ id, stage, progress, paused, seed }: { id: string | unde
       if (paused) a.pause();
     }
     return () => anims.forEach((a) => a.cancel());
-  }, [p, paused]);
+  }, [p, paused, calm]);
 
   // 換位置：舊的和新的位置都在鏡片外面時才換，玩家就不會看到牠「瞬移」；時間到直接走到正前方
   useEffect(() => {
     if (shown === want) return;
-    if (want === STEP_AT.length - 1 || want < shown || matchMedia('(prefers-reduced-motion: reduce)').matches) return setShown(want);
+    if (want === STEP_AT.length - 1 || want < shown || calm) return setShown(want);
     const check = () => {
       const el = pan.current;
       if (!el) return;
@@ -197,4 +201,4 @@ export function Scope({ id, stage, progress, paused, seed }: { id: string | unde
       </div>
     </div>
   );
-}
+});

@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useGame, useSave } from './app/store';
+import { useGame, useNow, useSave } from './app/store';
 import { APP_NAME, COPY, avatarEmoji } from './content/config';
 import { applyFocusRewards, closeSession, coins, gems, openSession, putSession, settleOpenSessions } from './domain/game';
 import * as storage from './data/storage';
-import { applyDeepFocus, dueAt, wakeAt } from './domain/focus';
+import { applyDeepFocus, wakeAt, watchWindow } from './domain/focus';
 import { notifyEnd, playChime } from './sound';
 import { TimeGuard, buzz, isAndroid, isNative, minimizeApp, onBack, onGuard, onPause, onResume, type GuardApp } from './platform';
 import type { HabitatId } from './domain/types';
@@ -26,7 +26,7 @@ import { Together } from './pages/Together';
 import { SettingsPage } from './pages/Settings';
 import { Shop } from './pages/Shop';
 import { GuardPage, GuardScreen } from './pages/Guard';
-import { Coin, Gem, Modal } from './components/ui';
+import { Coin, Gem, Modal, fadedOut } from './components/ui';
 import { Tour } from './components/Tour';
 import { hasReward } from './domain/quests';
 import { BarChart3, Bell, BookOpen, Home, ListChecks, Medal, Menu, Music, PawPrint, Settings as SettingsIcon, ShieldCheck, ShoppingBag, Trees, Users, type LucideIcon } from 'lucide-react';
@@ -128,7 +128,10 @@ function Main() {
   const [summaryId, setSummaryId] = useState<string | null>(null);
   const [resting, setResting] = useState(false);
   const [recordsTag, setRecordsTag] = useState<string | null>(null);
-  const reward = useMemo(() => hasReward(save, Date.now()), [save]); // 有寶箱可以開：選單上的小紅點
+  // 每個整點重算一次（過了一天的開始，新的每日挑戰也要亮紅點）；整個 App 一小時才重繪一次
+  const hourTick = useNow(3_600_000);
+  const reward = useMemo(() => hasReward(save, Date.now()), [save, hourTick]); // eslint-disable-line react-hooks/exhaustive-deps
+  // ↑ 有寶箱可以開：選單上的小紅點
   const achieved = useMemo(() => achievementReady(save), [save]); // 有成就可以領
   const [askNps, setAskNps] = useState(false);
   const [navOpen, setNavOpen] = useState(false); // 手機：抽屜
@@ -150,7 +153,8 @@ function Main() {
   // 回到前景或快結束時先套用這些事，確認過了才結算，避免離開太久還被算成完成
   const deepChecked = useRef(0);
   const deepChecking = useRef(false);
-  const deepWatched = !!open && open.deep === true && open.status === 'running' && isAndroid;
+  // 玩家按的暫停也要看守（暫停時離開、自動繼續後還在外面就算離開），所以看 watchWindow，不只看進行中
+  const deepWatched = !!open && open.deep === true && isAndroid && watchWindow(open) !== null;
   const syncDeep = async () => {
     if (deepChecking.current) return;
     deepChecking.current = true;
@@ -190,8 +194,8 @@ function Main() {
   const [wake, setWake] = useState(0);
   useEffect(() => {
     if (deepWatched && open) {
-      const due = dueAt(open);
-      // 該結算了但還沒確認過背景期間的事：先確認
+      const due = wakeAt(open);
+      // 該結算了（倒數歸零或暫停自動繼續）但還沒確認過背景期間的事：先確認
       if (due !== null && Date.now() >= due && deepChecked.current < due) return void syncDeep();
     }
     const r = settleOpenSessions(save, Date.now());
@@ -252,6 +256,7 @@ function Main() {
   const backRef = useRef(() => {});
   backRef.current = () => {
     if (guardApp) return; // 攔截畫面要等倒數，不能用返回鍵跳過
+    if (fadedOut.current) return; // 正在淡出、準備換畫面（例如剛按開始專注）：不要把 App 收到背景
     const dialog = [...document.querySelectorAll<HTMLDialogElement>('dialog[open]')].pop(); // 最上層的那個
     if (dialog) return void dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
     const inner = document.querySelector<HTMLElement>('[data-back]'); // 畫面裡自己的「返回」（例如筆記編輯器）
@@ -305,10 +310,12 @@ function Main() {
   // 搭配大廳、專注畫面離開前的淡出，就不會硬切。用 layout effect：新畫面畫出來之前就蓋上
   const screen = open ? 'focus' : resting ? 'rest' : summaryId ? 'summary' : 'shell';
   const lastScreen = useRef(screen);
-  const [veil, setVeil] = useState(0);
+  const [veil, setVeil] = useState({ n: 0, soft: false });
   useLayoutEffect(() => {
     if (lastScreen.current === screen) return;
-    if (screen === 'focus' || lastScreen.current === 'focus') setVeil((v) => v + 1);
+    // 上一個畫面有先淡出到深綠：從深綠淡出；沒有（倒數自然結束、深度專注判定放棄）：只淡淡地蓋一下
+    if (screen === 'focus' || lastScreen.current === 'focus') setVeil((v) => ({ n: v.n + 1, soft: !fadedOut.current }));
+    fadedOut.current = false;
     lastScreen.current = screen;
   }, [screen]);
 
@@ -432,7 +439,7 @@ function Main() {
       <div className="screen-in" key={screen}>
         {body}
       </div>
-      {veil > 0 && <div key={veil} className="veil" aria-hidden="true" />}
+      {veil.n > 0 && <div key={veil.n} className={veil.soft ? 'veil soft' : 'veil'} aria-hidden="true" />}
       {guardApp && <GuardScreen key={guardApp.at} app={guardApp} onClose={() => setGuardApp(null)} />}
       {toast && (
         <div className="toast" role="status">

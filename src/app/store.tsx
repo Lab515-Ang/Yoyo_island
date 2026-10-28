@@ -141,10 +141,16 @@ export function useNow(interval = 1000, active = true) {
   useEffect(() => {
     if (!active) return;
     const tick = () => setNow(Date.now());
-    const id = window.setInterval(tick, interval);
+    // 對齊整秒／整分鐘跳（倒數的秒數剛好在整秒換，不用為了不漏秒而一秒更新好幾次）
+    let id = 0;
+    const loop = () => {
+      tick();
+      id = window.setTimeout(loop, interval - (Date.now() % interval) + 5);
+    };
+    id = window.setTimeout(loop, interval - (Date.now() % interval) + 5);
     document.addEventListener('visibilitychange', tick);
     return () => {
-      clearInterval(id);
+      clearTimeout(id);
       document.removeEventListener('visibilitychange', tick);
     };
   }, [interval, active]);

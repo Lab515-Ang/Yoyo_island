@@ -10,6 +10,8 @@ import { X } from 'lucide-react';
 // 轉場時間（和 styles.css 的動畫一致）：底部選單滑下去、進出專注畫面的淡出
 export const SHEET_OUT_MS = 220;
 export const LEAVE_MS = 420;
+/** 上一個畫面有沒有先淡出到深綠（大廳按開始、專注畫面結束時設成 true）；沒有的話換畫面時用比較淡的轉場，不要突然整片變綠。 */
+export const fadedOut = { current: false };
 
 export const Coin = () => <span className="coin" aria-hidden="true" />;
 /** CSS 畫的寶石（六角形）。 */
@@ -20,20 +22,23 @@ export function Modal({ title, onClose, children, className, closing }: { title:
   const ref = useRef<HTMLDialogElement>(null);
   // 關掉時先播滑下去的動畫，播完才真的關（不要硬切）
   const [leaving, setLeaving] = useState(false);
+  const timer = useRef(0);
   const dismiss = () => {
     if (leaving) return;
     setLeaving(true);
-    window.setTimeout(onClose, SHEET_OUT_MS);
+    timer.current = window.setTimeout(onClose, SHEET_OUT_MS);
   };
   const cls = ['modal', className, (leaving || closing) && 'closing'].filter(Boolean).join(' ');
   useEffect(() => {
     const d = ref.current!;
     if (!d.open) d.showModal();
-    return () => d.close();
+    // 要直接打字的欄位（標題、暱稱、邀請碼）：開好之後才聚焦，手機鍵盤才會跳出來（autoFocus 在打開前就跑了，沒有用）
+    d.querySelector<HTMLElement>('[data-autofocus]')?.focus();
+    return () => (d.close(), clearTimeout(timer.current));
   }, []);
   return (
     <dialog ref={ref} className={cls} onCancel={(e) => e.target === e.currentTarget && (e.preventDefault(), dismiss())} onClose={(e) => e.target === e.currentTarget && !ref.current?.open && onClose()} onClick={(e) => e.target === ref.current && dismiss()}>
-      <div className="modal-body">
+      <div className="modal-body" inert={leaving || closing ? true : undefined}>
         <header className="modal-head">
           {/* 打開時焦點放在標題（讀屏先唸標題），不要讓關閉按鈕一打開就亮起焦點框 */}
           <h2 tabIndex={-1} autoFocus style={{ outline: 'none' }}>

@@ -128,7 +128,7 @@ function InviteCard() {
               setEntering(false);
             }}
           >
-            <input value={code} onChange={(e) => setCode(e.target.value.replace(/[^0-9a-z]/gi, '').slice(0, 8))} placeholder="例：K3F9Q2MA" aria-label="邀請碼" autoFocus />
+            <input value={code} onChange={(e) => setCode(e.target.value.replace(/[^0-9a-z]/gi, '').slice(0, 8))} placeholder="例：K3F9Q2MA" aria-label="邀請碼" data-autofocus />
             <button className="primary wide" type="submit" disabled={code.length < 8}>
               確認
             </button>

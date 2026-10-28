@@ -11,7 +11,7 @@ const clock = (ms: number) => {
 export function Break({ onDone }: { onDone: () => void }) {
   const { save } = useSave();
   const [endsAt, setEndsAt] = useState(() => Date.now() + 5 * 60000);
-  const now = useNow(250);
+  const now = useNow(1000);
   const left = Math.max(0, endsAt - now);
   const rang = useRef(false);
 

@@ -133,11 +133,16 @@ export function applyDeepFocus(s: FocusSession, ev: { calls: [number, number][];
   // 放棄之後才發生的通話不算（不然會把放棄後的時間也算進專注）
   const fail = ev.failedAt ?? Infinity;
   for (const [a, b] of [...ev.calls].filter(([a]) => a < fail).sort((x, y) => x[0] - y[0])) {
-    if (s.status !== 'running') break;
+    s = settle(s, a); // 玩家按的暫停在通話前就該自動繼續了：先套用
+    if (!isOpen(s)) break;
+    if (s.status !== 'running') continue; // 通話時本來就在暫停：不用再停
     s = pause(s, a);
     s = resume(s, Math.min(b, fail));
   }
-  if (ev.callStart && ev.callStart < fail && s.status === 'running') s = pause(s, ev.callStart);
+  if (ev.callStart && ev.callStart < fail) {
+    s = settle(s, ev.callStart);
+    if (s.status === 'running') s = pause(s, ev.callStart);
+  }
   if (ev.failedAt && isOpen(s)) s = finish(s, ev.failedAt, 'abandoned');
   return s;
 }

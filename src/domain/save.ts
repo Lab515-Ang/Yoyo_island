@@ -188,6 +188,8 @@ export function validateSave(input: unknown, now = Date.now()): Validation {
     return fail('時區設定無效。');
   }
 
+  // 2020～2100 年之間的日期才算合理
+  const okTime = (v: unknown) => isStr(v) && Date.parse(v) > Date.UTC(2020, 0, 1) && Date.parse(v) < Date.UTC(2100, 0, 1);
   const sessions = new Map(save.sessions.map((s) => [s.id, s]));
   if (sessions.size !== save.sessions.length) return fail('專注紀錄重複。');
   let open = 0;
@@ -196,6 +198,11 @@ export function validateSave(input: unknown, now = Date.now()): Validation {
     if (typeof s.accumulatedMs !== 'number' || s.accumulatedMs < 0 || !HABITAT_IDS.includes(s.habitatId)) return fail('專注紀錄數值不正確。');
     if (s.animalId !== undefined && !isStr(s.animalId)) return fail('專注紀錄的動物不正確。');
     if (s.deep !== undefined && typeof s.deep !== 'boolean') return fail('專注紀錄的深度專注設定不正確。');
+    // 時間要是合理的日期（壞掉或被改過的檔案：年份 9999 會讓每日統計跑幾百萬天、無效日期會讓畫面當掉）
+    if (!okTime(s.startedAt) || ((s.status === 'completed' || s.status === 'abandoned') && !okTime(s.endedAt))) return fail('專注紀錄的時間不正確。');
+    for (const g of s.segments as unknown[]) {
+      if (!isObj(g) || !okTime(g.startedAt) || (g.endedAt != null && (!okTime(g.endedAt) || Date.parse(g.endedAt as string) < Date.parse(g.startedAt as string)))) return fail('專注紀錄的時間不正確。');
+    }
     if (s.status === 'running' || s.status === 'paused') open++;
   }
   if (open > 1) return fail('存檔中有多個未結算的專注。');

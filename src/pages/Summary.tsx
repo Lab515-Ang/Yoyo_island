@@ -60,6 +60,8 @@ export function Summary({
   const [comforted, setComforted] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState<'first' | 'again' | null>(null);
+  // 遇見的瞬間：一進結算先播一段揭曉（畫面壓暗、剪影轉成彩色），點了才看結算內容（hook 要在下面的提早 return 之前）
+  const [reveal, setReveal] = useState(s?.status === 'completed');
   useEffect(() => {
     if (isAndroid) void postResult(save, sessionId);
   }, [sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -97,8 +99,6 @@ export function Summary({
   // 這次遇見時的族群成長（階段、成長值、是否長大了）
   const sight = sightings(save).get(s.id);
   const stage = sight?.stage ?? 2;
-  // 遇見的瞬間：一進結算先播一段揭曉（畫面壓暗、剪影轉成彩色），點了才看結算內容
-  const [reveal, setReveal] = useState(done);
   // 這段專注修好的工程，讓哪些動物可以去找了
   const newAnimals = out.projects.filter((p) => p.completed).flatMap((p) => animalsUnlockedBy(p.def.id));
 

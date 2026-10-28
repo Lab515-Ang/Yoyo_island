@@ -41,9 +41,10 @@ public class TimeGuardService extends Service {
     private static final String CHANNEL_FOCUS = "focusing";
     private static final int ID_SERVICE = 7001; // 不能用 1：倒數結束通知（LocalNotifications）用的是 1
     private static final int ID_FOCUS_END = 1;
-    private static final int ID_AWAY = 2;
-    private static final int ID_FAILED = 3;
-    private static final int ID_DONE = 4;
+    // 7000 起跳：2～4 會跟 App 的每日提醒（LocalNotifications id 2）互相蓋掉
+    private static final int ID_AWAY = 7002;
+    private static final int ID_FAILED = 7003;
+    private static final int ID_DONE = 7004;
     /** 背景服務（主執行緒）與外掛（bridge 執行緒）都會讀改寫看守狀態：同一把鎖。 */
     static final Object LOCK = new Object();
     /** 系統畫面：通知列、權限詢問視窗（不同手機的套件名稱不同）。 */
@@ -92,11 +93,32 @@ public class TimeGuardService extends Service {
         return (enabled(ctx) || watching(ctx)) && TimeGuardPlugin.hasUsageAccess(ctx);
     }
 
+    /** 最近 6 小時內最後一個進入前景的 App（讀不到就是 null）。 */
+    private String lastForeground() {
+        try {
+            long now = System.currentTimeMillis();
+            UsageEvents events = getSystemService(UsageStatsManager.class).queryEvents(now - 6 * 3600_000L, now);
+            UsageEvents.Event e = new UsageEvents.Event();
+            String last = null;
+            while (events.hasNextEvent()) {
+                events.getNextEvent(e);
+                if (e.getEventType() == UsageEvents.Event.MOVE_TO_FOREGROUND) last = e.getPackageName();
+            }
+            return last;
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
     /** 依設定啟動或停止服務（只能在 App 前景、開機廣播時呼叫）。 */
     static void sync(Context ctx) {
         Intent i = new Intent(ctx, TimeGuardService.class);
-        if (shouldRun(ctx)) ContextCompat.startForegroundService(ctx, i);
-        else ctx.stopService(i);
+        try {
+            if (shouldRun(ctx)) ContextCompat.startForegroundService(ctx, i);
+            else ctx.stopService(i);
+        } catch (IllegalStateException | SecurityException e) {
+            // Android 12 以上在背景不能啟動前景服務（例如 App 在背景時重新開始看守）：不要讓整個 App 當掉
+        }
     }
 
     @Override
@@ -109,6 +131,7 @@ public class TimeGuardService extends Service {
             // 低重要性：狀態列看得到鎖頭，但不響、不跳出
             nm.createNotificationChannel(new NotificationChannel(CHANNEL_FOCUS, "專注中", NotificationManager.IMPORTANCE_LOW));
         }
+        foreground = lastForeground(); // 服務重新建立時（開機、被系統重啟）先知道現在前景是誰，不要當成在小島裡
         shown = focusSignature();
         Notification n = serviceNotification(shown);
         if (Build.VERSION.SDK_INT >= 34) startForeground(ID_SERVICE, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
@@ -358,9 +381,15 @@ public class TimeGuardService extends Service {
         // 打開其他 App：直接叫回小島（Android 10 起要有「顯示在其他應用程式上層」權限才叫得動）
         boolean blocked = !home.contains(foreground) && android.provider.Settings.canDrawOverlays(this) && bringBack(now, foreground, appLabel(foreground), true);
         if (awayAt == 0) {
-            p.edit().putLong("awayAt", now).apply();
+            p.edit().putLong("awayAt", now).putBoolean("awayAlerted", !blocked).apply();
             if (!blocked) alert(ID_AWAY, "快回到棲光小島", (grace / 1000) + " 秒內回來，動物就不會被嚇跑。");
-        } else if (now - awayAt >= grace) {
+        } else if (now - awayAt < grace) {
+            // 叫回小島被系統默默擋下（有些手機不會報錯）：2 秒後還在外面，就補發一次提醒
+            if (now - awayAt >= 2000 && !p.getBoolean("awayAlerted", false)) {
+                p.edit().putBoolean("awayAlerted", true).apply();
+                alert(ID_AWAY, "快回到棲光小島", ((grace - (now - awayAt)) / 1000) + " 秒內回來，動物就不會被嚇跑。");
+            }
+        } else {
             // 從離開的那一刻算放棄
             p.edit().putLong("failedAt", awayAt).putBoolean("watchActive", false).apply();
             cancel(ID_AWAY);

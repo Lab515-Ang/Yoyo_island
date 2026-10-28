@@ -93,7 +93,9 @@ export function dailyPicks(save: SaveFile, now: number) {
   // 這一批開始（今天第一次或上次換一批）之前的紀錄：用來判斷「當時還沒擁有」
   const since = rs.length ? rs[rs.length - 1].createdAt : null;
   const tz = save.profile.timezone;
-  const before = { ...save, transactions: save.transactions.filter((t) => (since ? t.createdAt < since : localDateKey(Date.parse(t.createdAt), tz) < day)) };
+  // 超過 32 小時前的紀錄一定在今天之前（含一天從清晨開始的設定）：不用逐筆換算時區
+  const old = new Date(now - 32 * 3600_000).toISOString();
+  const before = { ...save, transactions: save.transactions.filter((t) => (since ? t.createdAt < since : t.createdAt < old || localDateKey(Date.parse(t.createdAt), tz) < day)) };
   // 每日精選只放動物（土地造型、環境音在「探索」分頁）
   const pool = shopItems(save).filter((it) => it.kind === 'animal' && !('iap' in it.price) && !owned(before, it));
   const r = rng(`${save.profile.id}:${day}:${rs.length}`);

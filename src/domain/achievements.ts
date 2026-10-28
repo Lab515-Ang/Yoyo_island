@@ -22,7 +22,14 @@ export interface AchievementDef {
 const done = (save: SaveFile) => endedSessions(save).filter((s) => s.status === 'completed');
 const minutes = (save: SaveFile) => Math.floor(endedSessions(save).reduce((t, s) => t + s.accumulatedMs, 0) / 60000);
 const longest = (save: SaveFile) => Math.max(0, ...done(save).map((s) => Math.floor(s.accumulatedMs / 60000)));
-const hourOf = (save: SaveFile, iso: string) => Number(localHourKey(Date.parse(iso), save.profile.timezone).slice(11));
+// 開始時間的「本地幾點」：每次算成就都要掃全部紀錄，時區換算很慢，記起來（同一段紀錄的開始時間不會變）
+const hours = new Map<string, number>();
+const hourOf = (save: SaveFile, iso: string) => {
+  const k = save.profile.timezone + iso;
+  let h = hours.get(k);
+  if (h === undefined) hours.set(k, (h = Number(localHourKey(Date.parse(iso), save.profile.timezone).slice(11))));
+  return h;
+};
 
 /** 最長連續幾天都有完成專注。 */
 function bestStreak(save: SaveFile) {

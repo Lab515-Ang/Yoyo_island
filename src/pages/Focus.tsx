@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useNow, useSave } from '../app/store';
 import { APP_NAME, MIN_FOCUS_MINUTES, PAUSE_MINUTES, SOUNDS, TEST_TOOLS, animalDef } from '../content/config';
-import { LEAVE_MS, Modal } from '../components/ui';
+import { LEAVE_MS, Modal, fadedOut } from '../components/ui';
 import { Scope } from '../components/Scope';
 import { completeNow, elapsedMs, finish, pause, rawElapsedMs, remainingMs, resume, targetReached, watchWindow } from '../domain/focus';
 import { applyFocusRewards, cancelSession, closeSession, focusSoundFor, graceLeftMs, growthOf, putSession } from '../domain/game';
@@ -28,7 +28,7 @@ const FIREFLIES: [number, number][] = [
 /** 專注中是獨立畫面：不彈出生物、工程或其他通知。 */
 export function Focus({ session, onFinished }: { session: FocusSession; onFinished: (id: string) => void }) {
   const { save, update, notify } = useSave();
-  const now = useNow(250);
+  const now = useNow(1000); // 對齊整秒更新（store 的 useNow）
   const [ending, setEnding] = useState(false);
   const [testing, setTesting] = useState(false);
   const countdown = session.mode === 'countdown';
@@ -54,6 +54,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   const leave = (commit: () => boolean) => {
     if (leaving) return;
     setLeaving(true);
+    fadedOut.current = true;
     window.setTimeout(() => commit() || setLeaving(false), LEAVE_MS);
   };
   const end = (status: 'completed' | 'abandoned') => {
@@ -159,17 +160,22 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   // 常駐通知（狀態列鎖頭）：倒數顯示剩下的時間，正向計時從已專注的時間往上數
   const watchText = `正在靠近${animalDef(session.animalId).name}・${session.tag}`;
   useEffect(() => {
-    if (!watchUntil) return;
+    // 沒有要看守（例如接電話的暫停）：停掉；有就開始或更新（不在每次參數變化時先停再開：
+    // 背景中重新 startForegroundService 在 Android 12 以上可能被系統擋下，看守就斷了）
+    if (!watchUntil) return void (isAndroid && TimeGuard.stopFocusWatch().catch(() => {}));
     const down = countdown && !session.extend;
     const chronoBase = down ? watchUntil : win!.since;
     void TimeGuard.startFocusWatch({ key: watchKey, endAt: watchUntil, graceMs: DEEP_GRACE_MS, allow: allow ? allow.split(',') : [], notifyEnd, doneTitle: `${APP_NAME}・專注完成`, doneText, title: '🔭 專注中', text: watchText, chronoBase, chronoDown: down, freeUntil: win!.freeUntil, progressFrom: countdown ? win!.since : 0, progressTo: countdown ? win!.since + (session.targetSeconds ?? 0) * 1000 : 0 });
-    return () => void TimeGuard.stopFocusWatch();
   }, [watchUntil, watchKey, allow, notifyEnd, doneText, watchText]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 離開專注畫面（完成、放棄、取消）才停止看守
+  useEffect(() => () => void (isAndroid && TimeGuard.stopFocusWatch().catch(() => {})), []);
 
   const cancel = () => {
     const t = Date.now();
     leave(() => {
-      const ok = !!update((s) => cancelSession(s, session.id, t));
+      const next = update((s) => cancelSession(s, session.id, t));
+      // 沒變化時 update 也會回傳存檔：確認這段真的被取消了（例如剛好倒數結束就不算取消）
+      const ok = !!next && !next.sessions.some((x) => x.id === session.id);
       if (ok) notify('已取消，這次不算數。');
       return ok;
     });

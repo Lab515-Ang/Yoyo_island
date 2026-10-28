@@ -233,7 +233,7 @@ export function Journey({ onBack }: { onBack?: () => void }) {
   return (
     <div className="page">
       {onBack && (
-        <button className="link back-link" onClick={onBack}>
+        <button className="link back-link" data-back onClick={onBack}>
           ‹ 專注紀錄
         </button>
       )}

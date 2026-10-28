@@ -22,7 +22,7 @@ export function RegionChip() {
   );
 }
 
-// 插畫地圖縮成 360 寬的座標（原圖 1816×866）；各區域在圖上的位置
+// 插畫地圖縮成 360 寬的座標（原圖 1816×866，App 裡的檔案縮成 1200 寬、比例相同）；各區域在圖上的位置
 const MAP_W = 360;
 const MAP_H = (866 / 1816) * MAP_W;
 const MAP_XY: Record<string, [number, number]> = { tw: [158, 80.3], jp: [175, 68.8] };

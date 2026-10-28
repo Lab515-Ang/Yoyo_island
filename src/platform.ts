@@ -225,16 +225,22 @@ let launchHandled = false;
 /** 背景服務把小島叫到前面時（qiguang://guard?pkg=…&label=…）呼叫 cb。回傳取消監聽的函式。 */
 export function onGuard(cb: (app: GuardApp) => void): () => void {
   if (!isAndroid) return () => undefined;
-  const handle = (url?: string) => {
+  const handle = async (url?: string) => {
     if (!url?.startsWith('qiguang://guard')) return;
     const q = new URL(url).searchParams;
     const pkg = q.get('pkg');
-    if (pkg) cb({ pkg, label: q.get('label') ?? pkg, focus: q.get('focus') === '1' });
+    if (!pkg) return;
+    const focus = q.get('focus') === '1';
+    // 其他 App 也能送這個網址：只有守護清單裡的 App、或深度專注看守中，才顯示攔截畫面（不然可以假造攔截、騙玩家「解鎖」別的 App）
+    const ok = focus
+      ? (await TimeGuard.focusWatchStatus().catch(() => null))?.active
+      : (await TimeGuard.getConfig().catch(() => null))?.config?.apps.some((a) => a.pkg === pkg);
+    if (ok) cb({ pkg, label: q.get('label') ?? pkg, focus });
   };
   if (!launchHandled) {
     launchHandled = true;
     void App.getLaunchUrl().then((r) => handle(r?.url));
   }
-  const listener = App.addListener('appUrlOpen', (e) => handle(e.url));
+  const listener = App.addListener('appUrlOpen', (e) => void handle(e.url));
   return () => void listener.then((h) => h.remove());
 }

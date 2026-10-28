@@ -1,9 +1,12 @@
 // 會動的動物（網格骨架）：分層貼圖切成三角網格，每個頂點照骨頭權重跟著骨頭變形，用 WebGL 畫。
 // 素材由 tools/animal-rig/ 產生（規範：docs/規格-動物動態網格.md），放在 src/assets/animals/mesh/<id>/：mesh.json＋各層 webp。
 // 版面跟 AnimalArt 一樣：方形框、地面在 92%，原本放 AnimalArt 的地方可以直接換成這個。
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSave } from '../app/store';
-import { prefersReducedMotion } from '../scenes/HabitatScene';
+import { AnimalArt } from './Animal';
+
+// 不從 HabitatScene 匯入（HabitatScene → Scene2D → 這裡，會變成循環匯入）
+const prefersReducedMotion = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const MESH_JSON = import.meta.glob('../assets/animals/mesh/*/mesh.json', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
 const MESH_IMG = import.meta.glob('../assets/animals/mesh/*/*.webp', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
@@ -19,7 +22,11 @@ type Pose = Record<string, number> & { blink?: number };
 
 const meshes = new Map<string, Promise<Mesh>>();
 const loadMesh = (id: string) => {
-  if (!meshes.has(id)) meshes.set(id, fetch(MESH_JSON[`${dir(id)}mesh.json`]).then((r) => r.json()));
+  if (!meshes.has(id)) {
+    const p = fetch(MESH_JSON[`${dir(id)}mesh.json`]).then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))));
+    p.catch(() => meshes.delete(id)); // 讀取失敗不要記住，下次再試
+    meshes.set(id, p);
+  }
   return meshes.get(id)!;
 };
 const loadImg = (src: string) =>
@@ -135,14 +142,21 @@ export function MeshAnimal({ id, stage = 2, walking = false, auto = true, smooth
   const opts = useRef({ walking, auto, smooth, paused: still });
   opts.current = { walking, auto, smooth, paused: still };
   const k = STAGE_SCALE[Math.max(0, Math.min(2, stage))];
+  // WebGL 不能用、被系統收回、素材讀不到：改用靜態圖，動物不會消失
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    if (failed) return;
     // 每次都建新的畫布：舊的那張在清理時把 WebGL 還掉了（lost），不能再拿來用（開發模式 StrictMode 會跑兩次）
     const cv = document.createElement('canvas');
     box.current!.append(cv);
     const gl = cv.getContext('webgl', { premultipliedAlpha: true, antialias: true, alpha: true });
-    if (!gl) return () => cv.remove();
-    let dead = false, raf = 0;
+    if (!gl) {
+      setFailed(true);
+      return () => cv.remove();
+    }
+    let dead = false, raf = 0, timer = 0;
+    cv.addEventListener('webglcontextlost', () => !dead && setFailed(true));
     const shader = (type: number, src: string) => {
       const s = gl.createShader(type)!;
       gl.shaderSource(s, src);
@@ -227,9 +241,15 @@ export function MeshAnimal({ id, stage = 2, walking = false, auto = true, smooth
         }
       };
 
+      // 定格感（每秒 8 格）用計時器、停住時每 0.5 秒看一次就好；只有 smooth 才每一格都跑（省電）
+      const schedule = () => {
+        const o = opts.current;
+        if (o.smooth && !o.paused) raf = requestAnimationFrame(frame);
+        else timer = window.setTimeout(() => frame(performance.now()), o.paused ? 500 : 125);
+      };
       const frame = (now: number) => {
         if (dead) return;
-        raf = requestAnimationFrame(frame);
+        schedule();
         const o = opts.current;
         const w = Math.round(cv.clientWidth * devicePixelRatio), h = Math.round(cv.clientHeight * devicePixelRatio);
         if (cv.width !== w || cv.height !== h) {
@@ -259,17 +279,19 @@ export function MeshAnimal({ id, stage = 2, walking = false, auto = true, smooth
           lastDrawn = t;
         }
       };
-      raf = requestAnimationFrame(frame);
-    })().catch(() => {});
+      frame(performance.now());
+    })().catch(() => !dead && setFailed(true));
 
     return () => {
       dead = true;
       cancelAnimationFrame(raf);
+      clearTimeout(timer);
       gl.getExtension('WEBGL_lose_context')?.loseContext(); // 馬上還掉 WebGL 資源（同時能開的數量有限）
       cv.remove();
     };
-  }, [id, k]);
+  }, [id, k, failed]);
 
+  if (failed) return <AnimalArt id={id} stage={stage} size="100%" />;
   return (
     <div className="mesh-animal" ref={box} aria-hidden="true">
       <svg viewBox="0 0 100 100" className="mesh-animal-shadow">

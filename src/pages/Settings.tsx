@@ -90,7 +90,7 @@ function SubPage({ title, onBack, children }: { title: string; onBack: () => voi
   return (
     <div className="page slide-in">
       <div className="sub-head">
-        <button className="icon-btn" onClick={onBack} aria-label="返回設定">
+        <button className="icon-btn" data-back onClick={onBack} aria-label="返回設定">
           <ChevronLeft size={22} aria-hidden="true" />
         </button>
         <h1>{title}</h1>
@@ -294,7 +294,7 @@ export function SettingsPage({ onSounds }: { onSounds?: () => void }) {
             >
               <label>
                 暱稱
-                <input value={nickname} onChange={(e) => setNickname(e.target.value)} maxLength={20} autoFocus />
+                <input value={nickname} onChange={(e) => setNickname(e.target.value)} maxLength={20} data-autofocus />
               </label>
               <label>
                 島名

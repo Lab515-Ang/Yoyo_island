@@ -186,9 +186,11 @@ function Overview({ tags: picked, onTags, onRecap, onJourney }: { tags: string[]
   const tags = [...new Set([...TAGS, ...save.settings.customTags, ...endedSessions(save).map((s) => s.tag)])].filter(Boolean);
 
   const dayKeys = endedDayKeys(save);
-  const shown = endedSessions(save)
-    .filter((s) => inTags(s.tag) && inRange(range, cursor, dayKeys.get(s.id)!))
-    .sort((a, b) => a.endedAt!.localeCompare(b.endedAt!));
+  // useMemo：開關彈窗等重繪時同一個陣列，觀察格子的畫布才不會整張重畫（可能上萬格）
+  const shown = useMemo(
+    () => endedSessions(save).filter((s) => (!picked || picked.includes(s.tag)) && inRange(range, cursor, dayKeys.get(s.id)!)).sort((a, b) => a.endedAt!.localeCompare(b.endedAt!)),
+    [save, picked, range, cursor, dayKeys],
+  );
   const hatched = shown.filter((s) => s.status === 'completed');
   const isNow = inRange(range, cursor, today);
   const prev = shiftRange(range, cursor, -1);

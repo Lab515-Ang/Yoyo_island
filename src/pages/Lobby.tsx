@@ -1,10 +1,10 @@
-import { useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useSave } from '../app/store';
 import { ANIMALS, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, TAGS, animalDef, animalRegion, clampMinutes, projectDef, regionDef, tagColor, type AnimalDef } from '../content/config';
-import { LEAVE_MS, Modal, SHEET_OUT_MS, fmtMinutes } from '../components/ui';
+import { LEAVE_MS, Modal, SHEET_OUT_MS, fadedOut, fmtMinutes } from '../components/ui';
 import { AnimalArt, TrackArt } from '../components/Animal';
 import { GrowthTag, RegionFlag, unlockText } from '../components/ui';
-import { activeProject, animalUnlocked, animalsUnlockedBy, chosenAnimal, currentHabitat, growthOf, regionOpen, hatchCounts, newAnimals, remainingFor, startFocus } from '../domain/game';
+import { activeProject, animalUnlocked, animalsUnlockedBy, chosenAnimal, currentHabitat, growthOf, openSession, regionOpen, hatchCounts, newAnimals, remainingFor, startFocus } from '../domain/game';
 import { DEEP_GRACE_MS, TimeGuard, isAndroid, isNative, requestNotifyPermission, type GuardApp } from '../platform';
 import { AppPicker } from './Guard';
 import { DeepSetup, deepPerm, deepSetupSeen } from '../components/DeepSetup';
@@ -33,9 +33,12 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
   const [sheet, setSheet] = useState<Sheet>(null);
   // 關掉底部選單：先讓它滑下去再拿掉；then 是滑完才做的事（例如換探索目標，換的動畫才看得到）
   const [closing, setClosing] = useState(false);
+  const timer = useRef(0); // 滑下去、淡出的計時：離開大廳就取消，不要在別的畫面才執行
+  useEffect(() => () => clearTimeout(timer.current), []);
   const closeSheet = (then?: () => void) => {
+    if (closing) return;
     setClosing(true);
-    window.setTimeout(() => {
+    timer.current = window.setTimeout(() => {
       setSheet(null);
       setClosing(false);
       then?.();
@@ -83,11 +86,16 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
     if (leaving) return;
     setSheet(null);
     setLeaving(true);
+    fadedOut.current = true;
     const t = Date.now(); // 從按下的那一刻開始算
-    window.setTimeout(() => {
+    timer.current = window.setTimeout(() => {
       const next = update((s) => startFocus(s, { taskTitle: task, tag, habitatId: habitat, mode: 'countdown', targetSeconds: seconds, animalId: egg, deep: useDeep, extend: st.extendTimer }, t));
-      if (next) onStarted();
-      else setLeaving(false);
+      // update 沒有變化時也會回傳存檔：要確認真的開始了，不然大廳會停在淡出的樣子
+      if (next && openSession(next)) onStarted();
+      else {
+        setLeaving(false);
+        fadedOut.current = false;
+      }
     }, LEAVE_MS);
   };
   // 深度專注要先等原生端回覆權限：連點兩下不要跑兩次
@@ -216,7 +224,7 @@ export function Lobby({ onStarted, onShop }: { onStarted: () => void; onShop: ()
               setSheet(null);
             }}
           >
-            <input value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={40} placeholder="例：數學第二章" autoFocus aria-label="專注標題" />
+            <input value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={40} placeholder="例：數學第二章" data-autofocus aria-label="專注標題" />
             <button className="primary wide" type="submit">
               完成
             </button>

@@ -408,6 +408,15 @@ describe('深度專注', () => {
     const both = applyDeepFocus(s0, { calls: [[T0 + 5 * MIN, T0 + 8 * MIN]], callStart: null, failedAt: T0 + 20 * MIN });
     expect(both.status).toBe('abandoned');
     expect(both.accumulatedMs).toBe(17 * MIN);
+
+    // 第 5 分鐘按暫停（上限 5 分鐘，第 10 分鐘自動繼續），第 12～20 分鐘接電話：通話仍然要順延
+    const paused = pause(s0, T0 + 5 * MIN, 5 * MIN);
+    const pausedCall = applyDeepFocus(paused, { calls: [[T0 + 12 * MIN, T0 + 20 * MIN]], callStart: null, failedAt: null });
+    expect(pausedCall.status).toBe('running');
+    expect(dueAt(pausedCall)).toBe(T0 + 38 * MIN);
+    const pausedRing = applyDeepFocus(paused, { calls: [], callStart: T0 + 12 * MIN, failedAt: null });
+    expect(pausedRing.status).toBe('paused');
+    expect(pausedRing.accumulatedMs).toBe(7 * MIN);
   });
 });
 
@@ -736,5 +745,21 @@ describe('成就', () => {
     expect(claimAchievement(got, 'first_focus', T0)).toBeNull();
     expect(claimAchievement(save, 'hours_10', T0)).toBeNull();
     expect(validateSave(JSON.parse(JSON.stringify(got)), T0).ok).toBe(true);
+  });
+});
+
+describe('存檔檢查：時間', () => {
+  it('專注紀錄的時間壞掉（年份 9999、無效日期、結束早於開始）就不讀，避免畫面卡住或當掉', () => {
+    const save = focus(fresh(), 30);
+    expect(validateSave(JSON.parse(JSON.stringify(save))).ok).toBe(true);
+    const broken = (fix: (s: Record<string, unknown>) => void) => {
+      const raw = JSON.parse(JSON.stringify(save));
+      fix(raw.sessions[0]);
+      return validateSave(raw).ok;
+    };
+    expect(broken((s) => ((s.segments as { endedAt: string }[])[0].endedAt = '9999-01-01T00:00:00.000Z'))).toBe(false);
+    expect(broken((s) => (s.startedAt = 'not a date'))).toBe(false);
+    expect(broken((s) => ((s.segments as { endedAt: string }[])[0].endedAt = new Date(T0 - 60_000).toISOString()))).toBe(false);
+    expect(broken((s) => delete s.endedAt)).toBe(false);
   });
 });
