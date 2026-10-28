@@ -6949,3 +6949,45 @@ label.toggle input.switch::after {
 .app.calm :is(.scope-sway, .scope-gait, .scope-eyes i, .chest, .chest-tap .chest, .chest-burst::before, .gi-page, .gi-reply, .gi-ask b, .gi-spark, .gi-feed-roll, .gi-shield, .gi-pet > :last-child, .gi-pop, .sidenav.open > *, .nav-scrim, .chest-reward > *, .lobby .ring-art, .focus-bg img, .focus > *, .screen-in > .result > *, .growth-bar, .growth-track, .growth-track i, .growth-track::after, .growth-bar em, .quest-bar i, .bar span, .starter-list > li, .focus-line) {
   animation: none;
 }
+
+/* ---------- 望遠鏡：看得到的時候自己的小動作（Scope.tsx 的 wander） ---------- */
+/* 地上走幾步：一上一下（.scope-gait.idle 的呼吸寫在前面，這裡要更明確才蓋得過） */
+.scope-gait.idle.walking {
+  animation: gait-walk 0.6s ease-in-out infinite;
+}
+/* 鳥在倒木上跳一兩步 */
+.scope-actor.hop {
+  transition:
+    left 0.6s ease-out,
+    top 2.5s ease-in-out,
+    transform 2.5s ease-in-out;
+}
+.scope-gait.perched.walking {
+  animation: gait-hop 0.3s ease-out 2;
+}
+@keyframes gait-hop {
+  50% {
+    transform: translateY(-9%);
+  }
+}
+/* 抬頭張望、低頭聞（只有單張圖的動物；網格動物自己會做） */
+.scope-gait.idle.act-look,
+.scope-gait.perched.act-look {
+  animation: act-look 1.8s ease-in-out;
+}
+.scope-gait.idle.act-sniff,
+.scope-gait.perched.act-sniff {
+  animation: act-sniff 1.8s ease-in-out;
+}
+@keyframes act-look {
+  30%,
+  70% {
+    transform: rotate(-6deg) translateY(-2%);
+  }
+}
+@keyframes act-sniff {
+  30%,
+  70% {
+    transform: rotate(7deg) translateY(2%);
+  }
+}

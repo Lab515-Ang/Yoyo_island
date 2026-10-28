@@ -129,7 +129,10 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
   };
 
   // 探索中：動物從剪影慢慢走近、現出顏色。倒數依進度；正向計時以 45 分鐘為一輪（分 20 段，避免每次重繪都變）
-  const progress = Math.floor(Math.min(1, countdown && session.targetSeconds ? elapsedMs(session, now) / (session.targetSeconds * 1000) : elapsedMin / 45) * 20) / 20;
+  const rawProgress = Math.min(1, countdown && session.targetSeconds ? elapsedMs(session, now) / (session.targetSeconds * 1000) : elapsedMin / 45);
+  const progress = Math.floor(rawProgress * 20) / 20;
+  // 望遠鏡要更細的進度（最多 15 段遠近）：每 0.25% 更新一次就好（memo 的望遠鏡才不會每秒重畫）
+  const scopeProgress = Math.floor(rawProgress * 400) / 400;
   const stage = useMemo(() => growthOf(save, session.animalId ?? '').stage, [save, session.animalId]);
 
   // 靠近的劇情：每 25% 一個小事件（足跡 → 草叢在晃 → 探出頭），跳一個小泡泡、輕輕震一下
@@ -186,7 +189,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
     <>
       <div className={leaving ? 'focus scoped leaving' : 'focus scoped'}>
         {/* 望遠鏡：在全景上左右搜尋，動物躲在草叢後面，越久探出越多 */}
-        <Scope id={session.animalId} stage={stage} progress={progress} paused={paused} seed={session.id} />
+        <Scope id={session.animalId} stage={stage} progress={scopeProgress} paused={paused} seed={session.id} />
         {/* 時間越久光線越暖，森林裡的小生物（螢火蟲）越多 */}
         <div className="focus-light" style={{ opacity: progress * 0.45 }} aria-hidden="true" />
         <div className="focus-life" aria-hidden="true">
