@@ -208,10 +208,10 @@ def animals():
         a = cfg.get(aid)
         stages = 3 if a and a['stages'] else 1
         unlock = unlock_text(a['unlock']) if a else '待定（新物種）'
-        rows.append(row(len(rows) + 1, aid, name, shape, '台灣', stages, LEVEL[lv], unlock, BATCH.get(aid, 6), note))
+        rows.append(row(sum(1 for r in rows if r['region'] == '台灣') + 1, aid, name, shape, '台灣', stages, LEVEL[lv], unlock, BATCH.get(aid, 6), note))
     for a in CFG['animals']:
         if a['region'] == 'jp':
-            rows.append(row(len(rows) + 1, a['id'], a['name'], a['shape'], '日本', 3 if a['stages'] else 1, a['level'], unlock_text(a['unlock']), BATCH[a['id']], ''))
+            rows.append(row(sum(1 for r in rows if r['region'] == '日本') + 1, a['id'], a['name'], a['shape'], '日本', 3 if a['stages'] else 1, a['level'], unlock_text(a['unlock']), BATCH[a['id']], ''))
     return rows
 
 

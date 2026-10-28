@@ -24,6 +24,23 @@ HEAD_ROW = 4  # 表頭在第 4 列，資料從第 5 列開始
 STATUS_FILL = {'已完成': 'D6EBCB', '製作中': 'FDE7B0', '待驗收': 'FBD9C8', '暫代': 'E6E1D4', '選配': 'EEF0F4', '未開始': 'FFFFFF'}
 
 
+def is_group(row):
+    return isinstance(row, tuple) and len(row) == 2 and row[0] == '__group__'
+
+
+def by_region(rows, region_of):
+    """依國家分大類：每個國家前面加一列分類標題。"""
+    out, seen = [], []
+    for r in rows:
+        if region_of(r) not in seen:
+            seen.append(region_of(r))
+    for g in seen:
+        group = [r for r in rows if region_of(r) == g]
+        out.append(('__group__', f'{g}（{len(group)} 種）'))
+        out.extend(group)
+    return out
+
+
 def sheet(wb, name, title, desc, headers, widths, rows, input_cols=(), status_col=None):
     ws = wb.create_sheet(name)
     ws.sheet_view.showGridLines = False
@@ -42,6 +59,15 @@ def sheet(wb, name, title, desc, headers, widths, rows, input_cols=(), status_co
         cell.border = BORDER
     ws.row_dimensions[HEAD_ROW].height = 30
     for r, row in enumerate(rows, HEAD_ROW + 1):
+        if is_group(row):
+            # 分類列（例如國家）：整列合併、淡綠底
+            cell = ws.cell(row=r, column=1, value=row[1])
+            cell.font = Font(name=FONT, size=11, bold=True, color=DEEP)
+            cell.fill = PatternFill('solid', fgColor=SAGE_TINT)
+            cell.alignment = Alignment(vertical='center')
+            ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=len(headers))
+            ws.row_dimensions[r].height = 22
+            continue
         zebra = r % 2 == 0
         for c, v in enumerate(row, 1):
             cell = ws.cell(row=r, column=c, value=v)
@@ -57,7 +83,7 @@ def sheet(wb, name, title, desc, headers, widths, rows, input_cols=(), status_co
             ws.cell(row=r, column=status_col).fill = PatternFill('solid', fgColor=STATUS_FILL.get(s, INPUT))
     for c, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(c)].width = w
-    ws.freeze_panes = ws.cell(row=HEAD_ROW + 1, column=3)
+    ws.freeze_panes = f'C{HEAD_ROW + 1}'
     last = HEAD_ROW + max(1, len(rows))
     ws.auto_filter.ref = f'A{HEAD_ROW}:{get_column_letter(len(headers))}{last}'
     if status_col:
@@ -105,6 +131,7 @@ def build():
     # ---- A 動物主圖 ----
     a_rows = [[a['no'], a['id'], a['name'], a['region'], a['shape'], a['stages'], a['stage_names'], a['look'], a['habitat'], a['time'], a['appear'],
                a['level'], a['unlock'], a['batch'], a['priority'], a['file'], a['status'], a['note']] for a in animals]
+    a_rows = by_region(a_rows, lambda r: r[3])  # 依國家分大類
     A = sheet(wb, 'A 動物主圖', 'A. 動物主圖（每個成長階段 1 張）',
               '正側面、頭朝右；製作時 1024×1024 白底主圖，App 用 512×512 透明（腳底 y＝472，離下緣 40 px）。三個成長階段畫布一樣大：幼年約成年的 60%、亞成年約 80%，腳底同一條線。這張主圖同時是 B 動物動態的唯一像素來源。黃色欄位由製作者更新。保育等級來源：維基百科「臺灣保育物種列表」（整理自農業部、海洋委員會名錄），上架前要以農業部 114/2/7 版名錄 PDF 再核對。',
               ['編號', '代號', '名稱', '區域', '體型', '張數', '成長階段', '外型重點（給畫師／GPT）', '望遠鏡全景', '活動時段', '出現方式', '保育等級（稀有度）', '取得方式', '交圖批次', '優先度', '檔名', '狀態', '備註'],
@@ -122,6 +149,8 @@ def build():
         if a['id'] == 'leopard_cat':
             st, note = '製作中', '成年完成；目前未壓縮 460 KB 要壓到 ≤120 KB；後腿之間一小撮淺色未解；幼年、亞成年未做'
         b_rows.append([a['no'], a['id'], a['name'], a['shape'], a['stages'], t[4], flight, t[6], '≤ 120 KB', a['batch'], a['priority'], st, note])
+    region_of = {a['id']: a['region'] for a in animals}
+    b_rows = by_region(b_rows, lambda r: region_of[r[1]])
     sheet(wb, 'B 動物動態', 'B. 動物動態（分層部件＋網格骨架）',
           '規範：docs/規格-動物動態網格.md（不用 Rive／Spine）。每個成長階段各一套部件；同體型共用骨架與動作（見 B-1）。流程：主圖 → 剝層圖（GPT 一次只改一處）→ 切部件 → 網格與權重 → 半尺寸離線檢查 → A8s 實機檢查 → 輸出。',
           ['編號', '代號', '名稱', '體型', '套數（成長階段）', '剝層圖（每套）', '額外姿勢', '動作', '容量目標（每套）', '交圖批次', '優先度', '狀態', '備註'],
@@ -200,7 +229,7 @@ def build():
     n = lambda k: HEAD_ROW + len(k)  # noqa: E731  最後一列
     q = lambda s: f"'{s}'"  # noqa: E731
     lines = [
-        ('A. 動物主圖', f'{len(a_rows)} 種動物（台灣 {sum(1 for a in animals if a["region"] == "台灣")}、日本 {sum(1 for a in animals if a["region"] == "日本")}），每個成長階段 1 張（正側面）', 'A 動物主圖', 'B', 'F', 'Q', 'P0', n(a_rows)),
+        ('A. 動物主圖', f'{len(animals)} 種動物（台灣 {sum(1 for a in animals if a["region"] == "台灣")}、日本 {sum(1 for a in animals if a["region"] == "日本")}），每個成長階段 1 張（正側面）', 'A 動物主圖', 'B', 'F', 'Q', 'P0', n(a_rows)),
         ('B. 動物動態', '分層部件＋網格骨架；同體型共用動作', 'B 動物動態', 'B', 'E', 'L', 'P0', n(b_rows)),
         ('C. 望遠鏡全景', '棲地 × 時段（含選配）', 'C 望遠鏡全景', 'B', None, 'I', 'P0', n(c_rows)),
         ('D. 小島場景', '底圖＋修復工程疊圖（台灣 8、日本 6）', 'D 小島場景', 'D', None, 'I', 'P0', n(d_rows)),
@@ -251,10 +280,12 @@ def build():
 
     # ---- 總覽的數值（給 PDF；和公式同一個算法） ----
     def done(rows, idx):
-        return sum(1 for r in rows if r[idx] == '已完成')
+        return sum(1 for r in rows if not is_group(r) and r[idx] == '已完成')
+
+    real = lambda rows: [r for r in rows if not is_group(r)]  # noqa: E731
     summary = [
-        ('A. 動物主圖', len(a_rows), sum(r[5] for r in a_rows), done(a_rows, 16), 'P0'),
-        ('B. 動物動態', len(b_rows), sum(r[4] for r in b_rows), done(b_rows, 11), 'P0'),
+        ('A. 動物主圖', len(real(a_rows)), sum(r[5] for r in real(a_rows)), done(a_rows, 16), 'P0'),
+        ('B. 動物動態', len(real(b_rows)), sum(r[4] for r in real(b_rows)), done(b_rows, 11), 'P0'),
         ('C. 望遠鏡全景', len(c_rows), len(c_rows), done(c_rows, 8), 'P0'),
         ('D. 小島場景', len(d_rows), len(d_rows), done(d_rows, 8), 'P0'),
         ('E. 小道具', len(D.PROPS), len(D.PROPS), sum(1 for p in D.PROPS if p[5] == '已完成'), 'P1'),
@@ -270,6 +301,9 @@ def build():
         h = ''.join(f'<th>{e(x)}</th>' for x in headers)
         b = ''
         for r in rows:
+            if is_group(r):
+                b += f'<tr class="grp"><td colspan="{len(headers)}">{e(r[1])}</td></tr>'
+                continue
             b += '<tr>' + ''.join(f'<td class="{"st st-" + e(v) if v in STATUS_FILL else ""}">{e(v)}</td>' for v in r) + '</tr>'
         return f'<table class="{cls}"><thead><tr>{h}</tr></thead><tbody>{b}</tbody></table>'
 
@@ -308,6 +342,7 @@ tr {{ break-inside: avoid; }}
 th {{ background: #{DEEP}; color: #fff; font-weight: 700; padding: 1.6mm 1.4mm; text-align: left; border: 1px solid #{DEEP}; }}
 td {{ padding: 1.3mm 1.4mm; border: 1px solid #D8D0BC; vertical-align: top; }}
 tbody tr:nth-child(even) td {{ background: #{CREAM}; }}
+tr.grp td {{ background: #{SAGE_TINT} !important; color: #{DEEP}; font-weight: 700; font-size: 10pt; padding: 2mm; }}
 table.small {{ font-size: 7.6pt; }}
 table.ov td:nth-child(n+2) {{ text-align: center; }}
 table.ov tr:last-child td {{ font-weight: 700; background: #{SAGE_TINT}; }}
