@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import pano from '../assets/scenes/focus-done.webp'; // 原型：先用白天山景當全景（夜晚用調色暫代）
 import { animalDef } from '../content/config';
 import { AnimalArt } from './Animal';
+import { MeshAnimal, hasMesh } from './MeshAnimal';
 
 const ASPECT = 1697 / 927; // 全景圖的寬高比
 const ZOOM = 1.3; // 全景高度是鏡片的幾倍（放大倍率）；鏡片看得到的全景高度約 23%～100%
@@ -139,6 +140,17 @@ export function Scope({ id, stage, progress, paused, seed }: { id: string | unde
     return () => clearInterval(t);
   }, [want, shown, path]);
 
+  // 有網格動態的動物：時間到走向鏡頭正前方的那 2.5 秒播走路（和位置轉場一樣長）
+  const meshed = hasMesh(id);
+  const arriving = shown === STEP_AT.length - 1;
+  const [walking, setWalking] = useState(false);
+  useEffect(() => {
+    if (!arriving) return;
+    setWalking(true);
+    const t = window.setTimeout(() => setWalking(false), 2500);
+    return () => clearTimeout(t);
+  }, [arriving]);
+
   const k = STAGE_SCALE[Math.max(0, Math.min(2, stage))];
   // 貓頭鷹：停到倒木上之後越來越亮、越清楚
   const seen = mode === 'eyes' ? [0, 0, 0.35, 0.7, 1][Math.max(0, shown)] : 1;
@@ -163,10 +175,10 @@ export function Scope({ id, stage, progress, paused, seed }: { id: string | unde
                   className={shown === STEP_AT.length - 1 ? 'scope-actor arrive' : 'scope-actor'}
                   style={{ left: `${at.x}%`, top: `${at.y}%`, transform: `translate(-50%, -100%) scale(${at.s})` }}
                 >
-                  <div className={`scope-gait ${at.look}`} style={{ scale: at.flip ? '-1 1' : undefined }}>
+                  <div className={`scope-gait ${at.look}${meshed ? ' meshed' : ''}`} style={{ scale: at.flip ? '-1 1' : undefined }}>
                     {!eyesOnly && (
                       <div className="scope-art" style={{ opacity: lerp(0.08, 1, seen), filter: seen < 1 ? `brightness(${lerp(0.35, 1, seen)})` : undefined }}>
-                        <AnimalArt id={id} stage={stage} size="100%" />
+                        {meshed ? <MeshAnimal id={id!} stage={stage} walking={walking} paused={paused} /> : <AnimalArt id={id} stage={stage} size="100%" />}
                       </div>
                     )}
                     {mode === 'eyes' && (

@@ -1,5 +1,6 @@
 // 不支援 WebGL / 效能不足時的 2D 降級：保留工程變化與可點的動物
 import { AnimalArt } from '../components/Animal';
+import { MeshAnimal, hasMesh } from '../components/MeshAnimal';
 import type { SceneProps } from './Scene3D';
 
 const SPOTS: [number, number][] = [
@@ -22,7 +23,7 @@ function Tree2D({ x, y, s = 1 }: { x: number; y: number; s?: number }) {
   );
 }
 
-export default function Scene2D({ done, prog, reducedMotion, onSelect, backdrop, bubble, animals = [] }: SceneProps) {
+export default function Scene2D({ done, prog, reducedMotion, onSelect, backdrop, bubble, lowPower, animals = [] }: SceneProps) {
   const p = prog ?? ((id: string) => (done(id) ? 1 : 0));
   const restored = ['fo_trail', 'fo_saplings', 'fo_cabin', 'fo_undergrowth', 'fo_corridor', 'fo_spring', 'fo_canopy', 'fo_rescue'].filter(done).length;
   const n = (id: string, count: number) => (done(id) ? count : Math.floor(count * p(id)));
@@ -66,7 +67,12 @@ export default function Scene2D({ done, prog, reducedMotion, onSelect, backdrop,
         return (
           <g key={a.id} transform={`translate(${x - s / 2} ${y - s})`} onClick={() => onSelect?.(a.id)} style={{ cursor: onSelect ? 'pointer' : undefined }}>
             <foreignObject width={s} height={s}>
-              <AnimalArt id={a.animalId} stage={a.stage} size={s} />
+              {hasMesh(a.animalId) ? (
+                // 專注背景、大廳泡泡（lowPower）停住不動，省電
+                <MeshAnimal id={a.animalId} stage={a.stage} paused={reducedMotion || lowPower} />
+              ) : (
+                <AnimalArt id={a.animalId} stage={a.stage} size={s} />
+              )}
             </foreignObject>
           </g>
         );

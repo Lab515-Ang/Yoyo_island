@@ -4,6 +4,7 @@ import { COPY, animalDef, animalRegion, habitatName, hasStages, regionAnimals, r
 import { RegionChip } from '../components/Region';
 import { AnimalCard, Flag, Modal, Progress, fmtMinutes } from '../components/ui';
 import { AnimalArt } from '../components/Animal';
+import { MeshAnimal, hasMesh } from '../components/MeshAnimal';
 import { animalsUnlockedBy, balance, contribute, currentRegion, growthOf, habitatProgress, habitatSound, hatchCounts, isDone, projectRow, regionOpen, remainingFor, sceneAnimals } from '../domain/game';
 import { HabitatScene } from '../scenes/HabitatScene';
 import forestArt from '../assets/scenes/forest.webp';
@@ -71,8 +72,14 @@ function ForestArt({ onSelect }: { onSelect: (sid: string) => void }) {
         .map((a, i) => ({ a, spot: SPOTS[i], i }))
         .reverse()
         .map(({ a, spot: [x, y, size], i }) => (
-          <button key={a.id} className="forest-animal" style={{ left: `${x}%`, bottom: `${y}%`, animationDelay: `${i * 0.6}s` }} onClick={() => onSelect(a.id)} aria-label={`${animalDef(a.animalId).name}，看動物卡`}>
-            <AnimalArt id={a.animalId} stage={a.stage} size={size} />
+          <button key={a.id} className={hasMesh(a.animalId) ? 'forest-animal meshed' : 'forest-animal'} style={{ left: `${x}%`, bottom: `${y}%`, animationDelay: `${i * 0.6}s` }} onClick={() => onSelect(a.id)} aria-label={`${animalDef(a.animalId).name}，看動物卡`}>
+            {hasMesh(a.animalId) ? (
+              <div style={{ width: size }}>
+                <MeshAnimal id={a.animalId} stage={a.stage} />
+              </div>
+            ) : (
+              <AnimalArt id={a.animalId} stage={a.stage} size={size} />
+            )}
           </button>
         ))}
     </div>

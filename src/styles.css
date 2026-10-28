@@ -6900,3 +6900,33 @@ label.toggle input.switch::after {
     animation: none;
   }
 }
+
+/* ---------- 會動的動物（網格骨架，MeshAnimal.tsx） ---------- */
+/* 方形框、地面在 92%（跟 AnimalArt 一樣）；畫布每邊多出 15%，尾巴、頭轉出去不會被切掉 */
+.mesh-animal {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+}
+.mesh-animal-shadow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.mesh-animal canvas {
+  position: absolute;
+  left: -15%;
+  top: -15%;
+  width: 130%;
+  height: 130%;
+}
+/* 望遠鏡：網格動物自己會呼吸、走路，不用再整張搖 */
+.scope-gait.meshed,
+.scope-actor.arrive .scope-gait.meshed {
+  animation: none;
+}
+/* 小島插畫：網格動物自己會呼吸，不用整張上下晃 */
+.forest-animal.meshed {
+  animation: none;
+}

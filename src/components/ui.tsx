@@ -3,6 +3,7 @@ import { GROWTH_MAX, ZONE_NAME, animalDef, animalRegion, regionDef, hasStages, l
 import { animalUnlocked, growthOf, hatchCounts } from '../domain/game';
 import type { SaveFile } from '../domain/types';
 import { AnimalArt } from './Animal';
+import { MeshAnimal, hasMesh } from './MeshAnimal';
 import { X } from 'lucide-react';
 
 /** CSS 畫的金幣圖示（🪙 在 Windows 10 的表情字型裡沒有）。 */
@@ -146,7 +147,13 @@ export function AnimalCard({ save, animalId, onClose }: { save: SaveFile; animal
   return (
     <Modal title={n ? a.name : ok ? `${a.name}（還沒遇見）` : '還不知道是誰'} onClose={onClose}>
       <div className="species-hero">
-        <AnimalArt id={a.id} stage={n ? g.stage : 2} size={140} hidden={!n} />
+        {n && hasMesh(a.id) ? (
+          <div style={{ width: 140 }}>
+            <MeshAnimal id={a.id} stage={g.stage} />
+          </div>
+        ) : (
+          <AnimalArt id={a.id} stage={n ? g.stage : 2} size={140} hidden={!n} />
+        )}
       </div>
       {n > 0 && hasStages(a) && <StageStrip animalId={a.id} stage={g.stage} seen />}
       <dl className="facts">
