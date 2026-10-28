@@ -1,0 +1,7 @@
+This is an EDIT of the reference image. Output the SAME image: identical character, identical pose, identical position, scale and framing on the canvas, identical colors, spot pattern and soft lighting, plain pure white background, square 1024x1024. Change ONLY the small area described below; every other pixel must stay as close to the reference as possible.
+
+Area to change: where the NEAR hind leg (the big thigh at the back, closest to the viewer) meets the belly, and the top of the FAR hind leg just in front of it (the lower-left part of the belly, between the two hind legs).
+- The near hind thigh must have a clean, clearly readable rounded FRONT EDGE: orange fur with its spots right up to its outline, no cream fold or cream tuft along its front edge.
+- The cream belly underside ends with a smooth, simple curve that tucks in BEHIND the near thigh; no cream patches, wisps or tufts hanging between the hind legs.
+- The top of the far hind leg (the leg partly behind, between the two hind legs) is plain orange fur continuing up behind the belly, slightly darker; not cream.
+- Keep the outlines of the body, both hind legs and the paws in exactly the same place.

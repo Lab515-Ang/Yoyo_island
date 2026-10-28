@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>網格版：骨頭權重</title>
+<style>
+  body { margin: 0; background: #f4efe3; font: 14px system-ui, sans-serif; color: #3d3a30; }
+  #bar { padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  button { font: inherit; padding: 6px 12px; }
+  button[aria-pressed="true"] { background: #6b8f5e; color: #fff; }
+  .stage { position: relative; width: min(92vw, 80vh); margin: 2vh auto 0; }
+  .ground { position: absolute; left: 0; right: 0; bottom: 1%; height: 3%;
+    background: repeating-linear-gradient(90deg, #d8cdb4 0 6%, transparent 6% 12%); border-radius: 99px; opacity: .6; }
+  .walking .ground { animation: roll 0.8s linear infinite; }
+  .stop .ground { animation-timing-function: steps(6, end); }
+  @keyframes roll { to { background-position: -12% 0; } }
+  canvas { position: relative; display: block; width: 100%; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage"><div class="ground"></div><canvas id="c"></canvas></div>
+<div id="bar">
+  <b id="fps">— fps</b>
+  <button data-act="look">look</button>
+  <button data-act="sniff">sniff</button>
+  <button data-act="flick">tail</button>
+  <button id="walk" aria-pressed="false">walk</button>
+  <button id="stop" aria-pressed="false">定格感</button>
+  <button id="auto" aria-pressed="true">自動隨機</button>
+</div>
+<script>
+// ---------- 載入網格 ----------
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl', { premultipliedAlpha: true, antialias: true });
+const VS = `
+attribute vec2 aPos; attribute vec4 aBi; attribute vec4 aBw;
+uniform vec3 uA[24]; uniform vec3 uB[24];
+uniform vec4 uView; uniform vec4 uLayer;
+varying vec2 vUv;
+vec2 tf(float i, vec3 p) { int k = int(i + 0.5); return vec2(dot(uA[k], p), dot(uB[k], p)); }
+void main() {
+  vec3 p = vec3(aPos, 1.0);
+  vec2 s = aBw.x * tf(aBi.x, p) + aBw.y * tf(aBi.y, p) + aBw.z * tf(aBi.z, p) + aBw.w * tf(aBi.w, p);
+  vUv = (aPos - uLayer.xy) / uLayer.zw;
+  gl_Position = vec4((s.x - uView.x) * uView.z - 1.0, 1.0 - (s.y - uView.y) * uView.w, 0.0, 1.0);
+}`;
+const FS = `
+precision mediump float;
+uniform sampler2D uTex; varying vec2 vUv;
+void main() {
+  vec2 inside = step(0.0, vUv) * step(vUv, vec2(1.0));   // 網格多留的一圈不能拉到邊緣像素
+  gl_FragColor = texture2D(uTex, vUv) * inside.x * inside.y;
+}`;
+function shader(type, src) {
+  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+const prog = gl.createProgram();
+gl.attachShader(prog, shader(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, FS));
+gl.linkProgram(prog); gl.useProgram(prog);
+const loc = n => gl.getAttribLocation(prog, n), uni = n => gl.getUniformLocation(prog, n);
+const U = { A: uni('uA'), B: uni('uB'), view: uni('uView'), layer: uni('uLayer'), tex: uni('uTex') };
+gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+
+const dec = (b64, T) => { const s = atob(b64), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return new T(u.buffer); };
+function buf(data, target = gl.ARRAY_BUFFER) { const b = gl.createBuffer(); gl.bindBuffer(target, b); gl.bufferData(target, data, gl.STATIC_DRAW); return b; }
+const loadImg = src => new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = src; });
+
+let M, layers, view;
+async function init() {
+  M = await (await fetch('mesh.json')).json();
+  layers = await Promise.all(M.layers.map(async L => {
+    const img = await loadImg(L.name + '.webp');
+    const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+    for (const [k, v] of [[gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE],
+                          [gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+    return { ...L, tex, pos: buf(dec(L.pos, Float32Array)), bi: buf(dec(L.bi, Uint8Array)), bw: buf(dec(L.bw, Float32Array)),
+             tri: buf(dec(L.tri, Uint16Array), gl.ELEMENT_ARRAY_BUFFER) };
+  }));
+  const x0 = Math.min(...M.layers.map(l => l.x)) - 40, y0 = Math.min(...M.layers.map(l => l.y)) - 50;
+  const x1 = Math.max(...M.layers.map(l => l.x + l.w)) + 40, y1 = Math.max(...M.layers.map(l => l.y + l.h)) + 20;
+  view = { x0, y0, w: x1 - x0, h: y1 - y0 };
+  canvas.style.aspectRatio = `${view.w} / ${view.h}`;
+  fit(); addEventListener('resize', fit);
+  requestAnimationFrame(frame);
+}
+function fit() {
+  canvas.width = Math.round(canvas.clientWidth * devicePixelRatio);
+  canvas.height = Math.round(canvas.clientHeight * devicePixelRatio);
+  gl.viewport(0, 0, canvas.width, canvas.height); lastDrawn = -1;
+}
+
+// ---------- 骨頭 ----------
+// 矩陣 [a,b,c,d,e,f]：x' = a x + b y + c，y' = d x + e y + f
+const mul = (m, n) => [m[0]*n[0] + m[1]*n[3], m[0]*n[1] + m[1]*n[4], m[0]*n[2] + m[1]*n[5] + m[2],
+                       m[3]*n[0] + m[4]*n[3], m[3]*n[1] + m[4]*n[4], m[3]*n[2] + m[4]*n[5] + m[5]];
+function rotAbout(deg, px, py) {  // 正角度＝順時針（同 CSS）
+  const r = deg * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
+  return [c, -s, px - c * px + s * py, s, c, py - s * px - c * py];
+}
+function draw(pose) {
+  const world = {}, A = new Float32Array(72), B = new Float32Array(72);
+  M.bones.forEach((b, i) => {
+    let m = rotAbout(pose[b.name] || 0, b.pivot[0], b.pivot[1]);
+    if (b.name === 'body') m = mul([1, 0, 0, 0, pose.sy || 1, (1 - (pose.sy || 1)) * 1090 + (pose.ty || 0)], m);  // 呼吸：以地面為基準縱向縮放
+    world[b.name] = b.parent ? mul(world[b.parent], m) : m;
+    const w = world[b.name]; A.set([w[0], w[1], w[2]], i * 3); B.set([w[3], w[4], w[5]], i * 3);
+  });
+  gl.uniform3fv(U.A, A); gl.uniform3fv(U.B, B);
+  gl.uniform4f(U.view, view.x0, view.y0, 2 / view.w, 2 / view.h);
+  gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+  for (const L of layers) {
+    if (L.name === (pose.blink ? 'eye_open' : 'eye_closed') || (pose.hide && pose.hide.includes(L.name))) continue;
+    gl.uniform4f(U.layer, L.x, L.y, L.w, L.h);
+    gl.bindTexture(gl.TEXTURE_2D, L.tex);
+    for (const [name, b, n, t] of [['aPos', L.pos, 2, gl.FLOAT], ['aBi', L.bi, 4, gl.UNSIGNED_BYTE], ['aBw', L.bw, 4, gl.FLOAT]]) {
+      const l = loc(name); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, n, t, false, 0, 0);
+    }
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, L.tri);
+    gl.drawElements(gl.TRIANGLES, L.t * 3, gl.UNSIGNED_SHORT, 0);
+  }
+}
+
+// ---------- 動作 ----------
+function kf(keys, u) {  // 關鍵影格，緩入緩出
+  if (u <= keys[0][0]) return keys[0][1];
+  for (let i = 1; i < keys.length; i++) if (u <= keys[i][0]) {
+    const [t0, v0] = keys[i - 1], [t1, v1] = keys[i], f = (1 - Math.cos(Math.PI * (u - t0) / (t1 - t0))) / 2;
+    return v0 + (v1 - v0) * f;
+  }
+  return keys[keys.length - 1][1];
+}
+const wave = (t, period, delay = 0) => 0.5 - 0.5 * Math.cos(2 * Math.PI * (t - delay) / period);
+const ACTS = {
+  look:  { dur: 2600, f: u => ({ head: kf([[0, 0], [.25, -7], [.45, -7], [.6, -5], [.75, -5], [1, 0]], u),
+                                 neck: kf([[0, 0], [.3, -3], [.7, -3], [1, 0]], u),
+                                 ear_near: kf([[0, 0], [.3, -7], [.7, -7], [1, 0]], u), ear_far: kf([[0, 0], [.3, -7], [.7, -7], [1, 0]], u) }) },
+  sniff: { dur: 2000, f: u => ({ head: kf([[0, 0], [.3, 13], [.4, 10], [.5, 13], [.6, 10], [.75, 12], [1, 0]], u),
+                                 neck: kf([[0, 0], [.3, 6], [.75, 6], [1, 0]], u), jaw: kf([[0, 0], [.4, 3], [.6, 3], [1, 0]], u) }) },
+  flick: { dur: 1000, f: u => ({ tail_1: kf([[0, 0], [.25, -6], [.6, 4], [1, 0]], u), tail_2: kf([[0, 0], [.3, -9], [.65, 6], [1, 0]], u),
+                                 tail_3: kf([[0, 0], [.35, -12], [.7, 8], [1, 0]], u) }) },
+};
+function legPose(p, u) {  // 0→.5 往前擺（膝蓋收、腳掌抬），.5→1 踩地往後推
+  p[p.leg + '_upper'] = kf([[0, 6], [.5, -6], [1, 6]], u);
+  p[p.leg + '_lower'] = kf([[0, 0], [.25, 12], [.5, -4], [.75, 0], [1, 0]], u);
+  p[p.leg + '_paw'] = kf([[0, 8], [.25, 10], [.5, -6], [.75, 0], [1, 8]], u);
+}
+function poseAt(t) {
+  const p = {};
+  const br = wave(t, 3600);
+  p.sy = 1 + 0.008 * br; p.head = -1.2 * br;
+  p.tail_1 = -2 * wave(t, 3600); p.tail_2 = -3 * wave(t, 3600, 300); p.tail_3 = -4 * wave(t, 3600, 600);
+  // 耳朵抖動：網格權重讓耳根黏在頭皮上、耳尖彎過去，所以幅度可以比硬切片版（-4°）大
+  const eu = (t % 7000) / 7000;
+  p.ear_near = kf([[0, 0], [.86, 0], [.89, -10], [.92, 4], [.95, -3], [1, 0]], eu);
+  p.ear_far = kf([[0, 0], [.87, 0], [.90, -5], [.93, 2], [1, 0]], eu);
+  const bu = (t % 4300) / 4300; p.blink = bu > .95 && bu < .98;
+  if (act) {
+    const u = Math.min(1, (t - act.t0) / ACTS[act.name].dur);
+    for (const [k, v] of Object.entries(ACTS[act.name].f(u))) p[k] = (p[k] || 0) + v;
+    if (u >= 1) act = null;
+  }
+  if (walking) {
+    const u = ((t - walkT0) % 800) / 800;
+    for (const [leg, ph] of [['leg_front', 0], ['leg_back_far', 0], ['leg_back', .5], ['leg_front_far', .5]]) { p.leg = leg; legPose(p, (u + ph) % 1); }
+    p.ty = -4 * wave(t - walkT0, 400); p.head += -1.5 * wave(t - walkT0, 400); p.tail_2 += -3 * wave(t - walkT0, 800);
+  }
+  return p;
+}
+
+// ---------- 播放 ----------
+const cat = document.getElementById('stage');
+let act = null, walking = false, walkT0 = 0, stop = false, auto = true, lastDrawn = -1, frozen = null;
+function play(name) { if (!act && !walking) act = { name, t0: performance.now() }; }
+for (const b of document.querySelectorAll('[data-act]')) b.onclick = () => play(b.dataset.act);
+function toggle(btn, fn) { btn.onclick = () => { const on = btn.getAttribute('aria-pressed') !== 'true'; btn.setAttribute('aria-pressed', on); fn(on); }; }
+toggle(document.getElementById('walk'), on => { walking = on; walkT0 = performance.now(); cat.classList.toggle('walking', on); });
+toggle(document.getElementById('stop'), on => { stop = on; cat.classList.toggle('stop', on); });
+toggle(document.getElementById('auto'), on => auto = on);
+(function next() { setTimeout(() => { if (auto) play(['look', 'sniff', 'flick'][Math.floor(Math.random() * 3)]); next(); }, 3000 + Math.random() * 3000); })();
+
+let n = 0, f0 = performance.now();
+function frame(now) {
+  n++;
+  if (now - f0 >= 1000) { document.getElementById('fps').textContent = Math.round(n * 1000 / (now - f0)) + ' fps'; n = 0; f0 = now; }
+  if (frozen) { if (lastDrawn !== -2) { draw(frozen); lastDrawn = -2; } }
+  else {
+    const t = stop ? Math.floor(now / 125) * 125 : now;   // 定格感：每秒 8 格，畫面沒變就不重畫
+    if (t !== lastDrawn) { draw(poseAt(t)); lastDrawn = t; }
+  }
+  requestAnimationFrame(frame);
+}
+// 檢查用：showPose({head: 15}) 停在指定姿勢；showPose(null) 恢復播放
+window.showPose = p => { frozen = p; lastDrawn = -1; auto = !p; };
+init();
+</script>
+</body>
+</html>

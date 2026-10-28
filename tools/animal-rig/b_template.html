@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>方案 B：部件＋CSS</title>
+<style>
+  body { margin: 0; background: #f4efe3; font: 14px system-ui, sans-serif; color: #3d3a30; }
+  #bar { padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  button { font: inherit; padding: 6px 12px; }
+  button[aria-pressed="true"] { background: #6b8f5e; color: #fff; }
+
+  .stage { position: relative; width: min(92vw, 80vh); margin: 2vh auto 0; }
+  .ground { position: absolute; left: 0; right: 0; bottom: 1%; height: 3%;
+    background: repeating-linear-gradient(90deg, #d8cdb4 0 6%, transparent 6% 12%); border-radius: 99px; opacity: .6; }
+  .cat { position: relative; aspect-ratio: /*ASPECT*/; }
+  /* 每塊骨頭是一層滿版的 div，轉軸設在 transform-origin；子骨頭放在裡面，轉動自動跟著父骨頭 */
+  .bone { position: absolute; inset: 0; pointer-events: none; }   /* 旋轉的滿版 div 會蓋到下面的按鈕 */
+  .bone > img { position: absolute; height: auto; pointer-events: none; }
+  .p-eye_closed { opacity: 0; }
+
+  /* ---------- idle：一直在跑 ---------- */
+  .body-img { transform-origin: 50% 100%; animation: breathe 3.6s ease-in-out infinite; }
+  .b-head_base { animation: nod 3.6s ease-in-out infinite; }
+  .b-tail_1 { animation: sway1 3.6s ease-in-out infinite; }
+  .b-tail_2 { animation: sway2 3.6s ease-in-out -0.3s infinite; }
+  .b-tail_3 { animation: sway3 3.6s ease-in-out -0.6s infinite; }
+  .b-ear_near { animation: twitch 7s ease-in-out infinite; }
+  .p-eye_closed { animation: blink 4.3s steps(1, end) infinite; }
+  @keyframes breathe { 50% { transform: translateY(-0.4%) scaleY(1.012); } }
+  @keyframes nod { 50% { transform: rotate(-1.2deg); } }
+  @keyframes sway1 { 50% { transform: rotate(-2deg); } }
+  @keyframes sway2 { 50% { transform: rotate(-3deg); } }
+  @keyframes sway3 { 50% { transform: rotate(-4deg); } }
+  @keyframes twitch { 0%, 88%, 100% { transform: none; } 91% { transform: rotate(-4deg); } 94% { transform: rotate(2deg); } }
+  @keyframes blink { 0%, 94% { opacity: 0; } 95%, 98% { opacity: 1; } }
+
+  /* ---------- look：抬頭張望，耳朵跟著轉 ---------- */
+  .look .b-head_base { animation: look 2.6s ease-in-out; }
+  .look .b-ear_near { animation: lookear 2.6s ease-in-out; }
+  .look .b-ear_far { animation: lookear 2.6s ease-in-out; }
+  @keyframes look { 25%, 45% { transform: rotate(-7deg); } 60%, 75% { transform: rotate(-5deg); } }
+  @keyframes lookear { 30%, 70% { transform: rotate(-3deg); } }
+
+  /* ---------- sniff：低頭聞，點兩下，鼻子下巴微動 ---------- */
+  .sniff .b-head_base { animation: sniff 2s ease-in-out; }
+  .sniff .b-jaw { animation: chew 2s ease-in-out; }
+  @keyframes sniff { 30% { transform: rotate(15deg); } 40% { transform: rotate(12deg); } 50% { transform: rotate(15deg); }
+                     60% { transform: rotate(12deg); } 75% { transform: rotate(14deg); } }
+  @keyframes chew { 40%, 60% { transform: rotate(3deg); } }
+
+  /* ---------- tail：從根部到尾尖依序甩一次 ---------- */
+  .flick .b-tail_1 { animation: f1 1s ease-in-out; }
+  .flick .b-tail_2 { animation: f2 1s ease-in-out; }
+  .flick .b-tail_3 { animation: f3 1s ease-in-out; }
+  @keyframes f1 { 25% { transform: rotate(-6deg); } 60% { transform: rotate(4deg); } }
+  @keyframes f2 { 30% { transform: rotate(-9deg); } 65% { transform: rotate(6deg); } }
+  @keyframes f3 { 35% { transform: rotate(-12deg); } 70% { transform: rotate(8deg); } }
+
+  /* ---------- walk：對角腳同步；大腿小幅、小腿與腳掌帶動 ---------- */
+  .walk .b-leg_front_upper, .walk .b-leg_back_far_upper { animation: up 0.8s ease-in-out infinite; }
+  .walk .b-leg_front_lower, .walk .b-leg_back_far_lower { animation: low 0.8s ease-in-out infinite; }
+  .walk .b-leg_front_paw, .walk .b-leg_back_far_paw { animation: paw 0.8s ease-in-out infinite; }
+  .walk .b-leg_back_upper, .walk .b-leg_front_far_upper { animation: up 0.8s ease-in-out -0.4s infinite; }
+  .walk .b-leg_back_lower, .walk .b-leg_front_far_lower { animation: low 0.8s ease-in-out -0.4s infinite; }
+  .walk .b-leg_back_paw, .walk .b-leg_front_far_paw { animation: paw 0.8s ease-in-out -0.4s infinite; }
+  .walk .b-body { animation: bob 0.4s ease-in-out infinite; }
+  .walk .b-head_base { animation: walkhead 0.4s ease-in-out infinite; }
+  .walk .b-tail_2 { animation: sway2 0.8s ease-in-out infinite; }
+  .walking .ground { animation: roll 0.8s linear infinite; }
+  /* 正角度＝順時針＝腳往後；0→50% 往前擺（膝蓋收、腳掌抬），50→100% 踩地往後推 */
+  @keyframes up { 0%, 100% { transform: rotate(4deg); } 50% { transform: rotate(-4deg); } }
+  @keyframes low { 0%, 75%, 100% { transform: none; } 25% { transform: rotate(12deg); } 50% { transform: rotate(-4deg); } }
+  @keyframes paw { 0%, 100% { transform: rotate(8deg); } 25% { transform: rotate(10deg); } 50% { transform: rotate(-6deg); } 75% { transform: none; } }
+  @keyframes bob { 50% { transform: translateY(-0.5%); } }
+  @keyframes walkhead { 50% { transform: rotate(-1.5deg); } }
+  @keyframes roll { to { background-position: -12% 0; } }
+
+  /* 定格感：每段關鍵影格只走兩格，約每秒 8～10 格 */
+  .stop * { animation-timing-function: steps(2, end) !important; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="ground"></div>
+  <div class="cat" id="cat">
+<!--CAT-->
+  </div>
+</div>
+<div id="bar">
+  <b id="fps">— fps</b>
+  <button data-act="look">look</button>
+  <button data-act="sniff">sniff</button>
+  <button data-act="flick">tail</button>
+  <button id="walk" aria-pressed="false">walk</button>
+  <button id="stop" aria-pressed="false">定格感</button>
+  <button id="auto" aria-pressed="true">自動隨機</button>
+</div>
+<script>
+const cat = document.getElementById('cat');
+const stage = document.getElementById('stage');
+const LEN = { look: 2600, sniff: 2000, flick: 1000 };
+let busy = false;
+
+function play(act) {
+  if (busy || cat.classList.contains('walk')) return;
+  busy = true;
+  cat.classList.add(act);
+  setTimeout(() => { cat.classList.remove(act); busy = false; }, LEN[act]);
+}
+for (const b of document.querySelectorAll('[data-act]')) b.onclick = () => play(b.dataset.act);
+
+function toggle(btn, fn) {
+  btn.onclick = () => { const on = btn.getAttribute('aria-pressed') !== 'true'; btn.setAttribute('aria-pressed', on); fn(on); };
+}
+toggle(document.getElementById('walk'), on => { cat.classList.toggle('walk', on); stage.classList.toggle('walking', on); });
+toggle(document.getElementById('stop'), on => stage.classList.toggle('stop', on));
+let auto = true;
+toggle(document.getElementById('auto'), on => auto = on);
+
+// idle 時每 3～6 秒隨機做一個小動作（狀態機的替代品）
+(function next() {
+  setTimeout(() => {
+    if (auto) play(['look', 'sniff', 'flick'][Math.floor(Math.random() * 3)]);
+    next();
+  }, 3000 + Math.random() * 3000);
+})();
+
+// 每秒格數（和 Rive 播放頁同一種量法）
+let n = 0, t0 = performance.now();
+(function tick(t) {
+  n++;
+  if (t - t0 >= 1000) { document.getElementById('fps').textContent = Math.round(n * 1000 / (t - t0)) + ' fps'; n = 0; t0 = t; }
+  requestAnimationFrame(tick);
+})(t0);
+</script>
+</body>
+</html>
