@@ -8,6 +8,8 @@ const ASPECT = 1697 / 927; // 全景圖的寬高比
 const SPOT_X = 0.62; // 動物躲的位置（全景的比例，和 styles.css 的 .scope-spot 一致）
 const ZOOM = 1.3; // 全景高度是鏡片的幾倍（放大倍率）
 const SCAN_MS = 48_000; // 掃一輪的時間：很慢，中間會停下來看
+// 推近／拉遠（[時間點, 0 拉遠～1 推近]）：配合掃視，兩次停下來看的時候推近
+const ZOOMS: [number, number][] = [[0, 0.7], [0.08, 1], [0.16, 0.6], [0.24, 0], [0.42, 0.1], [0.52, 0.8], [0.6, 1], [0.68, 0.5], [0.76, 0], [0.9, 0.3], [1, 0.7]];
 
 /** 草叢（黏土風格）：擋在動物前面。 */
 function Bush() {
@@ -25,8 +27,9 @@ function Bush() {
 
 export function Scope({ id, stage, progress, paused }: { id: string | undefined; stage: number; progress: number; paused: boolean }) {
   const pan = useRef<HTMLDivElement>(null);
+  const look = useRef<HTMLDivElement>(null);
   const p = Math.max(0, Math.min(1, progress));
-  const reveal = Math.max(0, Math.min(1, (p - 0.1) / 0.8)); // 一開始只露出耳朵，快結束時整隻走出來
+  const reveal = Math.max(0, Math.min(1, (p - 0.05) / 0.8)); // 一開始只露出耳朵，快結束時整隻走出來
 
   // 左右搜尋：交給瀏覽器的動畫（顯示晶片處理，不用每一格重算）；進度變了才換一組幅度
   useEffect(() => {
@@ -45,29 +48,40 @@ export function Scope({ id, stage, progress, paused }: { id: string | undefined;
       el.style.transform = `translateX(${clamp(center)}px)`;
       return;
     }
-    const anim = el.animate(
-      at.map((k, i) => ({ transform: `translateX(${clamp(center + k * amp)}px)`, offset: offset[i], easing: 'ease-in-out' })),
-      { duration: SCAN_MS, iterations: Infinity },
-    );
-    anim.currentTime = performance.now() % SCAN_MS; // 換幅度時接著原本的節奏，不要跳回開頭
-    if (paused) anim.pause();
-    return () => anim.cancel();
+    const anims = [
+      el.animate(
+        at.map((k, i) => ({ transform: `translateX(${clamp(center + k * amp)}px)`, offset: offset[i], easing: 'ease-in-out' })),
+        { duration: SCAN_MS, iterations: Infinity },
+      ),
+      // 同一個節奏的推近／拉遠：停下來看的時候推近，掃過去的時候拉遠；越接近找到，整體越近
+      look.current!.animate(
+        ZOOMS.map(([o, k]) => ({ transform: `scale(${1 + 0.06 * p + 0.12 * (1 - p / 2) * k})`, offset: o, easing: 'ease-in-out' })),
+        { duration: SCAN_MS, iterations: Infinity },
+      ),
+    ];
+    for (const a of anims) {
+      a.currentTime = performance.now() % SCAN_MS; // 換幅度時接著原本的節奏，不要跳回開頭
+      if (paused) a.pause();
+    }
+    return () => anims.forEach((a) => a.cancel());
   }, [p, paused]);
 
   return (
     <div className={p >= 1 ? 'scope locked' : 'scope'} aria-hidden="true">
       <div className="scope-zoom">
-        <div className="scope-sway">
-          <div className="scope-pano" ref={pan}>
-            <img src={pano} alt="" draggable={false} />
-            <div className={p >= 1 ? 'scope-spot out' : reveal < 0.3 ? 'scope-spot rustle' : 'scope-spot'}>
-              <div className="scope-hide">
-                {/* 時間到：從草叢後面走出來，站到草叢前面 */}
-                <div className="scope-animal" style={{ transform: p >= 1 ? 'translate(-58%, 6%)' : `translateY(${(1 - reveal) * 58}%)` }}>
-                  <AnimalArt id={id} stage={stage} size="100%" />
+        <div className="scope-look" ref={look}>
+          <div className="scope-sway">
+            <div className="scope-pano" ref={pan}>
+              <img src={pano} alt="" draggable={false} />
+              <div className={p >= 1 ? 'scope-spot out' : reveal < 0.3 ? 'scope-spot rustle' : 'scope-spot'}>
+                <div className="scope-hide">
+                  {/* 時間到：從草叢後面走出來，站到草叢前面 */}
+                  <div className="scope-animal" style={{ transform: p >= 1 ? 'translate(-58%, 6%)' : `translateY(${(1 - reveal) * 50}%)` }}>
+                    <AnimalArt id={id} stage={stage} size="100%" />
+                  </div>
                 </div>
+                <Bush />
               </div>
-              <Bush />
             </div>
           </div>
         </div>

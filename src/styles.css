@@ -6469,9 +6469,14 @@ label.toggle input.switch::after {
   pointer-events: none;
 }
 .scope-zoom,
+.scope-look,
 .scope-sway {
   position: absolute;
   inset: 0;
+}
+/* 推近／拉遠的中心：動物在鏡片裡的位置 */
+.scope-look {
+  transform-origin: 50% 61%;
 }
 /* 時間到：鎖定，往動物推近 */
 .scope-zoom {
@@ -6515,7 +6520,7 @@ label.toggle input.switch::after {
   position: absolute;
   left: 62%;
   top: 70%;
-  width: 16%;
+  width: 19%;
   transform: translate(-50%, -100%);
 }
 .scope-hide {
