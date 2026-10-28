@@ -196,7 +196,12 @@ function frame(now) {
 }
 // 檢查用：showPose({head: 15}) 停在指定姿勢；showPose(null) 恢復播放
 window.showPose = p => { frozen = p; lastDrawn = -1; auto = !p; };
-init();
+init().then(() => {   // 量效能用：?walk=1&stop=1&auto=0 直接進入指定狀態
+  const q = new URLSearchParams(location.search), on = (id) => document.getElementById(id).click();
+  if (q.get('walk') === '1') on('walk');
+  if (q.get('stop') === '1') on('stop');
+  if (q.get('auto') === '0') on('auto');
+});
 </script>
 </body>
 </html>

@@ -47,4 +47,6 @@ python -I $A/crop.py <圖> x0 y0 x1 y1 倍率 out.png      # 放大加格線，�
 - `pose.py`：硬切片離線擺姿勢；`mesh_pose.py`：網格版離線渲染（`HALF=1` 用半尺寸 webp，`MESH_DIR` 指定 `make_mesh_player.py` 的輸出）。
 - `walkpose.py`：走路姿勢，和 `m_template.html` 的動作相同。
 
+- `phone_bench.sh`：A8s 實機量 CPU（每種情況等 7 秒、取樣 15 秒、截圖），例：`bash phone_bench.sh 5037 out "網格_walk|m/?walk=1&auto=0"`。先確認手機解鎖、沒在專注。
+
 需要：Python 3.12、numpy、scipy、opencv-python-headless、Pillow、psd-tools 1.26+。
