@@ -6793,34 +6793,6 @@ label.toggle input.switch::after {
 .scope-gait.landed {
   animation: perch-land 0.8s cubic-bezier(0.3, 1.5, 0.5, 1) both;
 }
-/* 前景（不跟著掃）：樹枝從右邊伸進來，停在上面的鳥、貓頭鷹 */
-.scope-fore {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-.scope-branch {
-  position: absolute;
-  right: -6%;
-  top: 62%;
-  width: 88%;
-}
-.scope-perch {
-  position: absolute;
-  left: 46%;
-  top: 73.5%; /* 腳踩在樹枝上緣 */
-  width: 34%;
-  aspect-ratio: 1;
-  transform: translate(-50%, -100%);
-}
-.scope-perch.landing {
-  animation: perch-land 0.8s cubic-bezier(0.3, 1.5, 0.5, 1) both;
-}
-.scope-perch > div {
-  transition:
-    opacity 2.5s ease,
-    filter 2.5s ease;
-}
 @keyframes perch-land {
   from {
     opacity: 0;
@@ -6835,7 +6807,7 @@ label.toggle input.switch::after {
   inset: 0;
   background: linear-gradient(180deg, rgba(16, 22, 58, 0.78), rgba(10, 24, 30, 0.72));
 }
-.scope.night .scope-branch {
+.scope.night .scope-log {
   filter: brightness(0.45) saturate(0.7);
 }
 /* 黑暗裡的一對發光眼睛：會眨眼 */
@@ -6873,8 +6845,58 @@ label.toggle input.switch::after {
 }
 @media (prefers-reduced-motion: reduce) {
   .scope-gait,
-  .scope-perch.landing,
   .scope-eyes i {
+    animation: none;
+  }
+}
+
+/* 倒木：鳥、貓頭鷹最後停的地方（在全景裡，跟著左右掃） */
+.scope-log-at {
+  position: absolute;
+  width: 26%;
+  transform: translate(-50%, -100%);
+}
+.scope-log {
+  display: block;
+  width: 100%;
+}
+.scope-gait {
+  position: absolute;
+  inset: 0;
+}
+.scope-art {
+  transition:
+    opacity 2.5s ease,
+    filter 2.5s ease;
+}
+/* 停著：慢慢呼吸、偶爾抬頭 */
+.scope-gait.idle,
+.scope-gait.perched {
+  transform-origin: 50% 92%;
+  animation: gait-idle 4.5s ease-in-out infinite;
+}
+@keyframes gait-idle {
+  40% {
+    transform: scale(1.02, 1.04);
+  }
+  60% {
+    transform: rotate(-2deg);
+  }
+}
+/* 剛換到新的地方（在鏡頭外換的）：輕輕落地 */
+.scope-gait.perched {
+  animation:
+    perch-land 0.8s cubic-bezier(0.3, 1.5, 0.5, 1) both,
+    gait-idle 4.5s 0.8s ease-in-out infinite;
+}
+/* 時間到：從很近的地方走到鏡頭正前方（走 2.4 秒，和位置的轉場一樣長） */
+.scope-actor.arrive .scope-gait.idle {
+  animation: gait-walk 0.6s ease-in-out 4;
+}
+@media (prefers-reduced-motion: reduce) {
+  .scope-gait.idle,
+  .scope-gait.perched,
+  .scope-actor.arrive .scope-gait.idle {
     animation: none;
   }
 }

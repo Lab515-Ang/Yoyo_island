@@ -180,7 +180,7 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
     <>
       <div className={leaving ? 'focus scoped leaving' : 'focus scoped'}>
         {/* 望遠鏡：在全景上左右搜尋，動物躲在草叢後面，越久探出越多 */}
-        <Scope id={session.animalId} stage={stage} progress={progress} paused={paused} />
+        <Scope id={session.animalId} stage={stage} progress={progress} paused={paused} seed={session.id} />
         {/* 時間越久光線越暖，森林裡的小生物（螢火蟲）越多 */}
         <div className="focus-light" style={{ opacity: progress * 0.45 }} aria-hidden="true" />
         <div className="focus-life" aria-hidden="true">
