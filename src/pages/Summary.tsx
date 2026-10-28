@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { useSave } from '../app/store';
-import { ANIMALS, COPY, GROWTH_MAX, animalDef, hasStages, stageName, tagColor, TAGS } from '../content/config';
+import { ANIMALS, COPY, GROWTH_MAX, animalDef, growthFor, hasStages, stageName, tagColor, TAGS } from '../content/config';
 import { AnimalArt, TrackArt } from '../components/Animal';
 import { Coin, Modal, fmtMinutes } from '../components/ui';
 import { localDateKey } from '../domain/focus';
@@ -140,7 +140,13 @@ export function Summary({
         <div className="result-card-scene" aria-hidden="true">
           <img className="result-bg" src={doneBg} alt="" draggable={false} />
           {/* 這次遇見的動物直接出現在場景裡；放棄的話是跑走的剪影。完整紀錄在「我的歷程」 */}
-          <div className="result-plant">{done ? <AnimalArt id={s.animalId} stage={stage} size="100%" /> : <TrackArt id={s.animalId} fled size="100%" />}</div>
+          <div className="result-plant">
+            {done ? <AnimalArt id={s.animalId} stage={stage} size="100%" /> : <TrackArt id={s.animalId} fled size="100%" />}
+            {/* 族群成長：揭曉結束後，頭上跑一條百分比色條，跑完閃一下就收掉 */}
+            {done && !reveal && sight && hasStages(animal) && sight.growth - growthFor(min) < GROWTH_MAX && (
+              <GrowthBar from={Math.max(0, sight.growth - growthFor(min)) / GROWTH_MAX} to={Math.min(sight.growth, GROWTH_MAX) / GROWTH_MAX} />
+            )}
+          </div>
         </div>
         <span className="minute-pill">{min} 分</span>
         <p className="result-tag">
@@ -172,12 +178,6 @@ export function Summary({
             <li>
               <span>🛠️ 修復進度</span>
               <strong>+{earned.points}</strong>
-            </li>
-          )}
-          {sight && hasStages(animal) && (
-            <li>
-              <span>🌱 {animal.name}族群</span>
-              <strong>{sight.grew ? `長大了！現在看得到${stageName(animal, stage)}` : stage === 2 ? `已經是${stageName(animal, 2)}` : `成長 ${Math.min(sight.growth, GROWTH_MAX)}/${GROWTH_MAX}`}</strong>
             </li>
           )}
           {newAnimals.map((a) => (
@@ -318,6 +318,43 @@ function NoteEditor({ sessionId, onClose, onSaved }: { sessionId: string; onClos
 }
 
 /** 遇見動物的揭曉：剪影慢慢轉成彩色、動物抬頭，後面有光芒。 */
+/** 族群成長的色條：從這次之前的百分比跑到現在，數字跟著跳，跑完閃一下、收掉（時間和 styles.css 的 .growth-bar 一致）。 */
+function GrowthBar({ from, to }: { from: number; to: number }) {
+  const [pct, setPct] = useState(Math.round(from * 100));
+  // 色條貼在頭頂上方：量動物圖實際畫到哪裡（每種動物、每個階段高度不同；圖的座標是 0～100）
+  const ref = useRef<HTMLDivElement>(null);
+  const [head, setHead] = useState(0);
+  useLayoutEffect(() => {
+    try {
+      setHead(ref.current?.parentElement?.querySelector<SVGSVGElement>('svg')?.getBBox().y ?? 0);
+    } catch {
+      // 量不到就放在格子頂端
+    }
+  }, []);
+  useEffect(() => {
+    const start = performance.now() + 300; // 色條先彈出來，再開始跑
+    let raf = 0;
+    const tick = (t: number) => {
+      const k = Math.max(0, Math.min(1, (t - start) / 1200));
+      setPct(Math.round((from + (to - from) * (1 - (1 - k) ** 3)) * 100));
+      if (k < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [from, to]);
+  return (
+    <div className="growth-bar" ref={ref} role="img" aria-label={`族群成長 ${Math.round(to * 100)}%`} style={{ top: `${head}%`, '--from': `${from * 100}%`, '--to': `${to * 100}%` } as CSSProperties}>
+      <span className="growth-track">
+        <i />
+      </span>
+      <b>{pct}%</b>
+      <em aria-hidden="true" />
+      <em aria-hidden="true" />
+      <em aria-hidden="true" />
+    </div>
+  );
+}
+
 function MeetReveal({ id, name, stage, label, onClose }: { id: string; name: string; stage: number; label: string; onClose: () => void }) {
   return (
     <div className="ach-celebrate meet-reveal" role="dialog" aria-modal="true" aria-labelledby="meet-title" onClick={onClose}>
