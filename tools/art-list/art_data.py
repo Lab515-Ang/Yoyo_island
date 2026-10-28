@@ -107,7 +107,7 @@ BATCH = {
     'civet': 4, 'mikado_pheasant': 4, 'serow': 4, 'crested_serpent_eagle': 4, 'maroon_oriole': 4, 'yellow_tit': 4, 'fish_owl': 4,
     'clouded_leopard': 5, 'black_eagle': 5, 'lanyu_scops_owl': 5, 'hill_partridge': 5,
 }
-PRIORITY = {1: 'P0', 2: 'P0', 3: 'P1', 4: 'P1', 5: 'P2'}
+PRIORITY = {1: 'P0', 2: 'P0', 3: 'P1', 4: 'P1', 5: 'P2', 6: 'P2'}  # 6＝新增物種（需要新的棲地與出現方式）
 
 
 def unlock_text(u):
@@ -129,46 +129,125 @@ CFG = json.loads((pathlib.Path(__file__).parent / 'cfg.json').read_text(encoding
 PROJECT_TITLE = {p['id']: p['title'] for p in CFG['projects']}
 
 
+# ---------- 台灣保育動物（美術清單用的名單，使用者 2026-10-28 指定） ----------
+# 等級來源：維基百科「臺灣保育物種列表」（整理自農業部陸域、海洋委員會海洋保育類名錄；該條目標註 2023 年起待更新）。
+# 上架前要用農業部「陸域保育類野生動物名錄」114/2/7 版 PDF 與海洋委員會名錄再核對一次。
+LEVEL = {1: '第一級・瀕臨絕種', 2: '第二級・珍貴稀有', 3: '第三級・其他應予保育'}
+TW_ROSTER = [
+    # (代號, 名稱, 體型, 保育等級, 備註)
+    ('black_bear', '台灣黑熊', 'bear', 1, ''),
+    ('leopard_cat', '石虎', 'cat', 1, ''),
+    ('pangolin', '穿山甲', 'pangolin', 2, ''),
+    ('blue_magpie', '台灣藍鵲', 'bird', 3, ''),
+    ('pitta', '八色鳥', 'bird', 2, ''),
+    ('mikado_pheasant', '帝雉', 'pheasant', 2, ''),
+    ('swinhoe_pheasant', '藍腹鷴', 'pheasant', 2, ''),
+    ('marten', '黃喉貂', 'mustelid', 3, ''),
+    ('hawk_eagle', '熊鷹', 'raptor', 1, ''),
+    ('fish_owl', '黃魚鴞', 'owl', 2, '程式原本寫第一級，已改成第二級'),
+    ('black_faced_spoonbill', '黑面琵鷺', 'wader', 1, '新增'),
+    ('yellow_tit', '黃山雀', 'bird', 2, ''),
+    ('hill_partridge', '台灣山鷓鴣', 'pheasant', 3, ''),
+    ('clouded_leopard', '台灣雲豹', 'cat', 1, '名錄列第一級；野外可能已滅絕（傳說）'),
+    ('eurasian_otter', '歐亞水獺（金門）', 'otter', 1, '新增'),
+    ('formosan_salmon', '櫻花鉤吻鮭', 'fish', 1, '新增（台灣特有亞種）'),
+    ('green_turtle', '綠蠵龜', 'turtle', 1, '新增（海洋保育類）'),
+    ('white_dolphin', '中華白海豚', 'dolphin', 1, '新增（海洋保育類，台灣亞種）'),
+    ('broad_tailed_swallowtail', '寬尾鳳蝶', 'butterfly', 1, '新增（台灣特有種）'),
+    ('farmland_tree_frog', '諸羅樹蛙', 'frog', 2, '新增（台灣特有種）'),
+    ('formosan_flying_fox', '台灣狐蝠', 'bat', 1, '新增'),
+]
+SHAPE_NAME.update({'wader': '涉禽', 'otter': '水獺', 'fish': '魚', 'turtle': '海龜', 'dolphin': '海豚', 'butterfly': '蝴蝶', 'frog': '蛙', 'bat': '蝙蝠'})
+APPEAR.update({
+    'wader': '從遠處涉水走過來',
+    'otter': '從遠處走過來（溪邊、湖邊）',
+    'fish': '水裡由遠游近（新出現方式，程式待做）',
+    'turtle': '浮出海面換氣，越游越近（新，程式待做）',
+    'dolphin': '遠方躍出海面，越來越近（新，程式待做）',
+    'butterfly': '飛舞，最後停到花上（新，程式待做）',
+    'frog': '夜裡先聽到叫聲、看到眼睛（同貓頭鷹）',
+    'bat': '夜空中飛，最後倒掛在樹枝上（同猛禽盤旋）',
+})
+HABITAT.update({
+    'black_faced_spoonbill': ('濕地河口', '白天'), 'eurasian_otter': ('溪流', '夜晚'), 'formosan_salmon': ('溪流水下', '白天'),
+    'green_turtle': ('海洋', '白天'), 'white_dolphin': ('海洋', '白天'), 'broad_tailed_swallowtail': ('山地森林', '白天'),
+    'farmland_tree_frog': ('中低海拔森林', '夜晚'), 'formosan_flying_fox': ('南方島嶼', '夜晚'),
+})
+LOOK.update({
+    'black_faced_spoonbill': '白色羽毛、黑色的臉、黑色湯匙狀長嘴、長腳（冬候鳥，曾文溪口）',
+    'eurasian_otter': '深褐色流線身體、扁頭、粗長的尾巴、蹼足、濕亮的毛（金門）',
+    'formosan_salmon': '銀綠色身體、體側橢圓形雲斑，繁殖期帶粉紅色（七家灣溪）',
+    'green_turtle': '橢圓形背甲（橄欖綠帶褐色放射紋）、鰭狀前肢、小頭',
+    'white_dolphin': '粉紅帶灰白斑點的身體、細長的嘴、三角形背鰭（台灣西部沿岸）',
+    'broad_tailed_swallowtail': '黑色翅膀、後翅有寬大的尾突與紅色斑紋（台灣特有種）',
+    'farmland_tree_frog': '翠綠色背部、白色腹部、體側白線、指端吸盤（台灣特有種，雲嘉南平地）',
+    'formosan_flying_fox': '大型蝙蝠、狐狸臉、金褐色頸毛、黑色膜翼（綠島、龜山島）',
+})
+
+
 def animals():
+    cfg = {a['id']: a for a in CFG['animals']}
     rows = []
-    for i, a in enumerate(CFG['animals'], 1):
-        bird = a['shape'] in BIRD_SHAPES
-        stages = a['stages']
-        names = ('雛鳥／幼鳥／成鳥' if bird else '幼獸／亞成獸／成獸') if stages else ('成鳥' if bird else '成獸') + '（只有一種樣式）'
-        hab, time = HABITAT[a['id']]
-        b = BATCH[a['id']]
-        status, note = '未開始', ''
-        if a['id'] == 'leopard_cat':
+
+    def row(no, aid, name, shape, region, stages, level, unlock, batch, note):
+        bird = shape in BIRD_SHAPES or shape == 'wader'
+        names = ('雛鳥／幼鳥／成鳥' if bird else '幼年／亞成年／成年') if stages > 1 else '只有一種樣式'
+        hab, time = HABITAT[aid]
+        status = '未開始'
+        if aid == 'leopard_cat':
             status, note = '製作中', '成年主圖、網格已完成（全系列的風格與規格參考）；幼年、亞成年未做'
-        rows.append({
-            'no': i, 'id': a['id'], 'name': a['name'], 'region': REGION[a['region']], 'shape': SHAPE_NAME[a['shape']], 'shape_id': a['shape'],
-            'stages': 3 if stages else 1, 'stage_names': names, 'look': LOOK[a['id']], 'habitat': hab, 'time': time,
-            'appear': APPEAR.get(a['shape'], '從遠處走過來'), 'level': a['level'], 'unlock': unlock_text(a['unlock']),
-            'batch': b, 'priority': PRIORITY[b],
-            'file': f"{a['id']}-0/1/2.png" if stages else f"{a['id']}-2.png",
-            'status': status, 'note': note,
-        })
+        return {
+            'no': no, 'id': aid, 'name': name, 'region': region, 'shape': SHAPE_NAME[shape], 'shape_id': shape,
+            'stages': stages, 'stage_names': names, 'look': LOOK[aid], 'habitat': hab, 'time': time,
+            'appear': APPEAR.get(shape, '從遠處走過來'), 'level': level, 'unlock': unlock,
+            'batch': batch, 'priority': PRIORITY[batch],
+            'file': f"{aid}-0/1/2.png" if stages > 1 else f"{aid}-2.png", 'status': status, 'note': note,
+        }
+
+    for aid, name, shape, lv, note in TW_ROSTER:
+        a = cfg.get(aid)
+        stages = 3 if a and a['stages'] else 1
+        unlock = unlock_text(a['unlock']) if a else '待定（新物種）'
+        rows.append(row(len(rows) + 1, aid, name, shape, '台灣', stages, LEVEL[lv], unlock, BATCH.get(aid, 6), note))
+    for a in CFG['animals']:
+        if a['region'] == 'jp':
+            rows.append(row(len(rows) + 1, a['id'], a['name'], a['shape'], '日本', 3 if a['stages'] else 1, a['level'], unlock_text(a['unlock']), BATCH[a['id']], ''))
     return rows
 
 
 # ---------- 動物動態：體型模板 ----------
 TEMPLATES = [
-    ('貓科', 'cat', '石虎、西表山貓、對馬山貓、小麝香貓、台灣雲豹',
+    ('貓科', 'cat', '石虎、台灣雲豹、西表山貓、對馬山貓',
      '遠側後腳、遠側前腳、身體、尾巴 3 節、近側後腳、近側前腳、脖子、遠側耳、頭、張眼、閉眼、下巴、近側耳（硬切片 23 層 → 網格 12 層）',
      'E1 拿掉近側兩條腿；E3 拿掉頭；E4 拿掉兩隻耳朵；E5 閉眼；E7 頭轉向鏡頭',
      '21 根：身體、脖子、頭、兩耳、下巴、尾巴 3 節、四條腿各 3 節',
      '待機呼吸、張望、低頭聞、甩尾、耳朵抖、眨眼、張嘴、走路（定格每秒 8 格）', '已驗證（石虎）'),
     ('熊', 'bear', '台灣黑熊、月輪熊', '同貓科；尾巴 1 節', '同貓科', '同貓科，尾巴 1 根', '待機、張望、低頭聞、坐下、走路', '待第一隻實作確認'),
-    ('山羊', 'goat', '長鬃山羊、日本鬣羚', '同貓科＋角（跟頭）、鬃毛（跟脖子）', '同貓科＋拿掉鬃毛', '同貓科', '待機、張望、低頭吃草、甩耳、走路', '待第一隻實作確認'),
-    ('貂、獴', 'mustelid', '食蟹獴、黃喉貂', '同貓科；身體較長', '同貓科', '同貓科，身體可多 1 節', '待機、站起來張望、低頭聞、甩尾、走路', '待第一隻實作確認'),
+    ('山羊', 'goat', '日本鬣羚', '同貓科＋角（跟頭）、鬃毛（跟脖子）', '同貓科＋拿掉鬃毛', '同貓科', '待機、張望、低頭吃草、甩耳、走路', '待第一隻實作確認'),
+    ('貂', 'mustelid', '黃喉貂', '同貓科；身體較長', '同貓科', '同貓科，身體可多 1 節', '待機、站起來張望、低頭聞、甩尾、走路', '待第一隻實作確認'),
     ('穿山甲', 'pangolin', '穿山甲', '同貓科；鱗片身體、長尾', '同貓科', '同貓科', '待機、低頭聞、甩尾、走路（選配：捲成球）', '待第一隻實作確認'),
-    ('鳥', 'bird', '台灣藍鵲、八色鳥、朱鸝、黃山雀、野口啄木鳥',
+    ('鳥', 'bird', '台灣藍鵲、八色鳥、黃山雀、野口啄木鳥',
      '身體、頭、嘴、張眼、閉眼、近側翅膀、遠側翅膀、尾羽、近側腳、遠側腳', '拿掉近側翅膀；拿掉頭；閉眼；拿掉近側腳；頭轉向鏡頭',
      '約 12 根：身體、頭、嘴、兩翅、尾羽 2 節、兩腳各 2 節', '待機、跳兩步、低頭啄、理羽毛、歪頭、眨眼、拍翅；另需「飛行姿勢」1 張', '待第一隻實作確認'),
-    ('雉雞', 'pheasant', '藍腹鷴、帝雉、雷鳥、台灣山鷓鴣', '同鳥；尾羽較長（3 節）', '同鳥', '同鳥，尾羽 3 節', '待機、走路、低頭啄、抬頭張望、眨眼', '待第一隻實作確認'),
-    ('猛禽', 'raptor', '熊鷹、大冠鷲、林鵰、虎頭海鵰', '同鳥；翅膀較大', '同鳥', '同鳥', '待機、張望、展翅；另需「飛行姿勢（展翅盤旋）」1 張', '待第一隻實作確認'),
-    ('貓頭鷹', 'owl', '領角鴞、黃魚鴞、毛腿魚鴞、蘭嶼角鴞', '身體、頭、耳羽、張眼、閉眼、近側翅膀、腳', '拿掉頭；閉眼；拿掉耳羽；頭轉向鏡頭', '約 8 根：身體、頭、兩耳羽、兩翅、兩腳', '待機、大角度轉頭、眨眼、縮成一團（發光眼睛由程式畫）', '待第一隻實作確認'),
+    ('雉雞', 'pheasant', '帝雉、藍腹鷴、台灣山鷓鴣、雷鳥', '同鳥；尾羽較長（3 節）', '同鳥', '同鳥，尾羽 3 節', '待機、走路、低頭啄、抬頭張望、眨眼', '待第一隻實作確認'),
+    ('猛禽', 'raptor', '熊鷹、虎頭海鵰', '同鳥；翅膀較大', '同鳥', '同鳥', '待機、張望、展翅；另需「飛行姿勢（展翅盤旋）」1 張', '待第一隻實作確認'),
+    ('貓頭鷹', 'owl', '黃魚鴞、毛腿魚鴞', '身體、頭、耳羽、張眼、閉眼、近側翅膀、腳', '拿掉頭；閉眼；拿掉耳羽；頭轉向鏡頭', '約 8 根：身體、頭、兩耳羽、兩翅、兩腳', '待機、大角度轉頭、眨眼、縮成一團（發光眼睛由程式畫）', '待第一隻實作確認'),
+    # 新增物種的體型（第一隻實作時確認）
+    ('涉禽', 'wader', '黑面琵鷺', '同鳥＋長腳、長嘴', '同鳥', '同鳥，腳各 3 節、嘴 1 節', '待機、涉水走、低頭左右掃嘴覓食、理羽毛', '待第一隻實作確認'),
+    ('水獺', 'otter', '歐亞水獺（金門）', '同貓科；身體長、尾巴粗', '同貓科', '同貓科，身體多 1 節、尾巴 3 節', '待機、站起來張望、走路、游泳（另畫游泳姿勢）', '待第一隻實作確認'),
+    ('魚', 'fish', '櫻花鉤吻鮭', '身體前段、身體後段、尾鰭、胸鰭、背鰭', '拿掉胸鰭', '約 5 根：身體 2 節、尾鰭、胸鰭、背鰭', '游動擺尾、停在水中、轉向', '待第一隻實作確認'),
+    ('海龜', 'turtle', '綠蠵龜', '背甲、頭、前鰭（近、遠）、後鰭（近、遠）', '拿掉近側前鰭', '約 6 根：甲殼、頭、四片鰭', '划水、浮上換氣、轉頭', '待第一隻實作確認'),
+    ('海豚', 'dolphin', '中華白海豚', '身體前段、身體後段、尾鰭、胸鰭、背鰭', '拿掉胸鰭', '約 5 根：身體 2 節、尾鰭、胸鰭', '游、躍出水面、噴氣', '待第一隻實作確認'),
+    ('蝴蝶', 'butterfly', '寬尾鳳蝶', '身體、前翅、後翅（左右各一）、觸角', '—（另畫停棲姿勢）', '約 5 根：身體、四片翅膀', '拍翅飛舞、停在花上翅膀開合', '待第一隻實作確認'),
+    ('蛙', 'frog', '諸羅樹蛙', '身體、頭、前腳、後腳（近、遠）、鳴囊、張眼、閉眼', '拿掉近側後腳；閉眼', '約 8 根：身體、頭、四條腿、鳴囊', '待機、鼓鳴囊（叫）、跳、眨眼', '待第一隻實作確認'),
+    ('蝙蝠', 'bat', '台灣狐蝠', '身體、頭、雙翼（近、遠）、腳', '—（另畫倒掛、飛行姿勢）', '約 7 根：身體、頭、兩翼各 2 節、腳', '飛行拍翼、倒掛時收翼、轉頭', '待第一隻實作確認'),
 ]
+
+# 主圖以外要另外畫的姿勢（B 動物動態的「額外姿勢」）
+EXTRA_POSE = {
+    'bird': '飛行姿勢 1 張', 'raptor': '展翅盤旋 1 張', 'wader': '飛行姿勢 1 張（選配）', 'otter': '游泳姿勢 1 張',
+    'butterfly': '停棲（翅膀合起）1 張', 'bat': '飛行（展翼）、倒掛各 1 張', 'dolphin': '躍出水面 1 張',
+}
 
 # ---------- 望遠鏡全景 ----------
 PANOS = [
@@ -182,6 +261,9 @@ PANOS = [
     ('alpine', '高山（草原、岩壁）', '白天', 4, 'P1', '未開始', ''),
     ('satoyama', '里山', '夜晚', 4, 'P1', '未開始', ''),
     ('satoyama', '里山', '白天', 5, 'P2', '選配', '之後新增日本白天活動的動物時再畫'),
+    ('wetland', '濕地河口', '白天', 6, 'P2', '未開始', '新增物種用（黑面琵鷺）'),
+    ('ocean', '海洋（海面＋淺水下）', '白天', 6, 'P2', '未開始', '新增物種用；要看得到水下（綠蠵龜、中華白海豚）'),
+    ('stream-under', '溪流水下', '白天', 6, 'P2', '未開始', '新增物種用（櫻花鉤吻鮭）'),
     ('forest-low', '中低海拔森林', '晨昏', 5, 'P2', '選配', '先用白天版加暖色調'),
     ('forest-mountain', '山地森林（針葉林、較涼）', '晨昏', 5, 'P2', '選配', '先用白天版加暖色調'),
     ('alpine', '高山（草原、岩壁）', '晨昏', 5, 'P2', '選配', '先用白天版加暖色調'),

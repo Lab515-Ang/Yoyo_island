@@ -344,12 +344,12 @@
     "kind": "gems",
     "price": 90
    },
-   "level": "一級・瀕臨絕種",
+   "level": "二級・珍貴稀有",
    "habitat": {
     "zone": "mid",
     "region": "中低海拔原始闊葉林的溪流沿岸",
     "elevation": "約 500～2,000 公尺",
-    "level": 1,
+    "level": 2,
     "lon": 121.3,
     "lat": 24.2
    },
