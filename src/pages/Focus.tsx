@@ -2,11 +2,10 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useNow, useSave } from '../app/store';
 import { APP_NAME, MIN_FOCUS_MINUTES, PAUSE_MINUTES, SOUNDS, TEST_TOOLS, animalDef } from '../content/config';
 import { LEAVE_MS, Modal } from '../components/ui';
-import { TrackArt } from '../components/Animal';
+import { Scope } from '../components/Scope';
 import { completeNow, elapsedMs, finish, pause, rawElapsedMs, remainingMs, resume, targetReached, watchWindow } from '../domain/focus';
 import { applyFocusRewards, cancelSession, closeSession, focusSoundFor, graceLeftMs, growthOf, putSession } from '../domain/game';
 import type { FocusSession, SaveFile } from '../domain/types';
-import focusBg from '../assets/scenes/focus-night.webp';
 import { useAmbient } from '../sound';
 import { DEEP_GRACE_MS, TimeGuard, cancelFocusEnd, isAndroid, scheduleFocusEnd, tapHaptic } from '../platform';
 import { Check, Lock, Pause, Play, Square, Volume2, VolumeX, Zap } from 'lucide-react';
@@ -179,10 +178,9 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
 
   return (
     <>
-      <div className={leaving ? 'focus leaving' : 'focus'}>
-        <div className="focus-bg" aria-hidden="true">
-          <img src={focusBg} alt="" draggable={false} />
-        </div>
+      <div className={leaving ? 'focus scoped leaving' : 'focus scoped'}>
+        {/* 望遠鏡：在全景上左右搜尋，動物躲在草叢後面，越久探出越多 */}
+        <Scope id={session.animalId} stage={stage} progress={progress} paused={paused} />
         {/* 時間越久光線越暖，森林裡的小生物（螢火蟲）越多 */}
         <div className="focus-light" style={{ opacity: progress * 0.45 }} aria-hidden="true" />
         <div className="focus-life" aria-hidden="true">
@@ -213,15 +211,6 @@ export function Focus({ session, onFinished }: { session: FocusSession; onFinish
             {moment}
           </p>
         )}
-        <div className="focus-plant">
-          <TrackArt id={session.animalId} progress={progress} stage={stage} size="100%" />
-          {/* 足跡：靠近越多，留下的腳印越多 */}
-          <div className="focus-tracks" aria-hidden="true">
-            {Array.from({ length: step * 2 }, (_, i) => (
-              <span key={i} />
-            ))}
-          </div>
-        </div>
         <div className="focus-bubble">
           <div className="focus-time" role="timer" aria-live="off" aria-label={over ? '超過目標的時間' : countdown ? '剩餘時間' : '已專注時間'}>
             {label}
