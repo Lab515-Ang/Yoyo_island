@@ -85,6 +85,23 @@ def build():
     sheet(wb, '共通規格', '共通規格', '所有美術都要遵守。每一項後面附上原因（多半是實際做過、踩過的破綻）。',
           ['項目', '規格', '說明／原因'], [16, 52, 70], D.GLOBAL)
 
+    # ---- 動物尺寸 ----
+    ws = sheet(wb, '動物尺寸', '動物尺寸：各畫面實際需要的像素', '手機實際像素＝畫面大小（CSS px）× 螢幕密度（Galaxy A8s 約 2.6 倍，旗艦機約 3～3.5 倍）。結論：製作主圖 1024，App 用 512（之後可改 768）。',
+               ['出現的地方', '畫面上的大小（CSS px）', 'A8s 實際需要（px）', '旗艦機實際需要（px）', '備註'], [30, 20, 18, 20, 36], [list(x) for x in D.SIZES])
+    r0 = ws.max_row + 2
+    ws.cell(row=r0, column=1, value='建議規格').font = Font(name=FONT, size=12, bold=True, color=DEEP)
+    for i, h in enumerate(['項目', '規格', '說明'], 1):
+        c = ws.cell(row=r0 + 1, column=i, value=h)
+        c.font = Font(name=FONT, size=10, bold=True, color='FFFFFF')
+        c.fill = PatternFill('solid', fgColor=DEEP)
+        c.border = BORDER
+    for r, row in enumerate(D.SIZE_NOTES, r0 + 2):
+        for i, v in enumerate(row, 1):
+            c = ws.cell(row=r, column=i, value=v)
+            c.font = Font(name=FONT, size=10)
+            c.alignment = Alignment(wrap_text=True, vertical='top')
+            c.border = BORDER
+
     # ---- A 動物主圖 ----
     a_rows = [[a['no'], a['id'], a['name'], a['region'], a['shape'], a['stages'], a['stage_names'], a['look'], a['habitat'], a['time'], a['appear'],
                a['level'], a['unlock'], a['batch'], a['priority'], a['file'], a['status'], a['note']] for a in animals]
@@ -260,6 +277,9 @@ def build():
     parts = [f'<h1>棲光小島｜美術清單</h1><p class="sub">更新：{D.UPDATED}。P0＝上架前一定要有；P1＝上架前最好有；P2＝上架後再補。可編輯版本：docs/美術清單.xlsx。</p>',
              '<h2>總覽</h2>' + table(['類別', '項目數', '張數／套數', '已完成', '最高優先度'], summary + [('合計', *tot, '')], 'ov')]
     parts.append('<h2>共通規格</h2>' + table(['項目', '規格', '說明／原因'], D.GLOBAL))
+    parts.append('<h2 class="pb">動物尺寸：各畫面實際需要的像素</h2><p class="sub">手機實際像素＝畫面大小（CSS px）× 螢幕密度（Galaxy A8s 約 2.6 倍，旗艦機約 3～3.5 倍）。</p>'
+                 + table(['出現的地方', '畫面上的大小（CSS px）', 'A8s 實際需要（px）', '旗艦機實際需要（px）', '備註'], D.SIZES)
+                 + '<h2>建議規格</h2>' + table(['項目', '規格', '說明'], D.SIZE_NOTES))
     parts.append('<h2 class="pb">A. 動物主圖（每個成長階段 1 張）</h2><p class="sub">正側面、頭朝右；製作 1024×1024 白底主圖，App 用 512×512 透明（腳底 y＝472）。幼年約成年的 60%、亞成年約 80%。這張主圖也是動物動態的唯一像素來源。</p>'
                  + table(['#', '代號', '名稱', '區域', '體型', '張數', '成長階段', '外型重點', '全景', '時段', '出現方式', '保育等級', '取得方式', '批次', '優先', '檔名', '狀態', '備註'], a_rows, 'small'))
     parts.append('<h2 class="pb">B. 動物動態（分層部件＋網格骨架）</h2><p class="sub">規範見 docs/規格-動物動態網格.md。每個成長階段一套部件；同體型共用骨架與動作。</p>'
