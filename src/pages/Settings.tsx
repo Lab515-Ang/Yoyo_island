@@ -3,6 +3,7 @@ import { useSave } from '../app/store';
 import { AVATARS, GROWTH_AT, GROWTH_MAX, MAX_FOCUS_MINUTES, MIN_FOCUS_MINUTES, PAUSE_MINUTES, animalDef, avatarEmoji } from '../content/config';
 import { validateSave } from '../domain/save';
 import { endedSessions, openSession } from '../domain/game';
+import { dayStartNow, localDateKey, shiftDateKey } from '../domain/focus';
 import { notifySupported, playChime } from '../sound';
 import { DEEP_GRACE_MS, TimeGuard, defaultGuardConfig, isAndroid, isNative, onResume, requestNotifyPermission, setDailyReminder, shareFile, type GuardApp } from '../platform';
 import { Modal } from '../components/ui';
@@ -547,9 +548,18 @@ export function SettingsPage({ onSounds }: { onSounds?: () => void }) {
         <label className="set-row">
           <span>
             每日起始時間
-            <small>夜貓子可以把凌晨算進前一天</small>
+            <small>{st.dayStartNext && dayStartNow(st, Date.now(), save.profile.timezone) !== st.dayStartNext.hour ? '明天開始生效' : '夜貓子可以把凌晨算進前一天'}</small>
           </span>
-          <select className="set-select" value={st.dayStartHour} onChange={(e) => set({ dayStartHour: Number(e.target.value) })}>
+          <select
+            className="set-select"
+            value={st.dayStartNext?.hour ?? st.dayStartHour}
+            onChange={(e) => {
+              // 從明天才生效（今天的統計、每日挑戰照原本的算法）
+              const h = Number(e.target.value);
+              const now = dayStartNow(st, Date.now(), save.profile.timezone);
+              set({ dayStartHour: now, dayStartNext: h === now ? null : { hour: h, from: shiftDateKey(localDateKey(Date.now(), save.profile.timezone), 1) } });
+            }}
+          >
             {[0, 1, 2, 3, 4, 5, 6].map((h) => (
               <option key={h} value={h}>
                 {pad2(h)}:00{h === 0 ? '（午夜）' : ''}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactElement, type ReactNode } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { svgMarkup } from './svgMarkup';
 import { useSave } from '../app/store';
 import { animalDef, stageName, type AnimalDef } from '../content/config';
 import { sightings } from '../domain/game';
@@ -214,7 +214,7 @@ export function TrackArt({ id, progress = 0, fled = false, stage = 2, size = 64 
 const cellImages = new Map<string, string>();
 const cellImage = (key: string, make: () => ReactElement) => {
   let url = cellImages.get(key);
-  if (!url) cellImages.set(key, (url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(renderToStaticMarkup(make()))}`));
+  if (!url) cellImages.set(key, (url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgMarkup(make()))}`));
   return url;
 };
 

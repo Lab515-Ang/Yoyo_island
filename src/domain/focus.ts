@@ -178,6 +178,17 @@ export function setCalendar(c: { dayStartHour: number; weekStart: 0 | 1 }) {
   cal.weekStart = c.weekStart;
 }
 export const dayStartHour = () => cal.dayStartHour;
+
+/**
+ * 現在該用的每日起始時間。改設定時從隔天才生效：不然剛結束的專注換了算法，
+ * 可能被算進前一天、又算進今天，同一段專注完成兩天的每日挑戰。
+ */
+export function dayStartNow(s: { dayStartHour: number; dayStartNext?: { hour: number; from: string } | null }, now: number, tz: string) {
+  const n = s.dayStartNext;
+  if (!n) return s.dayStartHour;
+  const p = parts(now - s.dayStartHour * 3_600_000, tz); // 用舊的起始時間算「今天」
+  return `${p.year}-${pad(p.month)}-${pad(p.day)}` >= n.from ? n.hour : s.dayStartHour;
+}
 export const weekStartsOn = () => cal.weekStart;
 const SHIFT = () => cal.dayStartHour * 3_600_000;
 

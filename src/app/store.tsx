@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as storage from '../data/storage';
 import { newDemoSave } from '../domain/save';
-import { setCalendar } from '../domain/focus';
+import { dayStartNow, setCalendar } from '../domain/focus';
 import type { AppMode, SaveFile } from '../domain/types';
 
 interface Store {
@@ -110,7 +110,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // 一天、一週的起點跟著設定走：先設好再讓畫面計算統計
-  if (loaded.status === 'ok') setCalendar(loaded.save.settings);
+  if (loaded.status === 'ok') setCalendar({ ...loaded.save.settings, dayStartHour: dayStartNow(loaded.save.settings, Date.now(), loaded.save.profile.timezone) });
 
   const value = useMemo(
     () => ({ mode, loaded, save: loaded.status === 'ok' ? loaded.save : null, stale, writeError, update, replace, switchMode, resetDemo, resetAll, toast, notify }),

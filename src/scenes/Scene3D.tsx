@@ -2,7 +2,7 @@
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as THREE from 'three';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { svgMarkup } from '../components/svgMarkup';
 import { AnimalArt } from '../components/Animal';
 import { useSvgTexture } from './svgTexture';
 import type { HabitatId } from '../domain/types';
@@ -129,7 +129,7 @@ const SPOTS: [number, number, number][] = [
 
 /** 動物貼圖（15 種動物 × 3 個成長階段，所有 3D 畫面共用）。 */
 const useAnimalTexture = (animalId: string, stage: number) =>
-  useSvgTexture(`animal:${animalId}:${stage}`, () => renderToStaticMarkup(<AnimalArt id={animalId} stage={stage} size={256} />));
+  useSvgTexture(`animal:${animalId}:${stage}`, () => svgMarkup(<AnimalArt id={animalId} stage={stage} size={256} />));
 
 function AnimalSprite({ a, spot, still, onSelect }: { a: SceneAnimal; spot: [number, number, number]; still: boolean; onSelect?: (id: string) => void }) {
   const tex = useAnimalTexture(a.animalId, a.stage);

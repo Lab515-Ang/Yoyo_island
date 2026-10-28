@@ -1,6 +1,6 @@
 // 專注成果統計圖：把這段期間的觀察格子與時間分布畫成一張圖（先組 SVG，再轉成 PNG 給存檔／分享用）
 import { useEffect, useState } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { svgMarkup } from './svgMarkup';
 import { animalDef } from '../content/config';
 import type { FocusSession } from '../domain/types';
 import type { weekRecap } from '../domain/game';
@@ -48,7 +48,7 @@ function cardSvg(d: ShareCardData) {
       const done = s.status === 'completed';
       const id = animalDef(s.animalId).id;
       const key = done ? `${id}:${d.stages.get(s.id) ?? 2}` : `${id}:fled`;
-      if (!markup.has(key)) markup.set(key, renderToStaticMarkup(done ? <AnimalArt id={id} stage={d.stages.get(s.id) ?? 2} size={100} /> : <TrackArt id={id} fled size={100} />));
+      if (!markup.has(key)) markup.set(key, svgMarkup(done ? <AnimalArt id={id} stage={d.stages.get(s.id) ?? 2} size={100} /> : <TrackArt id={id} fled size={100} />));
       const off = done ? 0 : cell * 0.15;
       return place(markup.get(key)!, x + off, y + off, done ? cell : cell * 0.7);
     })
@@ -123,7 +123,7 @@ function sessionSvg({ session: s, when, title, stage }: SessionCardData) {
   const done = s.status === 'completed';
   const a = animalDef(s.animalId);
   const min = Math.floor(s.accumulatedMs / 60000);
-  const art = done ? renderToStaticMarkup(<AnimalArt id={a.id} stage={stage} size={220} />) : renderToStaticMarkup(<TrackArt id={a.id} fled size={170} />);
+  const art = done ? svgMarkup(<AnimalArt id={a.id} stage={stage} size={220} />) : svgMarkup(<TrackArt id={a.id} fled size={170} />);
   const meta = [s.taskTitle && s.taskTitle !== '一段專注' ? s.taskTitle : '', s.tag].filter(Boolean).join('・');
   const note = s.note ? wrap(s.note, 22, 3) : [];
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="'Chiron GoRound TC Variable','Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif">
@@ -163,7 +163,7 @@ function recapSvg(d: RecapCardData) {
   const w = 540;
   const h = 580;
   const top = d.top && animalDef(d.top.id);
-  const art = top ? place(renderToStaticMarkup(<AnimalArt id={top.id} stage={d.topStage} size={170} />), w / 2 - 85, 92, 170) : '';
+  const art = top ? place(svgMarkup(<AnimalArt id={top.id} stage={d.topStage} size={170} />), w / 2 - 85, 92, 170) : '';
   const tiles: [string, string][] = [
     [`${Math.floor(d.total / 60000)}`, '專注分鐘'],
     [`${d.focusDays}/7`, '專注天數'],

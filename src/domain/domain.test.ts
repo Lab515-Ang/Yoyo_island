@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyDeepFocus, dueAt, completeNow, createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, addSegmentsByHour, weekStartKey, wakeAt, watchWindow, setCalendar, localDateKey, nextLocalMidnight, targetReached } from './focus';
+import { applyDeepFocus, dayStartNow, dueAt, completeNow, createSession, elapsedMs, finish, pause, resume, settle, addSegmentsByDay, addSegmentsByHour, weekStartKey, wakeAt, watchWindow, setCalendar, localDateKey, nextLocalMidnight, targetReached } from './focus';
 import { balance, closeSession, coins, contribute, grantReward, settleOpenSessions, minutesByDay, activeProject, habitatOpen, putSession, soundUnlocked, focusSoundFor, cancelSession, startFocus, editSessionNote, isDone, projectQuarter, remainingFor, applyFocusRewards, focusOutcome, animalUnlocked, chosenAnimal, endedSessions, hatchCounts, newAnimals, sceneAnimals, unlockAnimal, growthOf, sightings, weekRecap, communityRank, gems } from './game';
 import { buyItem, dailyPicks, exchangeCoins } from './shop';
 import { achievementState, claimAchievement } from './achievements';
@@ -761,5 +761,26 @@ describe('存檔檢查：時間', () => {
     expect(broken((s) => (s.startedAt = 'not a date'))).toBe(false);
     expect(broken((s) => ((s.segments as { endedAt: string }[])[0].endedAt = new Date(T0 - 60_000).toISOString()))).toBe(false);
     expect(broken((s) => delete s.endedAt)).toBe(false);
+  });
+});
+
+describe('每日起始時間', () => {
+  it('改了從隔天才生效：今天照舊的算法，明天才用新的', () => {
+    const tz = 'Asia/Taipei';
+    const at = Date.parse('2026-10-23T01:30:00+08:00'); // 10/23 凌晨 1:30
+    const st = { dayStartHour: 0, dayStartNext: { hour: 4, from: '2026-10-24' } };
+    expect(dayStartNow(st, at, tz)).toBe(0); // 今天還是午夜換日
+    expect(dayStartNow(st, Date.parse('2026-10-24T00:10:00+08:00'), tz)).toBe(4); // 隔天才換
+    expect(dayStartNow({ dayStartHour: 2 }, at, tz)).toBe(2);
+    // 存檔裡格式不對就丟掉，不讓畫面當掉
+    const raw = JSON.parse(JSON.stringify(fresh()));
+    raw.settings.dayStartNext = { hour: 9, from: 'x' };
+    const v = validateSave(raw);
+    expect(v.ok && v.save.settings.dayStartNext).toBe(null);
+    // 格式正確的要留著
+    const ok = JSON.parse(JSON.stringify(fresh()));
+    ok.settings.dayStartNext = { hour: 4, from: '2026-10-24' };
+    const v2 = validateSave(ok);
+    expect(v2.ok && v2.save.settings.dayStartNext).toEqual({ hour: 4, from: '2026-10-24' });
   });
 });

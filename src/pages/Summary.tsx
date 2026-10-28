@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { svgMarkup } from '../components/svgMarkup';
 import { useSave } from '../app/store';
 import { ANIMALS, COPY, GROWTH_MAX, animalDef, growthFor, hasStages, stageName, tagColor, TAGS } from '../content/config';
 import { AnimalArt, TrackArt } from '../components/Animal';
@@ -27,7 +27,7 @@ async function postResult(save: SaveFile, id: string) {
   const when = `${hm(s.startedAt)}–${hm(s.endedAt)}・${Math.floor(s.accumulatedMs / 60000)} 分鐘`;
   const today = minutesByDay(save).get(endedDayKeys(save).get(id)!) ?? 0;
   const stage = sightings(save).get(id)?.stage ?? 2;
-  const svg = renderToStaticMarkup(done ? <AnimalArt id={a.id} stage={stage} size={96} /> : <TrackArt id={a.id} fled size={96} />);
+  const svg = svgMarkup(done ? <AnimalArt id={a.id} stage={stage} size={96} /> : <TrackArt id={a.id} fled size={96} />);
   const icon = await toPng(svg, 96, 96).catch(() => undefined);
   await TimeGuard.showResult({
     title: done ? `🔭 遇見了${a.name}（${stageName(a, stage)}）！` : '太可惜了，下次再努力吧！',

@@ -2,7 +2,7 @@
 import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { svgMarkup } from '../components/svgMarkup';
 import { animalDef } from '../content/config';
 import { AnimalArt, TrackArt } from '../components/Animal';
 import { HEIGHT, colorAt, type Geo } from './geo';
@@ -187,7 +187,7 @@ function Pin({ geo, pin, onSelect }: { geo: Geo; pin: MapPin; onSelect: (id: str
   const [x, z] = geo.project(a.habitat.lon, a.habitat.lat);
   const y = geo.heightAt(a.habitat.lon, a.habitat.lat) * HEIGHT * (geo.relief ?? 1);
   const tex = useSvgTexture(pin.state === 'met' ? `animal:${a.id}:${pin.stage}` : `track:${a.id}`, () =>
-    renderToStaticMarkup(pin.state === 'met' ? <AnimalArt id={a.id} stage={pin.stage} size={256} /> : <TrackArt id={a.id} size={256} />),
+    svgMarkup(pin.state === 'met' ? <AnimalArt id={a.id} stage={pin.stage} size={256} /> : <TrackArt id={a.id} size={256} />),
   );
   const click = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();

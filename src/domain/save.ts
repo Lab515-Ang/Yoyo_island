@@ -173,6 +173,8 @@ export function validateSave(input: unknown, now = Date.now()): Validation {
   if (typeof settings.extendTimer !== 'boolean') settings.extendTimer = false;
   if (settings.weekStart !== 0 && settings.weekStart !== 1) settings.weekStart = 1;
   if (!Number.isInteger(settings.dayStartHour) || settings.dayStartHour < 0 || settings.dayStartHour > 6) settings.dayStartHour = 0;
+  const next = settings.dayStartNext as unknown;
+  if (next != null && !(isObj(next) && Number.isInteger(next.hour) && (next.hour as number) >= 0 && (next.hour as number) <= 6 && isStr(next.from) && /^\d{4}-\d{2}-\d{2}$/.test(next.from))) settings.dayStartNext = null;
   const r = settings.dailyReminder as unknown;
   if (!isObj(r) || typeof r.on !== 'boolean' || !Number.isInteger(r.hour) || !Number.isInteger(r.minute) || (r.hour as number) < 0 || (r.hour as number) > 23 || (r.minute as number) < 0 || (r.minute as number) > 59) settings.dailyReminder = defaultSettings().dailyReminder;
   if (!isStr(settings.eggId)) settings.eggId = defaultSettings().eggId;

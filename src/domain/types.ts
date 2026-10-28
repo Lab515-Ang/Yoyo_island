@@ -35,6 +35,7 @@ export interface Settings {
   extendTimer: boolean; // 延長計時：倒數到了不自動結算，繼續累積到按完成（最多 180 分鐘）
   weekStart: 0 | 1; // 統計的一週從週日（0）或週一（1）開始
   dayStartHour: number; // 一天從幾點開始算（0～6，夜貓子可以把凌晨算進前一天）
+  dayStartNext?: { hour: number; from: string } | null; // 改了每日起始時間：從 from 這一天起才用新的（見 dayStartNow）
   dailyReminder: { on: boolean; hour: number; minute: number }; // 每天提醒專注（Android 通知）
   landId: string; // 土地造型（專注紀錄的草地）
   regionId: string; // 目前的區域（台灣、日本…）：大廳、小島、圖鑑只顯示這個區域
