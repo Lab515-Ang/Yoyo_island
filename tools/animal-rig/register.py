@@ -34,8 +34,9 @@ def diffmask(A):
 k = diffmask(A)
 fg = (M.min(2) < 235) & (k == 0)
 gain = M[fg].reshape(-1, 3).mean(0) / np.maximum(A[fg].reshape(-1, 3).mean(0), 1)
+bg = A.min(2) > 247  # 校色只管前景；背景若一起乘，gain < 1 時白底會變米色
 A = np.clip(A.astype(np.float32) * gain, 0, 255).astype(np.uint8)
-A[A.min(2) > 247] = 255
+A[bg | (A.min(2) > 247)] = 255
 k = diffmask(A)
 
 cv2.imwrite(out + '_aligned.png', A)
